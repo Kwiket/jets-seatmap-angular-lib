@@ -18,8 +18,7 @@
     "watch": "ng build seatmap-demo --watch --configuration development",
     "test": "ng test seatmap-lib",
     "format": "prettier --write \"projects/seatmap-lib/src/**/*.{ts,html}\"",
-    "format:check": "prettier --check \"projects/seatmap-lib/src/**/*.{ts,html}\"",
-    "prepare": "ng build seatmap-lib"
+    "format:check": "prettier --check \"projects/seatmap-lib/src/**/*.{ts,html}\""
   },
   "packageManager": "npm@10.9.4",
   "dependencies": {
