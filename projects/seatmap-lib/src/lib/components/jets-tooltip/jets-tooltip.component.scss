@@ -1,0 +1,301 @@
+.jets-tooltip {
+  position: absolute;
+  z-index: 100;
+  left: 8px;
+  right: 8px;
+  // Move tooltip up by its own height so bottom edge aligns with `top` value
+  transform: translateY(-100%);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  background: #fff;
+  font-family: inherit;
+
+  // Downward arrow pointing to the seat (default: tooltip above seat)
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: var(--arrow-left, 50%);
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-top: 9px solid #fff;
+  }
+
+  // Tooltip opens below the seat
+  &--below {
+    transform: none;
+
+    &::after {
+      bottom: auto;
+      top: -8px;
+      border-top: none;
+      border-bottom: 9px solid #fff;
+    }
+  }
+}
+
+.jets-tooltip--body {
+  display: flex;
+  flex-direction: column;
+}
+
+.jets-tooltip--content {
+  padding: 16px 16px 0;
+}
+
+// ─── Header ──────────────────────────────────────────────────────────────────
+
+.jets-tooltip--header {
+  margin-bottom: 8px;
+}
+
+.jets-tooltip--header-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 16px;
+  font-weight: 700;
+  color: #4f6f8f;
+}
+
+.jets-tooltip--close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 8px;
+  color: #999;
+  line-height: 1;
+  flex-shrink: 0;
+
+  &:hover {
+    color: #333;
+  }
+}
+
+.jets-tooltip--header-price {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.jets-tooltip--header-passenger {
+  font-size: 15px;
+  font-weight: 700;
+  color: #4f6f8f;
+  margin-top: 2px;
+}
+
+// ─── Amenities list ──────────────────────────────────────────────────────────
+
+.jets-tooltip--amenities {
+  margin-bottom: 16px;
+}
+
+.jets-tooltip--amenity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 13px;
+  color: #4f6f8f;
+}
+
+.jets-tooltip--amenity-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+
+  svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.jets-tooltip--amenity-text {
+  line-height: 1.3;
+}
+
+.jets-tooltip--amenity-negative {
+  .jets-tooltip--amenity-icon {
+    color: #c62828;
+  }
+}
+
+// ─── Dimensions (Pitch / Width / Recline) ────────────────────────────────────
+
+.jets-tooltip--dimensions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.jets-tooltip--dimension {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 8px 12px;
+  border: 1px solid #4f6f8f;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.jets-tooltip--dim-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+
+  // ::ng-deep needed because SVG is inserted via [innerHTML] and lacks scoping attributes
+  ::ng-deep svg {
+    display: block;
+    height: 36px;
+    width: auto;
+    fill: #4f6f8f;
+  }
+}
+
+.jets-tooltip--dim-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: #4f6f8f;
+  margin-bottom: 10px;
+}
+
+.jets-tooltip--dim-value {
+  font-size: 12px;
+  font-weight: 400;
+  color: #4f6f8f;
+}
+
+// ─── Action buttons ──────────────────────────────────────────────────────────
+
+.jets-tooltip--btns-block {
+  display: flex;
+  gap: 8px;
+  padding: 0 6px 6px;
+}
+
+.jets-btn {
+  flex: 1;
+  padding: 14px 16px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.jets-cancel-btn {
+  background: #2a2d33;
+  color: #fff;
+  border-radius: 4px;
+
+  &:hover:not(:disabled) {
+    background: #3a3d44;
+  }
+}
+
+.jets-select-btn {
+  background: #1a4b7a;
+  color: #fff;
+  border-radius: 4px;
+
+  &:hover:not(:disabled) {
+    background: #153d63;
+  }
+}
+
+// ─── Side panel mode ────────────────────────────────────────────────────────
+
+.jets-tooltip--side-panel {
+  position: static;
+  transform: none;
+  left: auto;
+  right: auto;
+  width: 100%;
+  box-shadow: none;
+
+  &::after {
+    display: none;
+  }
+
+  // Price: plain text, no border
+  .jets-tooltip--header-price {
+    font-weight: 700;
+    border: none;
+    padding: 0;
+    background: none;
+  }
+
+  // Dimensions: compact inline rows instead of bordered cards
+  .jets-tooltip--dimensions {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .jets-tooltip--dimension {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .jets-tooltip--dim-icon {
+    margin-bottom: 0;
+
+    ::ng-deep svg {
+      height: 18px;
+    }
+  }
+
+  .jets-tooltip--dim-label {
+    margin-bottom: 0;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .jets-tooltip--dim-value {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  // Buttons: compact, select gets outlined border style
+  .jets-tooltip--btns-block {
+    padding: 8px 16px 12px;
+  }
+
+  .jets-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .jets-select-btn {
+    background: transparent;
+    color: #1a4b7a;
+    border: 2px solid #d4a843;
+    border-radius: 6px;
+
+    &:hover:not(:disabled) {
+      background: rgba(212, 168, 67, 0.08);
+    }
+  }
+}

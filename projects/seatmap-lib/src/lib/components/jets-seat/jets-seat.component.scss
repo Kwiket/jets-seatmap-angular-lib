@@ -1,0 +1,141 @@
+/* stylelint-disable selector-class-pattern */
+:host {
+  display: contents;
+}
+
+.jets-seat {
+  box-sizing: border-box;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  margin: 0;
+  user-select: none;
+  cursor: default;
+  flex-shrink: 0;
+  z-index: 10;
+  overflow: visible;
+}
+
+.jets-seat__svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  overflow: visible;
+}
+
+.jets-seat__cross {
+  position: absolute;
+  top: 18%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0.75;
+  z-index: 0;
+  line-height: 0;
+}
+
+/* Seat number label — positioned ON the seat, centered */
+.jets-seat__number {
+  position: absolute;
+  top: 18%;
+  left: 0;
+  right: 0;
+  color: #fff;
+  text-align: center;
+  z-index: 1;
+  pointer-events: none;
+  font-weight: 700;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.55);
+}
+
+/* Per-seatIconType positioning: top% + horizontal left/right offsets.
+   Horizontal offsets computed as React pixel margin / SEAT_SIZE_BY_TYPE width. */
+.ST-5, .ST-6 { top: 28%; }
+.ST-8 { left: 8%; }
+.ST-9 { right: 8%; }
+.ST-10 { left: 30%; }
+.ST-11 { right: 30%; }
+.ST-12 { top: 25%; right: 53%; }
+.ST-13 { top: 25%; left: 53%; }
+.ST-15 { left: 25%; }
+.ST-16 { right: 25%; }
+.ST-17 { left: 39%; }
+.ST-18 { right: 39%; }
+.ST-20, .ST-21 { top: 65%; }
+.ST-22, .ST-23 { top: 60%; }
+.ST-24, .ST-25 { top: 55%; }
+.ST-26 { top: 30%; right: 25%; }
+.ST-27 { top: 30%; left: 25%; }
+.ST-28 { top: 45%; right: 31%; }
+.ST-29 { top: 45%; left: 31%; }
+.ST-30 { top: 60%; right: 31%; }
+.ST-31 { top: 60%; left: 31%; }
+.ST-32 { top: 60%; right: 29%; }
+.ST-33 { top: 60%; left: 29%; }
+.ST-34 { top: 40%; left: 14%; }
+.ST-35 { top: 40%; right: 14%; }
+.ST-36 { top: 62%; right: 22%; }
+.ST-37 { top: 62%; left: 22%; }
+.ST-38 { top: 28%; right: 22%; }
+.ST-39 { top: 28%; left: 22%; }
+.ST-42 { top: 70%; left: 47%; }
+.ST-43 { top: 70%; right: 44%; }
+.ST-44 { right: 46%; }
+.ST-45 { left: 47%; }
+.ST-46 { top: 30%; }
+.ST-47 { top: 30%; right: 36%; }
+.ST-48 { top: 30%; left: 36%; }
+
+
+/* Passenger badge — circular overlay on selected seat (matches React) */
+.jets-seat__passenger {
+  border-radius: 50%;
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 11;
+  color: #fff;
+  font-weight: 400;
+}
+
+.jets-seat__index {
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+}
+
+.jets-seat--seat {
+  cursor: pointer;
+}
+
+.jets-seat--seat:hover .jets-seat__svg ::ng-deep svg {
+  filter: brightness(1.08);
+}
+
+.jets-seat--unavailable {
+  cursor: not-allowed;
+}
+
+.jets-seat--unavailable:hover .jets-seat__svg ::ng-deep svg {
+  filter: none;
+}
+
+.jets-seat--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.jets-seat--aisle,
+.jets-seat--empty,
+.jets-seat--index {
+  background: transparent !important;
+  border: none !important;
+  cursor: default;
+}
+
+/* Rotation is applied via inline style (seatTransform) to avoid conflicts
+   with translate offsets. Counter-rotation for labels/badges is also inline. */

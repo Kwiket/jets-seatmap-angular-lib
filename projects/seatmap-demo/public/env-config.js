@@ -1,0 +1,1 @@
+window.__env={"API_URL":"","API_APP_ID":"","API_KEY":"","FLIGHTS_API_URL":""};

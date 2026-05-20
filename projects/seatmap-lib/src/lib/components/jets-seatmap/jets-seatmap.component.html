@@ -1,0 +1,117 @@
+<ng-container *ngTemplateOutlet="seatmapHeader" />
+<ng-container *ngTemplateOutlet="seatmapContent" />
+
+<ng-template #seatmapContent>
+  <div
+    #mapContainer
+    class="jets-seat-map"
+    [style.width.px]="resolvedConfig.width"
+    [style.background-color]="resolvedConfig.colorTheme?.seatmapBackgroundColor"
+    [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
+    [style.transform]="mapTransform || null"
+    [style.transform-origin]="mapTransformOrigin || null"
+    [style.direction]="mapDirection || null"
+    (click)="onMapClick($event)"
+  >
+    <!-- Built-in tooltip -->
+    @if (activeTooltip && resolvedConfig.builtInTooltip !== false) {
+      <sm-jets-tooltip
+        [data]="activeTooltip"
+        [isSelectAvailable]="isSelectAvailable"
+        [showActions]="hasAvailability"
+        [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
+        (select)="onTooltipSelect($event)"
+        (unselect)="onTooltipUnselect($event)"
+        (close)="onTooltipClose()"
+      />
+    }
+
+    @if (content.length) {
+      <!-- Aircraft body with decks -->
+      <sm-jets-plane-body
+        [decks]="content"
+        [colorTheme]="resolvedConfig.colorTheme"
+        [width]="fuselageBodyWidth"
+        [visibleFuselage]="showFuselage"
+        [visibleNose]="resolvedConfig.visibleNose"
+        [visibleTail]="resolvedConfig.visibleTail"
+        [noseType]="noseType"
+      >
+        @for (deck of visibleDecks; track deck.number; let i = $index) {
+          @if (i > 0) {
+            <sm-jets-deck-separator [colorTheme]="resolvedConfig.colorTheme" />
+          }
+          <div
+            class="deck-wrapper"
+            style="
+              position: relative;
+              width: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            "
+          >
+            <div
+              class="deck-floor"
+              [style.background-color]="resolvedConfig.colorTheme?.floorColor || '#555'"
+              [style.width]="getDeckFloorWidth(deck)"
+            >
+              <sm-jets-deck
+                [deck]="deck"
+                [lang]="lang"
+                [showNumber]="showDeckNumbers"
+                [colorTheme]="resolvedConfig.colorTheme"
+                [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
+                [bodyWidth]="resolvedConfig.width"
+                [fuselageWidth]="fuselageBodyWidth"
+                [visibleCabinTitles]="resolvedConfig.visibleCabinTitles !== false"
+                [horizontalCabinTitles]="false"
+                [cabinLabelGap]="getDeckCabinLabelGap(deck)"
+                (seatClick)="onSeatClick($event)"
+                (seatMouseEnter)="onSeatMouseEnter($event)"
+                (seatMouseLeave)="onSeatMouseLeave($event)"
+              />
+            </div>
+            @if (resolvedConfig.visibleWings !== false && getDeckWingsInfo(deck); as wingsInfo) {
+              <sm-jets-wing
+                [wingsInfo]="wingsInfo"
+                [colorTheme]="resolvedConfig.colorTheme"
+                [bodyWidth]="fuselageBodyWidth"
+                [scale]="deck.scale ?? 1"
+                [topAdjust]="getDeckWingTopAdjust(deck)"
+              />
+            }
+          </div>
+        }
+      </sm-jets-plane-body>
+    } @else if (isLoading) {
+      <sm-jets-not-init [lang]="lang" />
+    } @else if (isSeatMapInited) {
+      <sm-jets-no-data [lang]="lang" />
+      @if (error) {
+        <div class="jets-seat-map__error">{{ error }}</div>
+      }
+    } @else {
+      <sm-jets-not-init [lang]="lang" />
+    }
+  </div>
+</ng-template>
+
+<ng-template #seatmapHeader>
+  @if (content.length && showDeckSelector) {
+    <div
+      class="jets-seatmap-header"
+      [style.width.px]="resolvedConfig.width"
+      [style.background-color]="resolvedConfig.colorTheme?.seatmapBackgroundColor || '#fff'"
+      [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
+    >
+      <sm-jets-deck-selector
+        [decks]="content"
+        [activeIndex]="activeDeckIndex"
+        [lang]="lang"
+        [colorTheme]="resolvedConfig.colorTheme"
+        (selectDeck)="onDeckSelect($event)"
+      />
+    </div>
+  }
+</ng-template>
