@@ -46,15 +46,30 @@ cd dist/seatmap-lib
 npm publish --access public
 ```
 
-## Consuming from another repo before publish
+## Consuming from another repo before npm publish
+
+The library is distributed via a separate `release` branch in this repo that contains the **built ng-packagr artifact at the repo root** (the contents of `dist/seatmap-lib/` after `npm run build:lib`). A consuming app then references it as a git dependency:
 
 ```jsonc
 // consumer's package.json
 {
   "dependencies": {
-    "@kwiket/jets-seatmap-angular-lib": "github:Kwiket/jets-seatmap-angular-lib#main"
+    "@kwiket/jets-seatmap-angular-lib": "github:Kwiket/jets-seatmap-angular-lib#release"
   }
 }
 ```
 
-The `prepare` script in this repo's root `package.json` runs `ng build seatmap-lib` automatically when npm installs the git dependency, so the consumer gets the built artifact in `node_modules/@kwiket/jets-seatmap-angular-lib/dist/seatmap-lib/`.
+### Publishing a new release-branch build
+
+```bash
+npm run build:lib
+git worktree add -B release ../release-tmp --no-checkout
+cd ../release-tmp
+cp -R ../jets-seatmap-angular-lib/dist/seatmap-lib/. .
+git add -A
+git commit -m "release: @kwiket/jets-seatmap-angular-lib@$(node -p \"require('./package.json').version\")"
+git push origin release --force
+cd - && git worktree remove ../release-tmp
+```
+
+(A GitHub Action could automate this on every push to `main`.)
