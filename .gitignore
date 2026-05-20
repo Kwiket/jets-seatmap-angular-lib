@@ -37,6 +37,9 @@ __screenshots__/
 
 # Environment secrets (local overrides with real API keys)
 **/environment.local.ts
+.env
+.env.local
+.env.*.local
 
 # System files
 .DS_Store

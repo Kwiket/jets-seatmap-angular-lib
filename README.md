@@ -23,14 +23,20 @@ Artifacts go to `dist/seatmap-lib/`.
 
 ## Run the dev demo
 
+Create a gitignored `.env.local` at the repo root with your sandbox credentials:
+
 ```bash
-cp projects/seatmap-demo/src/environments/environment.ts \
-   projects/seatmap-demo/src/environments/environment.local.ts
-# fill in real apiUrl / apiAppId / apiKey
+cat > .env.local <<EOF
+API_URL=https://sandbox.quicket.io/api/v1
+API_APP_ID=your-app-id
+API_KEY=your-api-key
+FLIGHTS_API_URL=
+EOF
+
 npm start
 ```
 
-The dev-server's `fileReplacements` swap `environment.ts` for `environment.local.ts`. `environment.local.ts` is gitignored.
+`prestart` runs `generate:env`, which loads `.env.local` via Node's built-in `--env-file-if-exists` and writes the values into `projects/seatmap-demo/public/env-config.js`. The demo reads them at runtime from `window.__env`. Both `.env.local` and `env-config.js` are gitignored.
 
 ## Tests
 
