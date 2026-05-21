@@ -10,20 +10,26 @@ import {
   OnInit,
   Output,
   SimpleChanges,
+  Type,
   ViewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgComponentOutlet } from '@angular/common';
 import {
   IConfig,
   IDeckData,
+  IExistingSeatsLabelsInfo,
   IFlight,
+  IInitialLayoutData,
+  ILayoutData,
   ILegendItem,
+  IMediaData,
   IPassenger,
   ISeatData,
-  ISeatMapInitedEvent,
-  ISeatMouseEvent,
+  ISeatMouseClickData,
+  ISeatMouseEnterData,
+  ISeatMouseLeaveData,
   ITooltipData,
-  IMediaData,
+  ITooltipRequestData,
   IWingsInfo,
   TSeatAvailability,
 } from '../../types';
@@ -37,7 +43,7 @@ import {
 } from '../../constants';
 import { getNativeRowHeight } from '../../utils/cabin-utils';
 import { getEnvironmentInfo } from '../../services/environment.service';
-import { SeatmapService } from '../../services/seatmap.service';
+import { JetsSeatMapService } from '../../services/jets-seat-map.service';
 import { JetsDeckComponent } from '../jets-deck/jets-deck.component';
 import { JetsTooltipComponent } from '../jets-tooltip/jets-tooltip.component';
 import { JetsNotInitComponent } from '../jets-not-init/jets-not-init.component';
@@ -48,10 +54,11 @@ import { JetsDeckSeparatorComponent } from '../jets-deck-separator/jets-deck-sep
 import { JetsWingComponent } from '../jets-wing/jets-wing.component';
 
 @Component({
-  selector: 'sm-jets-seatmap',
+  selector: 'sm-jets-seat-map',
   standalone: true,
   imports: [
     CommonModule,
+    NgComponentOutlet,
     JetsDeckComponent,
     JetsTooltipComponent,
     JetsNotInitComponent,
@@ -62,29 +69,36 @@ import { JetsWingComponent } from '../jets-wing/jets-wing.component';
     JetsWingComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './jets-seatmap.component.html',
-  styleUrls: ['./jets-seatmap.component.scss'],
+  templateUrl: './jets-seat-map.component.html',
+  styleUrls: ['./jets-seat-map.component.scss'],
 })
-export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
+export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   @Input() flight!: IFlight;
   @Input() config!: IConfig;
   @Input() availability?: TSeatAvailability;
   @Input() passengers?: IPassenger[];
   @Input() currentDeckIndex = 0;
+  /**
+   * Scroll to a specific seat and open its tooltip. Matches React's seatJumpTo prop.
+   * Reassigning the same value will not re-trigger the jump.
+   */
+  @Input() seatJumpTo?: { seatLabel: string };
 
-  @Output() seatMapInited = new EventEmitter<ISeatMapInitedEvent>();
+  @Output() seatMapInited = new EventEmitter<IInitialLayoutData>();
   @Output() seatSelected = new EventEmitter<IPassenger[]>();
   @Output() seatUnselected = new EventEmitter<IPassenger[]>();
-  @Output() tooltipRequested = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
-  @Output() layoutUpdated = new EventEmitter<void>();
-  @Output() availabilityApplied = new EventEmitter<{
-    existingSeatLabels: string[];
-    nonExistingSeatLabels: string[];
-  }>();
+  @Output() tooltipRequested = new EventEmitter<ITooltipRequestData>();
+  @Output() layoutUpdated = new EventEmitter<ILayoutData>();
+  @Output() availabilityApplied = new EventEmitter<IExistingSeatsLabelsInfo>();
   @Output() deckChanged = new EventEmitter<number>();
   @Output() loadError = new EventEmitter<string>();
-  @Output() seatMouseEnter = new EventEmitter<ISeatMouseEvent>();
-  @Output() seatMouseLeave = new EventEmitter<ISeatMouseEvent>();
+  @Output() seatMouseEnter = new EventEmitter<ISeatMouseEnterData>();
+  @Output() seatMouseLeave = new EventEmitter<ISeatMouseLeaveData>();
+  /**
+   * Fired when a seat is clicked while `externalPassengerManagement` and
+   * `tooltipOnHover` are both enabled. Matches React's onSeatMouseClick.
+   */
+  @Output() seatMouseClick = new EventEmitter<ISeatMouseClickData>();
   @Output() activeTooltipChanged = new EventEmitter<ITooltipData | null>();
   @Output() legendReady = new EventEmitter<ILegendItem[]>();
   @Output() mediaReady = new EventEmitter<IMediaData | null>();
@@ -108,9 +122,10 @@ export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
   private _flightId: string | null = null;
   private _prevLang: string | null = null;
   private _prevUnits: string | null = null;
+  private _prevSeatJumpToLabel: string | null = null;
 
   constructor(
-    private seatmapService: SeatmapService,
+    private seatmapService: JetsSeatMapService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -261,6 +276,23 @@ export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
 
   get noseType(): string {
     return this.content[0]?.extras?.noseType ?? 'default';
+  }
+
+  // ─── Component overrides (React-parity API) ──────────────────────────────
+  get tooltipOverride(): Type<unknown> | null {
+    return this.resolvedConfig.componentOverrides?.JetsTooltip ?? null;
+  }
+
+  get tooltipViewOverride(): Type<unknown> | null {
+    return this.resolvedConfig.componentOverrides?.JetsTooltipView ?? null;
+  }
+
+  get notInitOverride(): Type<unknown> | null {
+    return this.resolvedConfig.componentOverrides?.JetsNotInit ?? null;
+  }
+
+  get seatOverride(): Type<unknown> | null {
+    return this.resolvedConfig.componentOverrides?.JetsSeat ?? null;
   }
 
   /** Max nativeDeckWidth across all decks */
@@ -447,9 +479,17 @@ export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
       }
       // Re-emit legend when colorTheme changes (colors affect legend swatches)
       this.legendReady.emit(this.legendItems);
-      // seatJumpTo: scroll to and open tooltip for a specific seat
-      if (this.config?.seatJumpTo) {
-        this._jumpToSeat(this.config.seatJumpTo);
+    }
+
+    // seatJumpTo: scroll to and open tooltip for a specific seat. Tracked by value
+    // so reassigning the same label does not re-trigger the jump.
+    if (changes['seatJumpTo'] && this.isSeatMapInited) {
+      const label = this.seatJumpTo?.seatLabel ?? null;
+      if (label && label !== this._prevSeatJumpToLabel) {
+        this._prevSeatJumpToLabel = label;
+        this._jumpToSeat(label);
+      } else if (!label) {
+        this._prevSeatJumpToLabel = null;
       }
     }
   }
@@ -529,14 +569,22 @@ export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
 
       const availableSeats = this.seatmapService.collectAvailableSeats(content);
       const allSeats = this.seatmapService.collectAllSeats(content);
-      this.seatMapInited.emit({
-        availableSeats,
-        allSeats,
-        decksCount: content.length,
-        currentDeckIndex: this.activeDeckIndex,
-        availableCabins: result.availableCabins,
-      });
-      this.layoutUpdated.emit();
+
+      // Emit initial layout data after the next tick so DOM size is measurable.
+      setTimeout(() => {
+        if (this._flightId !== flightId) return;
+        const layout = this._buildLayoutData();
+        this.seatMapInited.emit({
+          ...layout,
+          media: this.media,
+          error: this.error ?? undefined,
+          availableSeats,
+          allSeats,
+          availableCabins: result.availableCabins,
+        });
+        this.layoutUpdated.emit(layout);
+      }, 0);
+
       this.mediaReady.emit(this.media);
       this.legendReady.emit(this.legendItems);
       this.passengersChanged.emit(this.passengersList);
@@ -555,6 +603,17 @@ export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  private _buildLayoutData(): ILayoutData {
+    const rect = this.mapContainer?.nativeElement?.getBoundingClientRect();
+    return {
+      heightInPx: rect?.height ?? 0,
+      widthInPx: rect?.width ?? this.resolvedConfig.width,
+      scaleFactor: this.content[0]?.scale ?? 1,
+      decksCount: this.content.length,
+      currentDeckIndex: this.activeDeckIndex,
+    };
+  }
+
   private _applyPassengers(): void {
     this.passengersList = this.seatmapService.addAbbrToPassengers(this.passengers);
     this.content = this.seatmapService.setPassengersHandler(this.content, this.passengersList);
@@ -562,17 +621,17 @@ export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onSeatMouseEnter(event: { seat: ISeatData; element: HTMLElement }): void {
-    this.seatMouseEnter.emit(event);
+  onSeatMouseEnter(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
+    this.seatMouseEnter.emit(payload);
 
     // tooltipOnHover: show tooltip on hover (non-touch devices only)
     if (this.resolvedConfig.tooltipOnHover && !getEnvironmentInfo().isTouchDevice) {
-      this.onSeatClick(event);
+      this.onSeatClick(payload);
     }
   }
 
-  onSeatMouseLeave(event: { seat: ISeatData; element: HTMLElement }): void {
-    this.seatMouseLeave.emit(event);
+  onSeatMouseLeave(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
+    this.seatMouseLeave.emit(payload);
 
     if (this.resolvedConfig.tooltipOnHover && !getEnvironmentInfo().isTouchDevice) {
       this.activeTooltip = null;
@@ -581,8 +640,17 @@ export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  onSeatClick(event: { seat: ISeatData; element: HTMLElement }): void {
-    const { seat, element } = event;
+  onSeatClick(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
+    const { seat, element, event } = payload;
+
+    // External management + hover tooltip: emit seatMouseClick instead of showing
+    // built-in tooltip. Matches React's onSeatMouseClick contract.
+    const cfg = this.resolvedConfig;
+    if (cfg.externalPassengerManagement && cfg.tooltipOnHover && !cfg.builtInTooltip) {
+      this.seatMouseClick.emit({ seat, element, event });
+      return;
+    }
+
     const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
     this.isSelectAvailable = !!nextPassenger;
 
@@ -597,7 +665,7 @@ export class JetsSeatmapComponent implements OnInit, OnChanges, OnDestroy {
 
     this.activeTooltipChanged.emit(this.activeTooltip);
     this.selectAvailableChanged.emit(this.isSelectAvailable);
-    this.tooltipRequested.emit({ seat, element });
+    this.tooltipRequested.emit({ seat, element, event });
     this.cdr.markForCheck();
   }
 

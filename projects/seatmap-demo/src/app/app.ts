@@ -2,9 +2,9 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  JetsSeatmapComponent,
+  JetsSeatMapComponent,
   IPassenger,
-  ISeatMapInitedEvent,
+  IInitialLayoutData,
   IConfig,
   IFlight,
   TSeatAvailability,
@@ -80,7 +80,7 @@ const DEFAULT_PASSENGERS: IPassenger[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, JetsSeatmapComponent],
+  imports: [CommonModule, FormsModule, JetsSeatMapComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -100,6 +100,7 @@ export class App {
   availabilityOverride = signal<TSeatAvailability | undefined>(undefined);
   passengersOverride = signal<IPassenger[] | undefined>(undefined);
   deckIndexOverride = signal(0);
+  seatJumpToOverride = signal<{ seatLabel: string } | undefined>(undefined);
 
   // Textarea content signals
   textareas = signal<Record<string, string>>({});
@@ -164,6 +165,7 @@ export class App {
     this.availabilityOverride.set(undefined);
     this.passengersOverride.set(undefined);
     this.deckIndexOverride.set(0);
+    this.seatJumpToOverride.set(undefined);
     this.eventLog.set([]);
   }
 
@@ -205,12 +207,10 @@ export class App {
         case 'seatJumpTo': {
           const seatLabel = raw.trim();
           if (!seatLabel) throw new Error('Seat label is empty');
-          // First clear seatJumpTo so ngOnChanges sees a transition
-          const base = this.flights[this.selectedIndex()].config;
-          this.configOverride.set(null);
-          // Then set on next tick with seatJumpTo, creating a fresh config reference
+          // Toggle through undefined so that reassigning the same label still triggers a jump.
+          this.seatJumpToOverride.set(undefined);
           setTimeout(() => {
-            this.configOverride.set({ seatJumpTo: seatLabel } as IConfig);
+            this.seatJumpToOverride.set({ seatLabel });
           });
           this.addLog('control', `Seat jump to ${seatLabel}`);
           break;
@@ -221,7 +221,7 @@ export class App {
     }
   }
 
-  onSeatMapInited(event: ISeatMapInitedEvent): void {
+  onSeatMapInited(event: IInitialLayoutData): void {
     this.addLog('inited', `Seatmap loaded. Available seats: ${event.availableSeats.length}, decks: ${event.decksCount}`);
   }
 

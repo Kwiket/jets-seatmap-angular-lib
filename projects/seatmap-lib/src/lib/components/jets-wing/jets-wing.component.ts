@@ -159,6 +159,6 @@ export class JetsWingComponent {
 
   /** Background color for the wing-leading mask (hides the wing corner) */
   get bgColor(): string {
-    return this.colorTheme?.seatmapBackgroundColor || '#fff';
+    return this.colorTheme?.seatMapBackgroundColor || '#fff';
   }
 }

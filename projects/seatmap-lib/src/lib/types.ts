@@ -71,9 +71,9 @@ export interface IColorTheme {
   fuselageStrokeWidth?: number;
   fuselageWindowsColor?: string;
   fuselageWingsColor?: string;
-  fuselageNoseType?: string;
+  fuselageNoseType?: 'default' | 'by-type';
   // Floor & background
-  seatmapBackgroundColor?: string;
+  seatMapBackgroundColor?: string;
   floorColor?: string;
   seatmapFontColor?: string;
   // Bulk
@@ -92,7 +92,6 @@ export interface IColorTheme {
   defaultPassengerBadgeBorderColor?: string;
   // Tooltip
   tooltipBackgroundColor?: string;
-  tooltipTextColor?: string;
   tooltipHeaderColor?: string;
   tooltipBorderColor?: string;
   tooltipFontColor?: string;
@@ -131,6 +130,15 @@ export interface IColorTheme {
 
 export type TScaleType = 'zoom' | 'scale';
 
+// ─── Component overrides ──────────────────────────────────────────────────────
+import type { Type } from '@angular/core';
+export interface IComponentOverrides {
+  JetsSeat?: Type<unknown>;
+  JetsTooltip?: Type<unknown>;
+  JetsTooltipView?: Type<unknown>;
+  JetsNotInit?: Type<unknown>;
+}
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 export interface IConfig {
   width: number;
@@ -138,6 +146,10 @@ export interface IConfig {
   apiUrl: string;
   apiAppId: string;
   apiKey: string | (() => string);
+  /** Authorization header scheme prepended to the bearer token. Default: 'Bearer'. */
+  apiAuthorizationScheme?: string;
+  /** Arbitrary metadata propagated into the API request body. */
+  apiMetadata?: Record<string, unknown>;
   units?: TUnits;
   colorTheme?: IColorTheme;
   builtInTooltip?: boolean;
@@ -157,10 +169,9 @@ export interface IConfig {
   currencySign?: string;
   externalPassengerManagement?: boolean;
   scaleType?: TScaleType;
-  seatJumpTo?: string;
   customCabinTitles?: Record<string, string>;
   hiddenSeatFeatures?: string[];
-  componentOverrides?: { JetsTooltip?: any };
+  componentOverrides?: IComponentOverrides;
 }
 
 // ─── Passenger ────────────────────────────────────────────────────────────────
@@ -298,28 +309,70 @@ export interface ITooltipData {
 }
 
 // ─── Events ──────────────────────────────────────────────────────────────────
-export interface ISeatMapInitedEvent {
-  availableSeats: ISeatData[];
-  /** All seats in the seatmap (regardless of availability status) */
-  allSeats: ISeatData[];
+/**
+ * Payload of `seatMapInited` event — initial layout data emitted once the
+ * seatmap is rendered for the first time. Matches React's onSeatMapInited.
+ */
+export interface IInitialLayoutData {
+  heightInPx: number;
+  widthInPx: number;
+  scaleFactor: number;
   decksCount: number;
   currentDeckIndex: number;
+  /** Media assets (cabin photos, panoramas) loaded along with the seatmap. */
+  media?: IMediaData | null;
+  /** Error message, if seatmap failed to load. */
+  error?: string;
+  // Angular extensions (kept on top of the React contract):
+  availableSeats: ISeatData[];
+  /** All seats in the seatmap (regardless of availability status). */
+  allSeats: ISeatData[];
   /** Available cabin classes detected in the seatmap data (before cabin filtering). */
   availableCabins: { code: string; title: string }[];
 }
 
-export interface ISeatSelectedEvent {
-  passengers: IPassenger[];
+/** Payload of `layoutUpdated` event — emitted whenever the layout is recomputed. */
+export interface ILayoutData {
+  heightInPx: number;
+  widthInPx: number;
+  scaleFactor: number;
+  decksCount: number;
+  currentDeckIndex: number;
 }
 
-export interface ITooltipRequestedEvent {
+/** Payload of `tooltipRequested` event. */
+export interface ITooltipRequestData {
   seat: ISeatData;
   element: HTMLElement;
+  /** DOM event that triggered the request (click or hover). */
+  event?: Event;
 }
 
-export interface ISeatMouseEvent {
+/** Payload of `seatMouseLeave` event. */
+export interface ISeatMouseLeaveData {
   seat: ISeatData;
   element: HTMLElement;
+  event?: Event;
+}
+
+/** Payload of `seatMouseClick` event (external passenger management + hover tooltip mode). */
+export interface ISeatMouseClickData {
+  seat: ISeatData;
+  element: HTMLElement;
+  event?: Event;
+}
+
+/** Payload of `seatMouseEnter` event (Angular-only extension). */
+export interface ISeatMouseEnterData {
+  seat: ISeatData;
+  element: HTMLElement;
+  event?: Event;
+}
+
+/** Payload of `availabilityApplied` event. */
+export interface IExistingSeatsLabelsInfo {
+  existingSeatLabels: string[];
+  nonExistingSeatLabels: string[];
 }
 
 // ─── API request ─────────────────────────────────────────────────────────────

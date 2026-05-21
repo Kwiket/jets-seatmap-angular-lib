@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { JetsSeatmapComponent } from './jets-seatmap.component';
-import { SeatmapService } from '../../services/seatmap.service';
+import { JetsSeatMapComponent } from './jets-seat-map.component';
+import { JetsSeatMapService } from '../../services/jets-seat-map.service';
 import {
   IConfig,
   IDeckData,
   IFlight,
   IPassenger,
   ISeatData,
-  ISeatMapInitedEvent,
+  IInitialLayoutData,
   TSeatAvailability,
 } from '../../types';
-import { SEAT_STATUS_MAP, SEAT_TYPE_MAP } from '../../constants';
+import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../../constants';
 
 // ─── Test data factories ────────────────────────────────────────────────────
 
@@ -44,8 +44,8 @@ function makeSeat(overrides: Partial<ISeatData> = {}): ISeatData {
   return {
     id: 'seat-0-0',
     letter: 'A',
-    type: SEAT_TYPE_MAP.seat,
-    status: SEAT_STATUS_MAP.available,
+    type: ENTITY_TYPE_MAP.seat,
+    status: ENTITY_STATUS_MAP.available,
     size: 32,
     number: '1A',
     color: '#4CAF50',
@@ -58,8 +58,8 @@ function makeAisle(): ISeatData {
   return {
     id: 'aisle-0-1',
     letter: '',
-    type: SEAT_TYPE_MAP.aisle,
-    status: SEAT_STATUS_MAP.unavailable,
+    type: ENTITY_TYPE_MAP.aisle,
+    status: ENTITY_STATUS_MAP.unavailable,
     size: 20,
   };
 }
@@ -101,9 +101,9 @@ function makeMultiDeckData(): IDeckData[] {
   ];
 }
 
-// ─── Mock SeatmapService ────────────────────────────────────────────────────
+// ─── Mock JetsSeatMapService ────────────────────────────────────────────────────
 
-function createMockSeatmapService(content: IDeckData[] = [makeDeckData()]) {
+function createMockJetsSeatMapService(content: IDeckData[] = [makeDeckData()]) {
   return {
     getSeatMapData: vi.fn().mockResolvedValue({ content, media: null, availableCabins: [] }),
     setAvailabilityHandler: vi.fn().mockReturnValue(content),
@@ -127,20 +127,20 @@ function createMockSeatmapService(content: IDeckData[] = [makeDeckData()]) {
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-describe('JetsSeatmapComponent', () => {
-  let fixture: ComponentFixture<JetsSeatmapComponent>;
-  let component: JetsSeatmapComponent;
-  let mockService: ReturnType<typeof createMockSeatmapService>;
+describe('JetsSeatMapComponent', () => {
+  let fixture: ComponentFixture<JetsSeatMapComponent>;
+  let component: JetsSeatMapComponent;
+  let mockService: ReturnType<typeof createMockJetsSeatMapService>;
 
   beforeEach(async () => {
-    mockService = createMockSeatmapService();
+    mockService = createMockJetsSeatMapService();
 
     await TestBed.configureTestingModule({
-      imports: [JetsSeatmapComponent, HttpClientTestingModule],
-      providers: [{ provide: SeatmapService, useValue: mockService }],
+      imports: [JetsSeatMapComponent, HttpClientTestingModule],
+      providers: [{ provide: JetsSeatMapService, useValue: mockService }],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(JetsSeatmapComponent);
+    fixture = TestBed.createComponent(JetsSeatMapComponent);
     component = fixture.componentInstance;
     component.flight = makeFlight();
     component.config = makeConfig();
@@ -181,7 +181,7 @@ describe('JetsSeatmapComponent', () => {
 
     it('should apply background color from color theme', async () => {
       component.config = makeConfig({
-        colorTheme: { seatmapBackgroundColor: '#FF0000' },
+        colorTheme: { seatMapBackgroundColor: '#FF0000' },
       });
       fixture.detectChanges();
       await fixture.whenStable();

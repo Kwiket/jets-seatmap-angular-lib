@@ -11,8 +11,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { ISeatData, IColorTheme } from '../../types';
 import {
-  SEAT_STATUS_MAP,
-  SEAT_TYPE_MAP,
+  ENTITY_STATUS_MAP,
+  ENTITY_TYPE_MAP,
   DEFAULT_COLOR_THEME,
   SEAT_SIZE_BY_TYPE,
   DEFAULT_SEAT_TYPE,
@@ -34,9 +34,9 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
       [style.height.px]="seatHeight"
       [style.flex-shrink]="0"
       [style.transform]="seatTransform"
-      (click)="onClick()"
-      (mouseenter)="onMouseEnter()"
-      (mouseleave)="onMouseLeave()"
+      (click)="onClick($event)"
+      (mouseenter)="onMouseEnter($event)"
+      (mouseleave)="onMouseLeave($event)"
     >
       @if (data.type === 'seat') {
         @if (!showUnavailableCross) {
@@ -111,9 +111,21 @@ export class JetsSeatComponent implements OnChanges {
   /** @deprecated Price labels removed from render; kept for API compat. */
   @Input() showPrice = false;
   @Input() scale = 1;
-  @Output() seatClick = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
-  @Output() seatMouseEnter = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
-  @Output() seatMouseLeave = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
+  @Output() seatClick = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
+  @Output() seatMouseEnter = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
+  @Output() seatMouseLeave = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
 
   @ViewChild('seatEl') seatEl!: ElementRef<HTMLElement>;
 
@@ -122,7 +134,7 @@ export class JetsSeatComponent implements OnChanges {
   constructor(private sanitizer: DomSanitizer) {}
 
   ngOnChanges(): void {
-    if (this.data?.type === SEAT_TYPE_MAP.seat) {
+    if (this.data?.type === ENTITY_TYPE_MAP.seat) {
       const svg = this._buildSvg();
       this.svgContent = this.sanitizer.bypassSecurityTrustHtml(svg);
     }
@@ -144,8 +156,8 @@ export class JetsSeatComponent implements OnChanges {
    * Must NOT derive from width — width may be widened via Math.max(rowW, seatW).
    */
   get seatHeight(): number {
-    if (this.data.type === SEAT_TYPE_MAP.aisle) return 1;
-    if (this.data.type !== SEAT_TYPE_MAP.seat) return this.data.size;
+    if (this.data.type === ENTITY_TYPE_MAP.aisle) return 1;
+    if (this.data.type !== ENTITY_TYPE_MAP.seat) return this.data.size;
     const sizeEntry = SEAT_SIZE_BY_TYPE[this.data.seatIconType ?? DEFAULT_SEAT_TYPE];
     if (!sizeEntry) return this.data.size;
     const [, h] = sizeEntry;
@@ -291,7 +303,7 @@ export class JetsSeatComponent implements OnChanges {
    * entire seatmap. Angular pre-scales containers, so we scale per-seat here.
    */
   get svgScaleTransform(): string {
-    if (this.data.type !== SEAT_TYPE_MAP.seat) return '';
+    if (this.data.type !== ENTITY_TYPE_MAP.seat) return '';
     const sizeEntry = SEAT_SIZE_BY_TYPE[this.data.seatIconType ?? DEFAULT_SEAT_TYPE];
     if (!sizeEntry) return '';
     const [nw] = sizeEntry;
@@ -301,7 +313,7 @@ export class JetsSeatComponent implements OnChanges {
   }
 
   get seatTitle(): string {
-    if (this.data.type !== SEAT_TYPE_MAP.seat) return '';
+    if (this.data.type !== ENTITY_TYPE_MAP.seat) return '';
     return [
       this.data.number,
       this.data.price != null ? `${this.data.currency ?? ''} ${this.data.price}`.trim() : null,
@@ -316,28 +328,28 @@ export class JetsSeatComponent implements OnChanges {
     return currency ? `${currency} ${this.data.price}` : String(this.data.price);
   }
 
-  onClick(): void {
+  onClick(event: Event): void {
     if (!this._isInteractive()) return;
-    this.seatClick.emit({ seat: this.data, element: this.seatEl.nativeElement });
+    this.seatClick.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
 
-  onMouseEnter(): void {
+  onMouseEnter(event: Event): void {
     if (!this._isInteractive()) return;
-    this.seatMouseEnter.emit({ seat: this.data, element: this.seatEl.nativeElement });
+    this.seatMouseEnter.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
 
-  onMouseLeave(): void {
+  onMouseLeave(event: Event): void {
     if (!this._isInteractive()) return;
-    this.seatMouseLeave.emit({ seat: this.data, element: this.seatEl.nativeElement });
+    this.seatMouseLeave.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
 
   private _isInteractive(): boolean {
     return (
-      this.data.type === SEAT_TYPE_MAP.seat &&
-      (this.data.status === SEAT_STATUS_MAP.available ||
-        this.data.status === SEAT_STATUS_MAP.selected ||
-        this.data.status === SEAT_STATUS_MAP.preferred ||
-        this.data.status === SEAT_STATUS_MAP.extra)
+      this.data.type === ENTITY_TYPE_MAP.seat &&
+      (this.data.status === ENTITY_STATUS_MAP.available ||
+        this.data.status === ENTITY_STATUS_MAP.selected ||
+        this.data.status === ENTITY_STATUS_MAP.preferred ||
+        this.data.status === ENTITY_STATUS_MAP.extra)
     );
   }
 

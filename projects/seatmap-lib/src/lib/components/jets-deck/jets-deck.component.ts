@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  Type,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IDeckData, ISeatData, IRowData, IColorTheme } from '../../types';
 import { JetsRowComponent } from '../jets-row/jets-row.component';
@@ -107,6 +114,7 @@ interface ICabinSection {
             [colorTheme]="colorTheme"
             [showPrice]="showPrice"
             [scale]="scale"
+            [seatOverride]="seatOverride"
             [prevRowTopOffset]="i > 0 ? (deck.rows[i - 1].topOffset ?? 0) : 0"
             [prevRowHeight]="i > 0 ? _getRowHeight(deck.rows[i - 1]) : 0"
             (seatClick)="seatClick.emit($event)"
@@ -208,9 +216,23 @@ export class JetsDeckComponent {
   @Input() horizontalCabinTitles = false;
   /** Extra gap (px) to push cabin labels outward from deck-floor to fuselage edge */
   @Input() cabinLabelGap = 0;
-  @Output() seatClick = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
-  @Output() seatMouseEnter = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
-  @Output() seatMouseLeave = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
+  /** Override component for the seat, propagated to JetsRowComponent. */
+  @Input() seatOverride?: Type<unknown> | null;
+  @Output() seatClick = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
+  @Output() seatMouseEnter = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
+  @Output() seatMouseLeave = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
 
   get floorColor(): string {
     return this.colorTheme?.floorColor ?? DEFAULT_COLOR_THEME.floorColor;

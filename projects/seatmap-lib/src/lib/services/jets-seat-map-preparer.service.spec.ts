@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SeatmapPreparerService } from './seatmap-preparer.service';
+import { JetsSeatMapPreparerService } from './jets-seat-map-preparer.service';
 import { IApiSeatmapResponse, IConfig } from '../types';
-import { SEAT_STATUS_MAP, SEAT_TYPE_MAP } from '../constants';
+import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../constants';
 
 const baseConfig: IConfig = {
   width: 350,
@@ -11,11 +11,11 @@ const baseConfig: IConfig = {
   apiKey: '',
 };
 
-describe('SeatmapPreparerService', () => {
-  let service: SeatmapPreparerService;
+describe('JetsSeatMapPreparerService', () => {
+  let service: JetsSeatMapPreparerService;
 
   beforeEach(() => {
-    service = new SeatmapPreparerService();
+    service = new JetsSeatMapPreparerService();
   });
 
   // ─── prepareContent ─────────────────────────────────────────────────────────
@@ -56,11 +56,11 @@ describe('SeatmapPreparerService', () => {
 
       const seats = result[0].rows[0].seats;
       expect(seats).toHaveLength(3);
-      expect(seats[0].type).toBe(SEAT_TYPE_MAP.seat);
+      expect(seats[0].type).toBe(ENTITY_TYPE_MAP.seat);
       expect(seats[0].letter).toBe('A');
-      expect(seats[0].status).toBe(SEAT_STATUS_MAP.available);
-      expect(seats[1].type).toBe(SEAT_TYPE_MAP.aisle);
-      expect(seats[2].status).toBe(SEAT_STATUS_MAP.unavailable);
+      expect(seats[0].status).toBe(ENTITY_STATUS_MAP.available);
+      expect(seats[1].type).toBe(ENTITY_TYPE_MAP.aisle);
+      expect(seats[2].status).toBe(ENTITY_STATUS_MAP.unavailable);
     });
 
     it('should prepare legacy format deck with seatScheme', () => {
@@ -85,11 +85,11 @@ describe('SeatmapPreparerService', () => {
 
       const seats = result[0].rows[0].seats;
       expect(seats).toHaveLength(5);
-      expect(seats[0].type).toBe(SEAT_TYPE_MAP.seat);
-      expect(seats[1].type).toBe(SEAT_TYPE_MAP.seat);
-      expect(seats[2].type).toBe(SEAT_TYPE_MAP.aisle);
-      expect(seats[3].type).toBe(SEAT_TYPE_MAP.seat);
-      expect(seats[4].type).toBe(SEAT_TYPE_MAP.seat);
+      expect(seats[0].type).toBe(ENTITY_TYPE_MAP.seat);
+      expect(seats[1].type).toBe(ENTITY_TYPE_MAP.seat);
+      expect(seats[2].type).toBe(ENTITY_TYPE_MAP.aisle);
+      expect(seats[3].type).toBe(ENTITY_TYPE_MAP.seat);
+      expect(seats[4].type).toBe(ENTITY_TYPE_MAP.seat);
     });
 
     it('should handle legacy format with empty seats (E)', () => {
@@ -111,11 +111,11 @@ describe('SeatmapPreparerService', () => {
       const result = service.prepareContent(response, baseConfig);
       const seats = result[0].rows[0].seats;
 
-      expect(seats[0].type).toBe(SEAT_TYPE_MAP.seat);
-      expect(seats[1].type).toBe(SEAT_TYPE_MAP.empty);
-      expect(seats[2].type).toBe(SEAT_TYPE_MAP.aisle);
-      expect(seats[3].type).toBe(SEAT_TYPE_MAP.empty);
-      expect(seats[4].type).toBe(SEAT_TYPE_MAP.seat);
+      expect(seats[0].type).toBe(ENTITY_TYPE_MAP.seat);
+      expect(seats[1].type).toBe(ENTITY_TYPE_MAP.empty);
+      expect(seats[2].type).toBe(ENTITY_TYPE_MAP.aisle);
+      expect(seats[3].type).toBe(ENTITY_TYPE_MAP.empty);
+      expect(seats[4].type).toBe(ENTITY_TYPE_MAP.seat);
     });
 
     it('should resolve decks from seatDetails.decks (legacy nested)', () => {
@@ -252,32 +252,32 @@ describe('SeatmapPreparerService', () => {
     ];
 
     it('should return color for score within range', () => {
-      expect(SeatmapPreparerService._calculateSeatColorByScore(2, ranges)).toBe('#FF0000');
-      expect(SeatmapPreparerService._calculateSeatColorByScore(5, ranges)).toBe('#FFFF00');
-      expect(SeatmapPreparerService._calculateSeatColorByScore(9, ranges)).toBe('#00FF00');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(2, ranges)).toBe('#FF0000');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges)).toBe('#FFFF00');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(9, ranges)).toBe('#00FF00');
     });
 
     it('should return null for score outside all ranges', () => {
-      expect(SeatmapPreparerService._calculateSeatColorByScore(0, ranges)).toBeNull();
-      expect(SeatmapPreparerService._calculateSeatColorByScore(11, ranges)).toBeNull();
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(0, ranges)).toBeNull();
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(11, ranges)).toBeNull();
     });
 
     it('should return null for undefined score', () => {
-      expect(SeatmapPreparerService._calculateSeatColorByScore(undefined, ranges)).toBeNull();
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(undefined, ranges)).toBeNull();
     });
 
     it('should return null for empty ranges', () => {
-      expect(SeatmapPreparerService._calculateSeatColorByScore(5, [])).toBeNull();
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, [])).toBeNull();
     });
 
     it('should return null for undefined ranges', () => {
-      expect(SeatmapPreparerService._calculateSeatColorByScore(5, undefined)).toBeNull();
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, undefined)).toBeNull();
     });
 
     it('should include boundary values', () => {
-      expect(SeatmapPreparerService._calculateSeatColorByScore(1, ranges)).toBe('#FF0000');
-      expect(SeatmapPreparerService._calculateSeatColorByScore(3, ranges)).toBe('#FF0000');
-      expect(SeatmapPreparerService._calculateSeatColorByScore(10, ranges)).toBe('#00FF00');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(1, ranges)).toBe('#FF0000');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(3, ranges)).toBe('#FF0000');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(10, ranges)).toBe('#00FF00');
     });
   });
 
@@ -285,20 +285,20 @@ describe('SeatmapPreparerService', () => {
 
   describe('mergeColorThemeWithConstraints', () => {
     it('should return empty object for undefined theme', () => {
-      expect(SeatmapPreparerService.mergeColorThemeWithConstraints(undefined)).toEqual({});
+      expect(JetsSeatMapPreparerService.mergeColorThemeWithConstraints(undefined)).toEqual({});
     });
 
     it('should clamp fuselageStrokeWidth to 10-18', () => {
       expect(
-        SeatmapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 5 })
+        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 5 })
           .fuselageStrokeWidth,
       ).toBe(10);
       expect(
-        SeatmapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 25 })
+        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 25 })
           .fuselageStrokeWidth,
       ).toBe(18);
       expect(
-        SeatmapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 14 })
+        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 14 })
           .fuselageStrokeWidth,
       ).toBe(14);
     });
@@ -311,14 +311,14 @@ describe('SeatmapPreparerService', () => {
           { range: [1, 5] as [number, number], color: '' },
         ],
       };
-      const result = SeatmapPreparerService.mergeColorThemeWithConstraints(theme);
+      const result = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(theme);
       expect(result.customSeatColorRanges).toHaveLength(1);
       expect(result.customSeatColorRanges![0].color).toBe('#FF0000');
     });
 
     it('should preserve valid theme properties', () => {
       const theme = { seatAvailableColor: '#123456', floorColor: '#654321' };
-      const result = SeatmapPreparerService.mergeColorThemeWithConstraints(theme);
+      const result = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(theme);
       expect(result.seatAvailableColor).toBe('#123456');
       expect(result.floorColor).toBe('#654321');
     });

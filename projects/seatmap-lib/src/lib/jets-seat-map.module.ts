@@ -1,5 +1,5 @@
 import { NgModule } from '@angular/core';
-import { JetsSeatmapComponent } from './components/jets-seatmap/jets-seatmap.component';
+import { JetsSeatMapComponent } from './components/jets-seat-map/jets-seat-map.component';
 import { JetsDeckComponent } from './components/jets-deck/jets-deck.component';
 import { JetsRowComponent } from './components/jets-row/jets-row.component';
 import { JetsSeatComponent } from './components/jets-seat/jets-seat.component';
@@ -17,7 +17,7 @@ import { JetsNotInitComponent } from './components/jets-not-init/jets-not-init.c
 import { JetsNoDataComponent } from './components/jets-no-data/jets-no-data.component';
 
 const COMPONENTS = [
-  JetsSeatmapComponent,
+  JetsSeatMapComponent,
   JetsDeckComponent,
   JetsRowComponent,
   JetsSeatComponent,
@@ -38,4 +38,4 @@ const COMPONENTS = [
   imports: COMPONENTS,
   exports: COMPONENTS,
 })
-export class JetsSeatmapLibModule {}
+export class JetsSeatMapModule {}

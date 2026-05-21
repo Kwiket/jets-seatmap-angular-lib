@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { JetsSeatComponent } from './jets-seat.component';
 import { ISeatData } from '../../types';
-import { SEAT_STATUS_MAP, SEAT_TYPE_MAP, SEAT_SIZE_BY_TYPE } from '../../constants';
+import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP, SEAT_SIZE_BY_TYPE } from '../../constants';
 
 function makeSeat(overrides: Partial<ISeatData> = {}): ISeatData {
   return {
     id: 'seat-0-0',
     letter: 'A',
-    type: SEAT_TYPE_MAP.seat,
-    status: SEAT_STATUS_MAP.available,
+    type: ENTITY_TYPE_MAP.seat,
+    status: ENTITY_STATUS_MAP.available,
     size: 32,
     number: '1A',
     color: '#4CAF50',
@@ -60,7 +60,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should not render content for aisle type', () => {
-      component.data = makeSeat({ type: SEAT_TYPE_MAP.aisle, letter: '' });
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle, letter: '' });
       fixture.detectChanges();
 
       const numberEl = fixture.nativeElement.querySelector('.jets-seat__number');
@@ -68,7 +68,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should not render content for empty type', () => {
-      component.data = makeSeat({ type: SEAT_TYPE_MAP.empty, letter: '' });
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.empty, letter: '' });
       fixture.detectChanges();
 
       const numberEl = fixture.nativeElement.querySelector('.jets-seat__number');
@@ -77,7 +77,7 @@ describe('JetsSeatComponent', () => {
 
     it('should render passenger badge when passenger is assigned', () => {
       component.data = makeSeat({
-        status: SEAT_STATUS_MAP.selected,
+        status: ENTITY_STATUS_MAP.selected,
         passenger: { id: 'p1', abbr: 'JD', passengerLabel: 'John Doe' },
       });
       fixture.detectChanges();
@@ -100,12 +100,12 @@ describe('JetsSeatComponent', () => {
 
   describe('CSS classes', () => {
     it('should include seat type class', () => {
-      component.data = makeSeat({ type: SEAT_TYPE_MAP.seat });
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.seat });
       expect(component.seatClasses).toContain('jets-seat--seat');
     });
 
     it('should include seat status class', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.available });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available });
       expect(component.seatClasses).toContain('jets-seat--available');
     });
 
@@ -120,12 +120,12 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should reflect unavailable status', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.unavailable });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.unavailable });
       expect(component.seatClasses).toContain('jets-seat--unavailable');
     });
 
     it('should reflect selected status', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.selected });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.selected });
       expect(component.seatClasses).toContain('jets-seat--selected');
     });
   });
@@ -146,12 +146,12 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should use height=1 for aisle type', () => {
-      component.data = makeSeat({ type: SEAT_TYPE_MAP.aisle, size: 20 });
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle, size: 20 });
       expect(component.seatHeight).toBe(1);
     });
 
     it('should use data.size for empty type', () => {
-      component.data = makeSeat({ type: SEAT_TYPE_MAP.empty, size: 30 });
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.empty, size: 30 });
       expect(component.seatHeight).toBe(30);
     });
 
@@ -167,7 +167,7 @@ describe('JetsSeatComponent', () => {
 
   describe('Click events', () => {
     it('should emit seatClick for available seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.available });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -181,7 +181,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should emit seatClick for selected seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.selected });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.selected });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -192,7 +192,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should NOT emit seatClick for unavailable seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.unavailable });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.unavailable });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -203,7 +203,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should NOT emit seatClick for disabled seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.disabled });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.disabled });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -214,7 +214,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should NOT emit seatClick for aisle', () => {
-      component.data = makeSeat({ type: SEAT_TYPE_MAP.aisle });
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -225,7 +225,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should emit seatClick for preferred seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.preferred });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.preferred });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -236,7 +236,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should emit seatClick for extra seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.extra });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.extra });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -251,7 +251,7 @@ describe('JetsSeatComponent', () => {
 
   describe('Mouse events', () => {
     it('should emit seatMouseEnter for available seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.available });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -264,7 +264,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should emit seatMouseLeave for available seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.available });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available });
       fixture.detectChanges();
 
       const spy = vi.fn();
@@ -277,7 +277,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should NOT emit mouse events for unavailable seat', () => {
-      component.data = makeSeat({ status: SEAT_STATUS_MAP.unavailable });
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.unavailable });
       fixture.detectChanges();
 
       const enterSpy = vi.fn();
@@ -308,7 +308,7 @@ describe('JetsSeatComponent', () => {
     });
 
     it('should return empty title for non-seat types', () => {
-      component.data = makeSeat({ type: SEAT_TYPE_MAP.aisle });
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle });
       expect(component.seatTitle).toBe('');
     });
   });

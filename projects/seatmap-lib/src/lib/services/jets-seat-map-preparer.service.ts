@@ -29,12 +29,12 @@ import {
   SEAT_SCHEME_MAP,
   SEAT_SIZE_BY_TYPE,
   DEFAULT_SEAT_TYPE,
-  SEAT_STATUS_MAP,
-  SEAT_TYPE_MAP,
+  ENTITY_STATUS_MAP,
+  ENTITY_TYPE_MAP,
 } from '../constants';
 
 @Injectable({ providedIn: 'root' })
-export class SeatmapPreparerService {
+export class JetsSeatMapPreparerService {
   prepareContent(apiResponse: IApiSeatmapResponse, config: IConfig): IDeckData[] {
     // Resolve decks from either format
     const decks = apiResponse.decks ?? apiResponse.seatDetails?.decks ?? [];
@@ -192,7 +192,7 @@ export class SeatmapPreparerService {
     let max = 0;
     for (const row of rows) {
       const count =
-        row.seats?.filter(s => this._apiSeatType(s) !== SEAT_TYPE_MAP.aisle).length ?? 0;
+        row.seats?.filter(s => this._apiSeatType(s) !== ENTITY_TYPE_MAP.aisle).length ?? 0;
       if (count > max) max = count;
     }
     return max || 6;
@@ -219,7 +219,7 @@ export class SeatmapPreparerService {
     const seatNativeWidths: number[] = [];
     for (const s of seats) {
       const type = this._apiSeatType(s);
-      if (type === SEAT_TYPE_MAP.aisle) {
+      if (type === ENTITY_TYPE_MAP.aisle) {
         aisleCount++;
         seatNativeWidths.push(0);
       } else {
@@ -249,23 +249,23 @@ export class SeatmapPreparerService {
       const nw = seatNativeWidths[i];
       const renderedSize = nw > 0 ? Math.max(Math.round(nw * scale), 8) : aisleSize;
 
-      if (type === SEAT_TYPE_MAP.aisle) {
+      if (type === ENTITY_TYPE_MAP.aisle) {
         return {
           id: `aisle-${rowIndex}-${i}`,
           letter: '',
-          type: SEAT_TYPE_MAP.aisle,
-          status: SEAT_STATUS_MAP.unavailable as TSeatStatus,
+          type: ENTITY_TYPE_MAP.aisle,
+          status: ENTITY_STATUS_MAP.unavailable as TSeatStatus,
           size: aisleSize,
           leftOffset: s.leftOffset,
           topOffset: s.topOffset,
         };
       }
-      if (type === SEAT_TYPE_MAP.empty) {
+      if (type === ENTITY_TYPE_MAP.empty) {
         return {
           id: `empty-${rowIndex}-${i}`,
           letter: '',
-          type: SEAT_TYPE_MAP.empty,
-          status: SEAT_STATUS_MAP.unavailable as TSeatStatus,
+          type: ENTITY_TYPE_MAP.empty,
+          status: ENTITY_STATUS_MAP.unavailable as TSeatStatus,
           size: renderedSize,
           leftOffset: s.leftOffset,
           topOffset: s.topOffset,
@@ -285,7 +285,7 @@ export class SeatmapPreparerService {
       const features = [...flightAmenities, ...seatAmenities, ...seatDimensions];
       const seatColor =
         s.color ??
-        SeatmapPreparerService._calculateSeatColorByScore(
+        JetsSeatMapPreparerService._calculateSeatColorByScore(
           s.score,
           colorTheme?.customSeatColorRanges,
         ) ??
@@ -294,11 +294,11 @@ export class SeatmapPreparerService {
       return {
         id: `seat-${rowIndex}-${i}`,
         letter,
-        type: SEAT_TYPE_MAP.seat,
+        type: ENTITY_TYPE_MAP.seat,
         status:
           s.available === false
-            ? (SEAT_STATUS_MAP.unavailable as TSeatStatus)
-            : (SEAT_STATUS_MAP.available as TSeatStatus),
+            ? (ENTITY_STATUS_MAP.unavailable as TSeatStatus)
+            : (ENTITY_STATUS_MAP.available as TSeatStatus),
         size: renderedSize,
         number: seatNumber,
         color: seatColor,
@@ -327,14 +327,14 @@ export class SeatmapPreparerService {
   private _apiSeatType(seat: IApiSeat): TSeatType {
     const rawType = seat.type;
     if (typeof rawType === 'number') {
-      return API_SEAT_TYPE_MAP[rawType] ?? SEAT_TYPE_MAP.seat;
+      return API_SEAT_TYPE_MAP[rawType] ?? ENTITY_TYPE_MAP.seat;
     }
     if (typeof rawType === 'string') {
-      return SEAT_SCHEME_MAP[rawType] ?? SEAT_TYPE_MAP.seat;
+      return SEAT_SCHEME_MAP[rawType] ?? ENTITY_TYPE_MAP.seat;
     }
     // Infer from letter: no letter = aisle/empty
-    if (!seat.letter && !seat.seatNumber) return SEAT_TYPE_MAP.empty;
-    return SEAT_TYPE_MAP.seat;
+    if (!seat.letter && !seat.seatNumber) return ENTITY_TYPE_MAP.empty;
+    return ENTITY_TYPE_MAP.seat;
   }
 
   /**
@@ -675,23 +675,23 @@ export class SeatmapPreparerService {
     let letterIdx = 0;
 
     const seats: ISeatData[] = scheme.split('').map((char, i) => {
-      const type: TSeatType = SEAT_SCHEME_MAP[char] ?? SEAT_TYPE_MAP.seat;
+      const type: TSeatType = SEAT_SCHEME_MAP[char] ?? ENTITY_TYPE_MAP.seat;
 
-      if (type === SEAT_TYPE_MAP.aisle) {
+      if (type === ENTITY_TYPE_MAP.aisle) {
         return {
           id: `aisle-${rowIndex}-${i}`,
           letter: '',
           type,
-          status: SEAT_STATUS_MAP.unavailable as TSeatStatus,
+          status: ENTITY_STATUS_MAP.unavailable as TSeatStatus,
           size: aisleSize,
         };
       }
-      if (type === SEAT_TYPE_MAP.empty) {
+      if (type === ENTITY_TYPE_MAP.empty) {
         return {
           id: `empty-${rowIndex}-${i}`,
           letter: '',
           type,
-          status: SEAT_STATUS_MAP.unavailable as TSeatStatus,
+          status: ENTITY_STATUS_MAP.unavailable as TSeatStatus,
           size: Math.max(Math.round(nativeRowW * scale), 8),
         };
       }
@@ -731,7 +731,7 @@ export class SeatmapPreparerService {
       const seatAvailable = newSeat?.available ?? legacyAny?.available;
       const seatColor =
         seatApiColor ??
-        SeatmapPreparerService._calculateSeatColorByScore(
+        JetsSeatMapPreparerService._calculateSeatColorByScore(
           seatScore,
           config.colorTheme?.customSeatColorRanges,
         ) ??
@@ -740,11 +740,11 @@ export class SeatmapPreparerService {
       return {
         id: `seat-${rowIndex}-${i}`,
         letter,
-        type: SEAT_TYPE_MAP.seat,
+        type: ENTITY_TYPE_MAP.seat,
         status:
           seatAvailable === false
-            ? (SEAT_STATUS_MAP.unavailable as TSeatStatus)
-            : (SEAT_STATUS_MAP.available as TSeatStatus),
+            ? (ENTITY_STATUS_MAP.unavailable as TSeatStatus)
+            : (ENTITY_STATUS_MAP.available as TSeatStatus),
         size: perSeatRenderedSize,
         number: seatNumber,
         color: seatColor,
@@ -1061,7 +1061,7 @@ export class SeatmapPreparerService {
         nativeRowWidth = seats.length * nativeW;
         // Count non-aisle seats
         for (const s of seats) {
-          if (this._apiSeatType(s) !== SEAT_TYPE_MAP.aisle) seatCount++;
+          if (this._apiSeatType(s) !== ENTITY_TYPE_MAP.aisle) seatCount++;
         }
       }
 

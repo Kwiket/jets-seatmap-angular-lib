@@ -9,16 +9,16 @@ import {
   ITooltipData,
   TSeatAvailability,
 } from '../types';
-import { SEAT_STATUS_MAP, SEAT_TYPE_MAP } from '../constants';
-import { SeatmapApiService } from './seatmap-api.service';
-import { SeatmapPreparerService } from './seatmap-preparer.service';
+import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../constants';
+import { JetsSeatMapApiService } from './jets-seat-map-api.service';
+import { JetsSeatMapPreparerService } from './jets-seat-map-preparer.service';
 import { getAvailableCabins, filterDeckByCabin } from '../utils/cabin-utils';
 
 @Injectable({ providedIn: 'root' })
-export class SeatmapService {
+export class JetsSeatMapService {
   constructor(
-    private apiService: SeatmapApiService,
-    private preparer: SeatmapPreparerService,
+    private apiService: JetsSeatMapApiService,
+    private preparer: JetsSeatMapPreparerService,
   ) {}
 
   async getSeatMapData(
@@ -91,19 +91,19 @@ export class SeatmapService {
       rows: deck.rows.map(row => ({
         ...row,
         seats: row.seats.map(seat => {
-          if (seat.type !== SEAT_TYPE_MAP.seat) return seat;
+          if (seat.type !== ENTITY_TYPE_MAP.seat) return seat;
 
           const seatLabel = seat.number?.toUpperCase();
           const entry = seatLabel ? availMap.get(seatLabel) : undefined;
           const source = entry ?? wildcard;
 
           if (!source) {
-            return { ...seat, status: SEAT_STATUS_MAP.unavailable };
+            return { ...seat, status: ENTITY_STATUS_MAP.unavailable };
           }
 
           return {
             ...seat,
-            status: SEAT_STATUS_MAP.available,
+            status: ENTITY_STATUS_MAP.available,
             price: source.price,
             currency: source.currency,
             color: source.color,
@@ -133,12 +133,12 @@ export class SeatmapService {
       rows: deck.rows.map(row => ({
         ...row,
         seats: row.seats.map(seat => {
-          if (seat.type !== SEAT_TYPE_MAP.seat || !seat.number) return seat;
+          if (seat.type !== ENTITY_TYPE_MAP.seat || !seat.number) return seat;
 
           const passenger = passengerMap.get(seat.number.toUpperCase());
           if (!passenger) return seat;
 
-          return { ...seat, status: SEAT_STATUS_MAP.selected, passenger };
+          return { ...seat, status: ENTITY_STATUS_MAP.selected, passenger };
         }),
       })),
     }));
@@ -164,7 +164,7 @@ export class SeatmapService {
         ...row,
         seats: row.seats.map(s =>
           s.number === seat.number
-            ? { ...s, status: SEAT_STATUS_MAP.selected, passenger: { ...nextPassenger } }
+            ? { ...s, status: ENTITY_STATUS_MAP.selected, passenger: { ...nextPassenger } }
             : s,
         ),
       })),
@@ -193,7 +193,7 @@ export class SeatmapService {
         seats: row.seats.map(s => {
           if (s.number !== seat.number) return s;
           const { passenger: _p, ...rest } = s;
-          return { ...rest, status: SEAT_STATUS_MAP.available };
+          return { ...rest, status: ENTITY_STATUS_MAP.available };
         }),
       })),
     }));
@@ -259,7 +259,7 @@ export class SeatmapService {
     for (const deck of content) {
       for (const row of deck.rows) {
         for (const seat of row.seats) {
-          if (seat.type === SEAT_TYPE_MAP.seat && seat.status === SEAT_STATUS_MAP.available) {
+          if (seat.type === ENTITY_TYPE_MAP.seat && seat.status === ENTITY_STATUS_MAP.available) {
             seats.push(seat);
           }
         }
@@ -273,7 +273,7 @@ export class SeatmapService {
     for (const deck of content) {
       for (const row of deck.rows) {
         for (const seat of row.seats) {
-          if (seat.type === SEAT_TYPE_MAP.seat) {
+          if (seat.type === ENTITY_TYPE_MAP.seat) {
             seats.push(seat);
           }
         }

@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { JetsTooltipComponent } from './jets-tooltip.component';
 import { ISeatData, ITooltipData, IPassenger } from '../../types';
-import { SEAT_STATUS_MAP, SEAT_TYPE_MAP } from '../../constants';
+import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../../constants';
 
 function makeSeat(overrides: Partial<ISeatData> = {}): ISeatData {
   return {
     id: 'seat-0-0',
     letter: 'A',
-    type: SEAT_TYPE_MAP.seat,
-    status: SEAT_STATUS_MAP.available,
+    type: ENTITY_TYPE_MAP.seat,
+    status: ENTITY_STATUS_MAP.available,
     size: 32,
     number: '1A',
     color: '#4CAF50',

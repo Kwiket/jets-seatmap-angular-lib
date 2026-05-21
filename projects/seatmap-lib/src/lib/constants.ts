@@ -1,13 +1,13 @@
 import { TSeatType } from './types';
 
-export const SEAT_TYPE_MAP = {
+export const ENTITY_TYPE_MAP = {
   seat: 'seat' as const,
   aisle: 'aisle' as const,
   empty: 'empty' as const,
   index: 'index' as const,
 };
 
-export const SEAT_STATUS_MAP = {
+export const ENTITY_STATUS_MAP = {
   available: 'available' as const,
   unavailable: 'unavailable' as const,
   selected: 'selected' as const,
@@ -50,11 +50,14 @@ export const DEFAULT_SEAT_MARGIN = 2;
 export const DEFAULT_SEAT_MAP_WIDTH = 350;
 export const DEFAULT_SEAT_SIZE = 32;
 export const DEFAULT_TOOLTIP_WIDTH = 300;
+export const DEFAULT_AUTHORIZATION_SCHEME = 'Bearer';
 
 export const SCALE_TYPES = {
   ZOOM: 'zoom' as const,
   SCALE: 'scale' as const,
 };
+
+export const DEFAULT_SCALE_TYPE = SCALE_TYPES.SCALE;
 
 /** Default seat type (#3 — regular economy seat), used as fallback when seat type is unknown. */
 export const DEFAULT_SEAT_TYPE = 3;
@@ -132,9 +135,9 @@ export const DEFAULT_COLOR_THEME = {
   fuselageStrokeWidth: 12,
   fuselageWindowsColor: 'darkgrey',
   fuselageWingsColor: 'darkgrey',
-  fuselageNoseType: '',
+  fuselageNoseType: 'default' as 'default' | 'by-type',
   // Floor & background
-  seatmapBackgroundColor: '#ffffff',
+  seatMapBackgroundColor: '#ffffff',
   floorColor: '#595959',
   seatmapFontColor: '#333333',
   // Bulk
@@ -152,7 +155,6 @@ export const DEFAULT_COLOR_THEME = {
   defaultPassengerBadgeBorderColor: '#1976D2',
   // Tooltip
   tooltipBackgroundColor: '#ffffff',
-  tooltipTextColor: '#333333',
   tooltipHeaderColor: '#222222',
   tooltipBorderColor: '#e0e0e0',
   tooltipFontColor: '#333333',

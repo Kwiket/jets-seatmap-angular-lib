@@ -1,12 +1,19 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  Type,
+} from '@angular/core';
+import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { ISeatData, IRowData, IColorTheme } from '../../types';
 import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
 
 @Component({
   selector: 'sm-jets-row',
   standalone: true,
-  imports: [CommonModule, JetsSeatComponent],
+  imports: [CommonModule, NgComponentOutlet, JetsSeatComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -16,15 +23,24 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
     >
       <div class="jets-row__seats">
         @for (seat of row.seats; track seat.id) {
-          <sm-jets-seat
-            [data]="seat"
-            [colorTheme]="colorTheme"
-            [showPrice]="showPrice"
-            [scale]="scale"
-            (seatClick)="seatClick.emit($event)"
-            (seatMouseEnter)="seatMouseEnter.emit($event)"
-            (seatMouseLeave)="seatMouseLeave.emit($event)"
-          />
+          @if (seatOverride) {
+            <ng-container
+              *ngComponentOutlet="
+                seatOverride;
+                inputs: { data: seat, colorTheme: colorTheme, showPrice: showPrice, scale: scale }
+              "
+            />
+          } @else {
+            <sm-jets-seat
+              [data]="seat"
+              [colorTheme]="colorTheme"
+              [showPrice]="showPrice"
+              [scale]="scale"
+              (seatClick)="seatClick.emit($event)"
+              (seatMouseEnter)="seatMouseEnter.emit($event)"
+              (seatMouseLeave)="seatMouseLeave.emit($event)"
+            />
+          }
         }
       </div>
     </div>
@@ -55,9 +71,23 @@ export class JetsRowComponent {
   @Input() prevRowTopOffset?: number;
   @Input() prevRowHeight = 0;
   @Input() scale = 1;
-  @Output() seatClick = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
-  @Output() seatMouseEnter = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
-  @Output() seatMouseLeave = new EventEmitter<{ seat: ISeatData; element: HTMLElement }>();
+  /** Override component for the seat, propagated from componentOverrides.JetsSeat. */
+  @Input() seatOverride?: Type<unknown> | null;
+  @Output() seatClick = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
+  @Output() seatMouseEnter = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
+  @Output() seatMouseLeave = new EventEmitter<{
+    seat: ISeatData;
+    element: HTMLElement;
+    event?: Event;
+  }>();
 
   /**
    * Margin-top that positions this row so its top is at topOffset × scale

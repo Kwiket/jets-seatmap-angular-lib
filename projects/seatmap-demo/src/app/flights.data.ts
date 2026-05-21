@@ -14,7 +14,7 @@ export interface DemoFlight {
 
 /** Cabin theme — matches React demo (config-mock.js) visual style */
 const CABIN_THEME = {
-  seatmapBackgroundColor: '#fff',
+  seatMapBackgroundColor: '#fff',
   floorColor: '#595959',
   seatStrokeColor: 'rgb(230, 230, 230)',
   seatArmrestColor: '#cccccc',
@@ -81,7 +81,7 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
       scaleType: 'zoom',
       visibleSeatPriceLabels: false,
       colorTheme: {
-        seatmapBackgroundColor: '#fff',
+        seatMapBackgroundColor: '#fff',
         deckLabelTitleColor: 'black',
         deckHeightSpacing: 0,
         wingsWidth: 85,
@@ -142,7 +142,7 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
       departureDate: '2026-09-21',
       departure: 'ORD',
       arrival: 'MUC',
-      cabinClass: 'A',
+      cabinClass: 'B',
       planeCode: '',
     },
     config: { ...BASE_CONFIG, width: 380, lang: 'EN' },
@@ -185,7 +185,7 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
       departureDate: '2026-09-21',
       departure: 'ATL',
       arrival: 'LAX',
-      cabinClass: 'A',
+      cabinClass: 'E',
       planeCode: '',
     },
     config: { ...BASE_CONFIG, width: 360, lang: 'EN' },
@@ -204,7 +204,7 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
       departureDate: '2026-09-21',
       departure: 'HNL',
       arrival: 'ITO',
-      cabinClass: 'A',
+      cabinClass: 'B',
       planeCode: '',
     },
     config: { ...BASE_CONFIG, width: 350, lang: 'EN' },
@@ -221,7 +221,7 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
       departureDate: '2026-09-21',
       departure: 'FRA',
       arrival: 'YYZ',
-      cabinClass: 'A',
+      cabinClass: 'B',
       planeCode: '',
     },
     config: { ...BASE_CONFIG, width: 380, lang: 'DE' },

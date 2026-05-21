@@ -6,24 +6,40 @@
     #mapContainer
     class="jets-seat-map"
     [style.width.px]="resolvedConfig.width"
-    [style.background-color]="resolvedConfig.colorTheme?.seatmapBackgroundColor"
+    [style.background-color]="resolvedConfig.colorTheme?.seatMapBackgroundColor"
     [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
     [style.transform]="mapTransform || null"
     [style.transform-origin]="mapTransformOrigin || null"
     [style.direction]="mapDirection || null"
     (click)="onMapClick($event)"
   >
-    <!-- Built-in tooltip -->
+    <!-- Built-in tooltip (or user-provided override) -->
     @if (activeTooltip && resolvedConfig.builtInTooltip !== false) {
-      <sm-jets-tooltip
-        [data]="activeTooltip"
-        [isSelectAvailable]="isSelectAvailable"
-        [showActions]="hasAvailability"
-        [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
-        (select)="onTooltipSelect($event)"
-        (unselect)="onTooltipUnselect($event)"
-        (close)="onTooltipClose()"
-      />
+      @if (tooltipOverride) {
+        <ng-container
+          *ngComponentOutlet="
+            tooltipOverride;
+            inputs: {
+              data: activeTooltip,
+              isSelectAvailable: isSelectAvailable,
+              showActions: hasAvailability,
+              showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
+              colorTheme: resolvedConfig.colorTheme
+            }
+          "
+        />
+      } @else {
+        <sm-jets-tooltip
+          [data]="activeTooltip"
+          [isSelectAvailable]="isSelectAvailable"
+          [showActions]="hasAvailability"
+          [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
+          [viewOverride]="tooltipViewOverride"
+          (select)="onTooltipSelect($event)"
+          (unselect)="onTooltipUnselect($event)"
+          (close)="onTooltipClose()"
+        />
+      }
     }
 
     @if (content.length) {
@@ -67,6 +83,7 @@
                 [visibleCabinTitles]="resolvedConfig.visibleCabinTitles !== false"
                 [horizontalCabinTitles]="false"
                 [cabinLabelGap]="getDeckCabinLabelGap(deck)"
+                [seatOverride]="seatOverride"
                 (seatClick)="onSeatClick($event)"
                 (seatMouseEnter)="onSeatMouseEnter($event)"
                 (seatMouseLeave)="onSeatMouseLeave($event)"
@@ -85,14 +102,22 @@
         }
       </sm-jets-plane-body>
     } @else if (isLoading) {
-      <sm-jets-not-init [lang]="lang" />
+      @if (notInitOverride) {
+        <ng-container *ngComponentOutlet="notInitOverride; inputs: { lang }" />
+      } @else {
+        <sm-jets-not-init [lang]="lang" />
+      }
     } @else if (isSeatMapInited) {
       <sm-jets-no-data [lang]="lang" />
       @if (error) {
         <div class="jets-seat-map__error">{{ error }}</div>
       }
     } @else {
-      <sm-jets-not-init [lang]="lang" />
+      @if (notInitOverride) {
+        <ng-container *ngComponentOutlet="notInitOverride; inputs: { lang }" />
+      } @else {
+        <sm-jets-not-init [lang]="lang" />
+      }
     }
   </div>
 </ng-template>
@@ -102,7 +127,7 @@
     <div
       class="jets-seatmap-header"
       [style.width.px]="resolvedConfig.width"
-      [style.background-color]="resolvedConfig.colorTheme?.seatmapBackgroundColor || '#fff'"
+      [style.background-color]="resolvedConfig.colorTheme?.seatMapBackgroundColor || '#fff'"
       [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
     >
       <sm-jets-deck-selector

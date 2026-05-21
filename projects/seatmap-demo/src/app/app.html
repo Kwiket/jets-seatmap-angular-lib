@@ -18,12 +18,13 @@
 
   <div class="demo-content">
     <div class="demo-seatmap-wrapper">
-      <sm-jets-seatmap
+      <sm-jets-seat-map
         [flight]="activeFlight()"
         [config]="activeConfig()"
         [availability]="activeAvailability()"
         [passengers]="activePassengers()"
         [currentDeckIndex]="deckIndexOverride()"
+        [seatJumpTo]="seatJumpToOverride()"
         (seatMapInited)="onSeatMapInited($event)"
         (seatSelected)="onSeatSelected($event)"
         (seatUnselected)="onSeatUnselected($event)"

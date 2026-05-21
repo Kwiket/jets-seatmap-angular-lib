@@ -5,9 +5,10 @@ import {
   inject,
   Input,
   Output,
+  Type,
 } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
 import {
   LOCALES_MAP,
@@ -19,9 +20,24 @@ import {
 @Component({
   selector: 'sm-jets-tooltip',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, NgComponentOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (viewOverride) {
+      <ng-container
+        *ngComponentOutlet="
+          viewOverride;
+          inputs: {
+            data: data,
+            isSelectAvailable: isSelectAvailable,
+            showActions: showActions,
+            showPrice: showPrice,
+            colorTheme: colorTheme,
+            sidePanel: sidePanel
+          }
+        "
+      />
+    } @else {
     <div
       class="jets-tooltip"
       [class.jets-tooltip--below]="!sidePanel && data.openBelow"
@@ -146,11 +162,20 @@ import {
         }
       </div>
     </div>
+    }
   `,
   styleUrls: ['./jets-tooltip.component.scss'],
 })
 export class JetsTooltipComponent {
   private sanitizer = inject(DomSanitizer);
+
+  /**
+   * Optional override for the tooltip view (presentational layer). When provided,
+   * the override component receives `data`, `isSelectAvailable`, `showActions`,
+   * `showPrice`, `colorTheme`, `sidePanel` as inputs. Mirrors React's
+   * componentOverrides.JetsTooltipView.
+   */
+  @Input() viewOverride?: Type<unknown> | null;
 
   @Input() data!: ITooltipData;
   @Input() isSelectAvailable = false;

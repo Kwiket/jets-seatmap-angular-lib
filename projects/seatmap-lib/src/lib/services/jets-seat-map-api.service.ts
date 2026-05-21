@@ -2,11 +2,11 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { IApiFlightRequest, IApiSeatmapResponse, IConfig } from '../types';
-import { SEAT_SIZE_BY_TYPE } from '../constants';
+import { DEFAULT_AUTHORIZATION_SCHEME, SEAT_SIZE_BY_TYPE } from '../constants';
 import { SeatmapAuthService } from './seatmap-auth.service';
 
 @Injectable({ providedIn: 'root' })
-export class SeatmapApiService {
+export class JetsSeatMapApiService {
   constructor(
     private http: HttpClient,
     private authService: SeatmapAuthService,
@@ -18,12 +18,13 @@ export class SeatmapApiService {
   ): Promise<IApiSeatmapResponse> {
     const resolvedKey = typeof config.apiKey === 'function' ? config.apiKey() : config.apiKey;
     const token = await this.authService.getToken(config.apiUrl, config.apiAppId, resolvedKey);
+    const scheme = config.apiAuthorizationScheme ?? DEFAULT_AUTHORIZATION_SCHEME;
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+      Authorization: `${scheme} ${token}`,
     });
 
-    // API expects { flight: {...}, lang, units, supportedSeatTypesCount } — not flat
+    // API expects { flight: {...}, lang, units, supportedSeatTypesCount, ...metadata } — not flat
     const { lang, units, ...flightFields } = flightData;
     const supportedSeatTypesCount = SEAT_SIZE_BY_TYPE.length - 1; // Exclude zero index
     const body: Record<string, unknown> = {
@@ -31,6 +32,7 @@ export class SeatmapApiService {
       lang,
       units,
       supportedSeatTypesCount,
+      ...(config.apiMetadata ?? {}),
     };
 
     console.log('[SeatmapAPI] POST', `${config.apiUrl}/flight/features/plane/seatmap`);
@@ -49,7 +51,7 @@ export class SeatmapApiService {
         );
         const retryHeaders = new HttpHeaders({
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${newToken}`,
+          Authorization: `${scheme} ${newToken}`,
         });
         return await this._postSeatmap(config.apiUrl, body, retryHeaders);
       }

@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SeatmapService } from './seatmap.service';
-import { SeatmapApiService } from './seatmap-api.service';
-import { SeatmapPreparerService } from './seatmap-preparer.service';
+import { JetsSeatMapService } from './jets-seat-map.service';
+import { JetsSeatMapApiService } from './jets-seat-map-api.service';
+import { JetsSeatMapPreparerService } from './jets-seat-map-preparer.service';
 import { IDeckData, IPassenger, ISeatData, TSeatAvailability } from '../types';
-import { SEAT_STATUS_MAP, SEAT_TYPE_MAP } from '../constants';
+import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../constants';
 
 function makeSeat(overrides: Partial<ISeatData> = {}): ISeatData {
   return {
     id: 'seat-0-0',
     letter: 'A',
-    type: SEAT_TYPE_MAP.seat,
-    status: SEAT_STATUS_MAP.available,
+    type: ENTITY_TYPE_MAP.seat,
+    status: ENTITY_STATUS_MAP.available,
     size: 32,
     number: '1A',
     color: '#4CAF50',
@@ -22,8 +22,8 @@ function makeAisle(id = 'aisle-0-1'): ISeatData {
   return {
     id,
     letter: '',
-    type: SEAT_TYPE_MAP.aisle,
-    status: SEAT_STATUS_MAP.unavailable,
+    type: ENTITY_TYPE_MAP.aisle,
+    status: ENTITY_STATUS_MAP.unavailable,
     size: 20,
   };
 }
@@ -39,27 +39,27 @@ function makePassenger(overrides: Partial<IPassenger> = {}): IPassenger {
   return { id: 'p1', passengerLabel: 'John Doe', ...overrides };
 }
 
-describe('SeatmapService', () => {
-  let service: SeatmapService;
+describe('JetsSeatMapService', () => {
+  let service: JetsSeatMapService;
 
   beforeEach(() => {
-    const apiService = {} as SeatmapApiService;
-    const preparer = new SeatmapPreparerService();
-    service = new SeatmapService(apiService, preparer);
+    const apiService = {} as JetsSeatMapApiService;
+    const preparer = new JetsSeatMapPreparerService();
+    service = new JetsSeatMapService(apiService, preparer);
   });
 
   // ─── setAvailabilityHandler ───────────────────────────────────────────────
 
   describe('setAvailabilityHandler', () => {
     it('should mark seats as available with price when availability matches', () => {
-      const seat = makeSeat({ status: SEAT_STATUS_MAP.unavailable });
+      const seat = makeSeat({ status: ENTITY_STATUS_MAP.unavailable });
       const content = [makeDeck([seat])];
       const availability: TSeatAvailability = [{ label: '1A', price: 50, currency: 'USD' }];
 
       const result = service.setAvailabilityHandler(content, availability);
       const resultSeat = result[0].rows[0].seats[0];
 
-      expect(resultSeat.status).toBe(SEAT_STATUS_MAP.available);
+      expect(resultSeat.status).toBe(ENTITY_STATUS_MAP.available);
       expect(resultSeat.price).toBe(50);
       expect(resultSeat.currency).toBe('USD');
     });
@@ -70,7 +70,7 @@ describe('SeatmapService', () => {
       const availability: TSeatAvailability = [{ label: '1A', price: 50, currency: 'USD' }];
 
       const result = service.setAvailabilityHandler(content, availability);
-      expect(result[0].rows[0].seats[0].status).toBe(SEAT_STATUS_MAP.unavailable);
+      expect(result[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.unavailable);
     });
 
     it('should apply wildcard availability to all seats', () => {
@@ -82,8 +82,8 @@ describe('SeatmapService', () => {
       const availability: TSeatAvailability = [{ label: '*', price: 0, currency: 'EUR' }];
 
       const result = service.setAvailabilityHandler(content, availability);
-      expect(result[0].rows[0].seats[0].status).toBe(SEAT_STATUS_MAP.available);
-      expect(result[0].rows[0].seats[1].status).toBe(SEAT_STATUS_MAP.available);
+      expect(result[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
+      expect(result[0].rows[0].seats[1].status).toBe(ENTITY_STATUS_MAP.available);
       expect(result[0].rows[0].seats[0].currency).toBe('EUR');
     });
 
@@ -104,7 +104,7 @@ describe('SeatmapService', () => {
       const availability: TSeatAvailability = [{ label: '*', price: 0, currency: 'USD' }];
 
       const result = service.setAvailabilityHandler(content, availability);
-      expect(result[0].rows[0].seats[0].type).toBe(SEAT_TYPE_MAP.aisle);
+      expect(result[0].rows[0].seats[0].type).toBe(ENTITY_TYPE_MAP.aisle);
     });
 
     it('should return content unchanged for empty availability', () => {
@@ -119,7 +119,7 @@ describe('SeatmapService', () => {
       const availability: TSeatAvailability = [{ label: '12a', price: 25, currency: 'GBP' }];
 
       const result = service.setAvailabilityHandler(content, availability);
-      expect(result[0].rows[0].seats[0].status).toBe(SEAT_STATUS_MAP.available);
+      expect(result[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
       expect(result[0].rows[0].seats[0].price).toBe(25);
     });
   });
@@ -135,7 +135,7 @@ describe('SeatmapService', () => {
       const result = service.setPassengersHandler(content, [passenger]);
       const resultSeat = result[0].rows[0].seats[0];
 
-      expect(resultSeat.status).toBe(SEAT_STATUS_MAP.selected);
+      expect(resultSeat.status).toBe(ENTITY_STATUS_MAP.selected);
       expect(resultSeat.passenger).toEqual(passenger);
     });
 
@@ -145,7 +145,7 @@ describe('SeatmapService', () => {
       const passenger = makePassenger({ seat: { price: 0, seatLabel: '5E' } });
 
       const result = service.setPassengersHandler(content, [passenger]);
-      expect(result[0].rows[0].seats[0].status).toBe(SEAT_STATUS_MAP.available);
+      expect(result[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
       expect(result[0].rows[0].seats[0].passenger).toBeUndefined();
     });
 
@@ -161,7 +161,7 @@ describe('SeatmapService', () => {
       const passenger = makePassenger({ seat: { price: 0, seatLabel: '1A' } });
 
       const result = service.setPassengersHandler(content, [passenger]);
-      expect(result[0].rows[0].seats[0].status).toBe(SEAT_STATUS_MAP.selected);
+      expect(result[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.selected);
     });
   });
 
@@ -177,7 +177,7 @@ describe('SeatmapService', () => {
 
       expect(result.passengers[0].seat?.seatLabel).toBe('5A');
       expect(result.passengers[0].seat?.price).toBe(100);
-      expect(result.data[0].rows[0].seats[0].status).toBe(SEAT_STATUS_MAP.selected);
+      expect(result.data[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.selected);
     });
 
     it('should not select if all passengers have seats', () => {
@@ -186,7 +186,7 @@ describe('SeatmapService', () => {
       const passengers = [makePassenger({ seat: { price: 0, seatLabel: '3C' } })];
 
       const result = service.selectSeatHandler(content, seat, passengers);
-      expect(result.data[0].rows[0].seats[0].status).toBe(SEAT_STATUS_MAP.available);
+      expect(result.data[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
     });
 
     it('should handle seat without price', () => {
@@ -203,19 +203,19 @@ describe('SeatmapService', () => {
 
   describe('unselectSeatHandler', () => {
     it('should unselect a seat and remove assignment from passenger', () => {
-      const seat = makeSeat({ number: '7C', status: SEAT_STATUS_MAP.selected });
+      const seat = makeSeat({ number: '7C', status: ENTITY_STATUS_MAP.selected });
       const content = [makeDeck([seat])];
       const passengers = [makePassenger({ seat: { price: 50, seatLabel: '7C' } })];
 
       const result = service.unselectSeatHandler(content, seat, passengers);
 
       expect(result.passengers[0].seat).toBeUndefined();
-      expect(result.data[0].rows[0].seats[0].status).toBe(SEAT_STATUS_MAP.available);
+      expect(result.data[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
       expect(result.data[0].rows[0].seats[0].passenger).toBeUndefined();
     });
 
     it('should not modify other passengers', () => {
-      const seat = makeSeat({ number: '7C', status: SEAT_STATUS_MAP.selected });
+      const seat = makeSeat({ number: '7C', status: ENTITY_STATUS_MAP.selected });
       const content = [makeDeck([seat])];
       const p1 = makePassenger({ id: 'p1', seat: { price: 50, seatLabel: '7C' } });
       const p2 = makePassenger({ id: 'p2', seat: { price: 30, seatLabel: '8D' } });
@@ -279,8 +279,8 @@ describe('SeatmapService', () => {
 
   describe('collectAvailableSeats', () => {
     it('should return only available seat-type items', () => {
-      const available = makeSeat({ status: SEAT_STATUS_MAP.available });
-      const unavailable = makeSeat({ id: 'seat-0-1', status: SEAT_STATUS_MAP.unavailable });
+      const available = makeSeat({ status: ENTITY_STATUS_MAP.available });
+      const unavailable = makeSeat({ id: 'seat-0-1', status: ENTITY_STATUS_MAP.unavailable });
       const aisle = makeAisle();
 
       const result = service.collectAvailableSeats([makeDeck([available, aisle, unavailable])]);
@@ -289,7 +289,7 @@ describe('SeatmapService', () => {
     });
 
     it('should return empty array for no available seats', () => {
-      const seat = makeSeat({ status: SEAT_STATUS_MAP.unavailable });
+      const seat = makeSeat({ status: ENTITY_STATUS_MAP.unavailable });
       expect(service.collectAvailableSeats([makeDeck([seat])])).toEqual([]);
     });
 

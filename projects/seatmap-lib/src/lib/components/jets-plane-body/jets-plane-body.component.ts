@@ -95,7 +95,7 @@ export class JetsPlaneBodyComponent {
   }
 
   get bgColor(): string {
-    return this.colorTheme?.seatmapBackgroundColor ?? DEFAULT_COLOR_THEME.seatmapBackgroundColor;
+    return this.colorTheme?.seatMapBackgroundColor ?? DEFAULT_COLOR_THEME.seatMapBackgroundColor;
   }
 
   get fuselageFill(): string {
