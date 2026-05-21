@@ -132,6 +132,14 @@ describe('JetsSeatMapComponent', () => {
   let component: JetsSeatMapComponent;
   let mockService: ReturnType<typeof createMockJetsSeatMapService>;
 
+  // jsdom does not implement scrollIntoView — stub it so _jumpToSeat doesn't crash
+  // when triggered through ngOnChanges.
+  beforeAll(() => {
+    if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = () => {};
+    }
+  });
+
   beforeEach(async () => {
     mockService = createMockJetsSeatMapService();
 
@@ -313,6 +321,8 @@ describe('JetsSeatMapComponent', () => {
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
+      // seatMapInited is dispatched via setTimeout(0) to capture DOM size
+      await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(spy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -329,6 +339,7 @@ describe('JetsSeatMapComponent', () => {
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
+      await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(spy).toHaveBeenCalled();
     });
@@ -605,6 +616,306 @@ describe('JetsSeatMapComponent', () => {
 
       expect(component.content).toEqual([]);
       expect(component.isSeatMapInited).toBe(true);
+    });
+  });
+
+  // ─── React-parity API ─────────────────────────────────────────────────
+
+  describe('seatMouseClick (external management + hover tooltip mode)', () => {
+    async function ready() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    it('should emit seatMouseClick and skip tooltipRequested in external+hover mode', async () => {
+      component.config = makeConfig({
+        externalPassengerManagement: true,
+        tooltipOnHover: true,
+        builtInTooltip: false,
+      });
+      await ready();
+
+      const clickSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatMouseClick.subscribe(clickSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      const evt = new MouseEvent('click');
+      const seat = makeSeat();
+      const element = document.createElement('div');
+      component.onSeatClick({ seat, element, event: evt });
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(clickSpy.mock.calls[0][0]).toMatchObject({ seat, element, event: evt });
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+    });
+
+    it('should NOT emit seatMouseClick in default click mode', async () => {
+      await ready();
+
+      const clickSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatMouseClick.subscribe(clickSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+
+      expect(clickSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('seatJumpTo @Input tracking', () => {
+    function makeSeatJumpToChange(curr: unknown, prev: unknown) {
+      return {
+        seatJumpTo: {
+          currentValue: curr,
+          previousValue: prev,
+          firstChange: prev === undefined,
+          isFirstChange: () => prev === undefined,
+        } as any,
+      };
+    }
+
+    beforeEach(async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+    });
+
+    it('should jump when seatJumpTo is set after init', () => {
+      const spy = vi.spyOn(component as any, '_jumpToSeat').mockImplementation(() => {});
+      component.seatJumpTo = { seatLabel: '1A' };
+      component.ngOnChanges(makeSeatJumpToChange({ seatLabel: '1A' }, undefined));
+      expect(spy).toHaveBeenCalledWith('1A');
+    });
+
+    it('should NOT re-jump when the same seatLabel is assigned twice', () => {
+      component.seatJumpTo = { seatLabel: '1A' };
+      component.ngOnChanges(makeSeatJumpToChange({ seatLabel: '1A' }, undefined));
+
+      const spy = vi.spyOn(component as any, '_jumpToSeat').mockImplementation(() => {});
+      component.seatJumpTo = { seatLabel: '1A' };
+      component.ngOnChanges(makeSeatJumpToChange({ seatLabel: '1A' }, { seatLabel: '1A' }));
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT jump on unrelated config-only changes', () => {
+      const spy = vi.spyOn(component as any, '_jumpToSeat').mockImplementation(() => {});
+      const next = makeConfig({ colorTheme: { floorColor: '#000' } });
+      component.config = next;
+      component.ngOnChanges({
+        config: {
+          currentValue: next,
+          previousValue: makeConfig(),
+          firstChange: false,
+          isFirstChange: () => false,
+        } as any,
+      });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('should reset tracking when seatJumpTo is cleared, allowing the same label later', () => {
+      component.seatJumpTo = { seatLabel: '1A' };
+      component.ngOnChanges(makeSeatJumpToChange({ seatLabel: '1A' }, undefined));
+
+      component.seatJumpTo = undefined;
+      component.ngOnChanges(makeSeatJumpToChange(undefined, { seatLabel: '1A' }));
+
+      const spy = vi.spyOn(component as any, '_jumpToSeat').mockImplementation(() => {});
+      component.seatJumpTo = { seatLabel: '1A' };
+      component.ngOnChanges(makeSeatJumpToChange({ seatLabel: '1A' }, undefined));
+      expect(spy).toHaveBeenCalledWith('1A');
+    });
+  });
+
+  describe('componentOverrides', () => {
+    it('should expose all four override slots through resolvedConfig', () => {
+      // Use plain classes only as identity markers; we never render them in this test,
+      // so we don't need @Component decorators.
+      class FakeSeat {}
+      class FakeTooltip {}
+      class FakeTooltipView {}
+      class FakeNotInit {}
+      component.config = makeConfig({
+        componentOverrides: {
+          JetsSeat: FakeSeat as any,
+          JetsTooltip: FakeTooltip as any,
+          JetsTooltipView: FakeTooltipView as any,
+          JetsNotInit: FakeNotInit as any,
+        },
+      });
+
+      // No detectChanges() — avoid NgComponentOutlet rendering the fake classes.
+      expect(component.seatOverride).toBe(FakeSeat);
+      expect(component.tooltipOverride).toBe(FakeTooltip);
+      expect(component.tooltipViewOverride).toBe(FakeTooltipView);
+      expect(component.notInitOverride).toBe(FakeNotInit);
+    });
+
+    it('should return null for override getters when componentOverrides is unset', () => {
+      // detectChanges is safe here because no overrides are set.
+      fixture.detectChanges();
+      expect(component.seatOverride).toBeNull();
+      expect(component.tooltipOverride).toBeNull();
+      expect(component.tooltipViewOverride).toBeNull();
+      expect(component.notInitOverride).toBeNull();
+    });
+  });
+
+  describe('Extended payloads (React parity)', () => {
+    async function load() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    it('should emit layoutUpdated with ILayoutData fields', async () => {
+      const spy = vi.fn();
+      component.layoutUpdated.subscribe(spy);
+      await load();
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const payload = spy.mock.calls[0][0];
+      expect(payload).toMatchObject({
+        decksCount: 1,
+        currentDeckIndex: 0,
+      });
+      expect(typeof payload.heightInPx).toBe('number');
+      expect(typeof payload.widthInPx).toBe('number');
+      expect(typeof payload.scaleFactor).toBe('number');
+    });
+
+    it('should emit seatMapInited as IInitialLayoutData with extended fields', async () => {
+      const allSeats = [makeSeat()];
+      mockService.collectAllSeats.mockReturnValue(allSeats);
+      mockService.getSeatMapData.mockResolvedValue({
+        content: [makeDeckData()],
+        media: { photoData: [] },
+        availableCabins: [{ code: 'E', title: 'Economy' }],
+      });
+
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+      await load();
+
+      const payload = spy.mock.calls[0][0];
+      expect(payload).toMatchObject({
+        decksCount: 1,
+        currentDeckIndex: 0,
+        allSeats,
+        availableCabins: [{ code: 'E', title: 'Economy' }],
+      });
+      expect(typeof payload.heightInPx).toBe('number');
+      expect(typeof payload.widthInPx).toBe('number');
+      expect(typeof payload.scaleFactor).toBe('number');
+      expect(payload.media).toEqual({ photoData: [] });
+      expect(payload.error).toBeUndefined();
+    });
+
+    it('should NOT emit seatMapInited when load fails', async () => {
+      mockService.getSeatMapData.mockRejectedValue({ status: 500, message: 'oops' });
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('should propagate DOM event in tooltipRequested payload', async () => {
+      await load();
+      const spy = vi.fn();
+      component.tooltipRequested.subscribe(spy);
+
+      const evt = new MouseEvent('click');
+      component.onSeatClick({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+        event: evt,
+      });
+      expect(spy.mock.calls[0][0].event).toBe(evt);
+    });
+  });
+
+  describe('Additional @Output events', () => {
+    async function load() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    it('should emit activeTooltipChanged on seat click and on close', async () => {
+      await load();
+      const spy = vi.fn();
+      component.activeTooltipChanged.subscribe(spy);
+
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+      expect(spy).toHaveBeenCalled();
+      const lastOpen = spy.mock.calls[spy.mock.calls.length - 1][0];
+      expect(lastOpen).not.toBeNull();
+
+      component.onTooltipClose();
+      expect(spy.mock.calls[spy.mock.calls.length - 1][0]).toBeNull();
+    });
+
+    it('should emit legendReady after load', async () => {
+      const spy = vi.fn();
+      component.legendReady.subscribe(spy);
+      await load();
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should emit mediaReady after load', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: [makeDeckData()],
+        media: { photoData: [{ file: 'a.jpg', thumb: 'a.jpg' }] },
+        availableCabins: [],
+      });
+      const spy = vi.fn();
+      component.mediaReady.subscribe(spy);
+      await load();
+      expect(spy).toHaveBeenCalledWith({ photoData: [{ file: 'a.jpg', thumb: 'a.jpg' }] });
+    });
+
+    it('should emit passengersChanged after load', async () => {
+      const spy = vi.fn();
+      component.passengersChanged.subscribe(spy);
+      await load();
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should emit currencyDetected after load', async () => {
+      const spy = vi.fn();
+      component.currencyDetected.subscribe(spy);
+      await load();
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should emit hasAvailabilityChanged after load', async () => {
+      const spy = vi.fn();
+      component.hasAvailabilityChanged.subscribe(spy);
+      component.availability = [{ label: '1A', price: 10, currency: 'USD' }];
+      await load();
+      expect(spy).toHaveBeenCalledWith(true);
+    });
+
+    it('should emit selectAvailableChanged on seat click', async () => {
+      await load();
+      const spy = vi.fn();
+      component.selectAvailableChanged.subscribe(spy);
+
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+      expect(spy).toHaveBeenCalled();
     });
   });
 });
