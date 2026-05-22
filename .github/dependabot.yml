@@ -18,6 +18,11 @@ updates:
           - prettier
           - typescript
           - jsdom
+    ignore:
+      # @angular/build 21.x requires typescript <6.0 — block TS major bumps
+      # until Angular publishes a release that supports TypeScript 6.x.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     labels:
       - dependencies
 
