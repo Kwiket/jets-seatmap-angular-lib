@@ -328,4 +328,83 @@ describe('JetsSeatComponent', () => {
       expect(component.seatTransform).toBe('translate(20px, 40px)');
     });
   });
+
+  // ─── Touch interactions ───────────────────────────────────────────────
+  //
+  // The seat element binds only (click)/(mouseenter)/(mouseleave). Mobile
+  // browsers synthesize a `click` after a short tap, so the user's tap is
+  // observed through that synthesized click. These tests verify the component
+  // tolerates raw touch events (no listener, no emits, no crash) and that the
+  // synthesized click path emits `seatClick` for interactive seats but not for
+  // unavailable/disabled ones.
+
+  describe('Touch interactions', () => {
+    function dispatchTouchStart(target: Element): boolean {
+      // jsdom supports TouchEvent in recent versions; fall back to a generic
+      // Event when the constructor is unavailable.
+      let evt: Event;
+      const TouchEventCtor = (globalThis as unknown as { TouchEvent?: typeof Event }).TouchEvent;
+      if (typeof TouchEventCtor === 'function') {
+        try {
+          evt = new TouchEventCtor('touchstart', { bubbles: true });
+        } catch {
+          evt = new Event('touchstart', { bubbles: true });
+        }
+      } else {
+        evt = new Event('touchstart', { bubbles: true });
+      }
+      return target.dispatchEvent(evt);
+    }
+
+    it('does not crash or emit on bare touchstart (no touchstart listener wired)', () => {
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available });
+      fixture.detectChanges();
+
+      const clickSpy = vi.fn();
+      const enterSpy = vi.fn();
+      const leaveSpy = vi.fn();
+      component.seatClick.subscribe(clickSpy);
+      component.seatMouseEnter.subscribe(enterSpy);
+      component.seatMouseLeave.subscribe(leaveSpy);
+
+      const seatEl = fixture.nativeElement.querySelector('.jets-seat') as HTMLElement;
+
+      expect(() => dispatchTouchStart(seatEl)).not.toThrow();
+
+      expect(clickSpy).not.toHaveBeenCalled();
+      expect(enterSpy).not.toHaveBeenCalled();
+      expect(leaveSpy).not.toHaveBeenCalled();
+    });
+
+    it('emits seatClick when a synthesized click follows a tap on an available seat', () => {
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available });
+      fixture.detectChanges();
+
+      const spy = vi.fn();
+      component.seatClick.subscribe(spy);
+
+      const seatEl = fixture.nativeElement.querySelector('.jets-seat') as HTMLElement;
+      dispatchTouchStart(seatEl);
+      seatEl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const payload = spy.mock.calls[0][0];
+      expect(payload.seat.number).toBe('1A');
+      expect(payload.event).toBeInstanceOf(MouseEvent);
+    });
+
+    it('does NOT emit seatClick when tap → click lands on a disabled seat', () => {
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.disabled });
+      fixture.detectChanges();
+
+      const spy = vi.fn();
+      component.seatClick.subscribe(spy);
+
+      const seatEl = fixture.nativeElement.querySelector('.jets-seat') as HTMLElement;
+      dispatchTouchStart(seatEl);
+      seatEl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
 });

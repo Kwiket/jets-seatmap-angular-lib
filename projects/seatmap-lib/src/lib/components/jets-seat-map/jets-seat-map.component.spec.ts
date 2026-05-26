@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { JetsSeatMapComponent } from './jets-seat-map.component';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
+import { resetCachedEnvironmentInfo } from '../../services/environment.service';
 import {
   IConfig,
   IDeckData,
@@ -916,6 +917,167 @@ describe('JetsSeatMapComponent', () => {
 
       component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
       expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  // ─── Touch device behaviour (tooltipOnHover) ──────────────────────────
+  //
+  // `onSeatMouseEnter` and `onSeatMouseLeave` check `getEnvironmentInfo().isTouchDevice`
+  // to decide whether `tooltipOnHover` should open/close the tooltip on hover.
+  // On touch devices, hover is suppressed because synthesized hover events are
+  // unreliable. Angular's unit-test builder forbids `vi.mock` for relative
+  // imports, so we control `isTouchDevice` via the real underlying signals
+  // (navigator.maxTouchPoints + HTMLElement.prototype.ontouchstart) and reset
+  // the cached result between scenarios.
+
+  describe('Touch device behaviour', () => {
+    let savedMaxTouchPointsDescriptor: PropertyDescriptor | undefined;
+    let savedOntouchstartDescriptor: PropertyDescriptor | undefined;
+    let hadOntouchstart = false;
+
+    async function ready() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    function applyTouchEnv(isTouchDevice: boolean): void {
+      resetCachedEnvironmentInfo();
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        configurable: true,
+        get: () => (isTouchDevice ? 5 : 0),
+      });
+
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      if (isTouchDevice) {
+        if (!Object.prototype.hasOwnProperty.call(proto, 'ontouchstart')) {
+          Object.defineProperty(proto, 'ontouchstart', {
+            value: null,
+            configurable: true,
+            writable: true,
+          });
+        }
+      } else if (Object.prototype.hasOwnProperty.call(proto, 'ontouchstart')) {
+        delete proto['ontouchstart'];
+      }
+    }
+
+    beforeEach(() => {
+      savedMaxTouchPointsDescriptor =
+        Object.getOwnPropertyDescriptor(Object.getPrototypeOf(navigator), 'maxTouchPoints') ??
+        Object.getOwnPropertyDescriptor(navigator, 'maxTouchPoints');
+
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      hadOntouchstart = Object.prototype.hasOwnProperty.call(proto, 'ontouchstart');
+      savedOntouchstartDescriptor = hadOntouchstart
+        ? Object.getOwnPropertyDescriptor(proto, 'ontouchstart')
+        : undefined;
+    });
+
+    afterEach(() => {
+      if (savedMaxTouchPointsDescriptor) {
+        Object.defineProperty(navigator, 'maxTouchPoints', savedMaxTouchPointsDescriptor);
+      }
+
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      const nowHas = Object.prototype.hasOwnProperty.call(proto, 'ontouchstart');
+      if (hadOntouchstart && !nowHas && savedOntouchstartDescriptor) {
+        Object.defineProperty(proto, 'ontouchstart', savedOntouchstartDescriptor);
+      } else if (!hadOntouchstart && nowHas) {
+        delete proto['ontouchstart'];
+      }
+
+      resetCachedEnvironmentInfo();
+    });
+
+    it('suppresses hover-open when tooltipOnHover=true on touch device', async () => {
+      applyTouchEnv(true);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      const enterSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatMouseEnter.subscribe(enterSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      expect(enterSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+    });
+
+    it('suppresses hover-close when tooltipOnHover=true on touch device', async () => {
+      applyTouchEnv(true);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      // Click path does not consult isTouchDevice — tooltip opens normally.
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+      expect(component.activeTooltip).toBeTruthy();
+
+      const leaveSpy = vi.fn();
+      const activeChangedSpy = vi.fn();
+      component.seatMouseLeave.subscribe(leaveSpy);
+      component.activeTooltipChanged.subscribe(activeChangedSpy);
+
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      expect(leaveSpy).toHaveBeenCalledTimes(1);
+      // Tooltip must remain open and no close emit on touch.
+      expect(component.activeTooltip).toBeTruthy();
+      expect(activeChangedSpy).not.toHaveBeenCalled();
+    });
+
+    it('opens/closes tooltip on hover when tooltipOnHover=true and non-touch', async () => {
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      const tooltipSpy = vi.fn();
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      expect(tooltipSpy).toHaveBeenCalledTimes(1);
+      expect(component.activeTooltip).toBeTruthy();
+
+      const closedSpy = vi.fn();
+      component.activeTooltipChanged.subscribe(closedSpy);
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      expect(component.activeTooltip).toBeNull();
+      expect(closedSpy).toHaveBeenCalledWith(null);
+    });
+
+    it('tooltipOnHover=false on touch device — click still opens, hover does not', async () => {
+      applyTouchEnv(true);
+      component.config = makeConfig({ tooltipOnHover: false });
+      await ready();
+
+      const tooltipSpy = vi.fn();
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+      expect(tooltipSpy).toHaveBeenCalledTimes(1);
+      expect(component.activeTooltip).toBeTruthy();
     });
   });
 });

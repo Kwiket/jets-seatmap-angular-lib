@@ -34,3 +34,8 @@ export function getEnvironmentInfo(): IEnvironmentInfo {
   _cached = { isFirefox, isChrome, isSafari, isEdge, isTouchDevice };
   return _cached;
 }
+
+/** @internal Reset cached environment info — for tests only. */
+export function resetCachedEnvironmentInfo(): void {
+  _cached = null;
+}
