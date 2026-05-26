@@ -56,6 +56,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: test
+    # Dependabot PRs run without access to repository secrets by GitHub's
+    # security policy, so SEATMAP_API_* would be empty and every e2e test
+    # would fail at the auth step. Skip — dep bumps don't touch the API
+    # contract, and e2e re-runs on push to main after the bump is merged.
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
