@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { applyConfigAndReady, screenshotSeatMap } from '../helpers/demo';
+import { applyConfigAndReady, hoverFirstAvailableSeat, screenshotSeatMap } from '../helpers/demo';
 
 const VARIANTS = [
   { name: 'true', value: true },
@@ -14,10 +14,9 @@ test.describe('tooltipOnHover', () => {
         builtInTooltip: true,
         tooltipOnHover: v.value,
       });
-      // Hover (not click) over an available seat. On `true` this should open
-      // the tooltip; on `false` it should not.
-      const seat = page.locator('.jets-seat--available[data-seat-number]').first();
-      await seat.hover();
+      // Hover (not click) over an interactive seat. On `true` this should
+      // open the tooltip; on `false` it should not.
+      await hoverFirstAvailableSeat(page);
       await page.waitForTimeout(250);
       await screenshotSeatMap(page, __dirname, `tooltipOnHover-${v.name}`);
     });

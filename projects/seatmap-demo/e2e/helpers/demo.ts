@@ -191,27 +191,64 @@ export async function selectSeat(page: Page, seatNumber: string): Promise<void> 
     .click({ timeout: 5_000 });
 }
 
+const INTERACTIVE_SEAT_SELECTOR =
+  '.jets-seat[data-seat-number].jets-seat--available, ' +
+  '.jets-seat[data-seat-number].jets-seat--selected, ' +
+  '.jets-seat[data-seat-number].jets-seat--preferred, ' +
+  '.jets-seat[data-seat-number].jets-seat--extra';
+
 /**
- * Click the first interactive (available/selected/preferred/extra) seat. Use
+ * Click the first interactive seat (available/selected/preferred/extra). Use
  * when the spec just needs *some* seat to open a tooltip — the exact number
  * doesn't matter.
  *
- * The wait is generous (25s) because in CI the seatmap re-renders three
- * times during applyConfigAndReady (INIT → SET FLIGHT → SET AVAILABILITY)
- * and the `.jets-seat--available` class only lands on seats after the third
- * pass settles, which can lag well past `inited`.
+ * Wait is generous (25s) to absorb the three async re-renders during
+ * applyConfigAndReady (INIT → SET FLIGHT → SET AVAILABILITY). If no
+ * interactive seat appears, dumps a status distribution to stdout to make
+ * remote diagnosis on CI tractable.
  */
 export async function clickFirstAvailableSeat(page: Page): Promise<void> {
   // Let the dev-server quiet down so the lib's async re-renders have settled.
   await page.waitForLoadState('networkidle', { timeout: 25_000 }).catch(() => {
     /* networkidle can be flaky under vite HMR; fall through to the seat wait */
   });
-  const seat = page
-    .locator('.jets-seat--available[data-seat-number]')
-    .first();
-  await seat.waitFor({ state: 'visible', timeout: 25_000 });
+  const seat = page.locator(INTERACTIVE_SEAT_SELECTOR).first();
+  try {
+    await seat.waitFor({ state: 'visible', timeout: 25_000 });
+  } catch (err) {
+    const dist = await page.evaluate(() => {
+      const seats = Array.from(document.querySelectorAll('.jets-seat[data-seat-number]'));
+      const byStatus: Record<string, number> = {};
+      for (const el of seats) {
+        const cls = (el as HTMLElement).className;
+        const m = cls.match(/jets-seat--(available|selected|preferred|extra|unavailable|disabled)/);
+        const status = m ? m[1] : 'unknown';
+        byStatus[status] = (byStatus[status] ?? 0) + 1;
+      }
+      return { total: seats.length, byStatus };
+    });
+    console.error(
+      `[clickFirstAvailableSeat] no interactive seat found. Seat status distribution: ${JSON.stringify(dist)}`,
+    );
+    throw err;
+  }
   await seat.scrollIntoViewIfNeeded();
   await seat.click({ timeout: 5_000 });
+}
+
+/**
+ * Hover (don't click) the first interactive seat. Used by tooltipOnHover-
+ * style tests where we want to inspect the hover behaviour without
+ * triggering selection.
+ */
+export async function hoverFirstAvailableSeat(page: Page): Promise<void> {
+  await page.waitForLoadState('networkidle', { timeout: 25_000 }).catch(() => {
+    /* see clickFirstAvailableSeat */
+  });
+  const seat = page.locator(INTERACTIVE_SEAT_SELECTOR).first();
+  await seat.waitFor({ state: 'visible', timeout: 25_000 });
+  await seat.scrollIntoViewIfNeeded();
+  await seat.hover({ timeout: 5_000 });
 }
 
 /**
