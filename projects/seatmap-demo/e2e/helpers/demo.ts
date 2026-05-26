@@ -195,12 +195,21 @@ export async function selectSeat(page: Page, seatNumber: string): Promise<void> 
  * Click the first interactive (available/selected/preferred/extra) seat. Use
  * when the spec just needs *some* seat to open a tooltip — the exact number
  * doesn't matter.
+ *
+ * The wait is generous (25s) because in CI the seatmap re-renders three
+ * times during applyConfigAndReady (INIT → SET FLIGHT → SET AVAILABILITY)
+ * and the `.jets-seat--available` class only lands on seats after the third
+ * pass settles, which can lag well past `inited`.
  */
 export async function clickFirstAvailableSeat(page: Page): Promise<void> {
+  // Let the dev-server quiet down so the lib's async re-renders have settled.
+  await page.waitForLoadState('networkidle', { timeout: 25_000 }).catch(() => {
+    /* networkidle can be flaky under vite HMR; fall through to the seat wait */
+  });
   const seat = page
     .locator('.jets-seat--available[data-seat-number]')
     .first();
-  await seat.waitFor({ state: 'visible', timeout: 10_000 });
+  await seat.waitFor({ state: 'visible', timeout: 25_000 });
   await seat.scrollIntoViewIfNeeded();
   await seat.click({ timeout: 5_000 });
 }
