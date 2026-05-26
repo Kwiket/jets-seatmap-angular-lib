@@ -27,7 +27,13 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
             <ng-container
               *ngComponentOutlet="
                 seatOverride;
-                inputs: { data: seat, colorTheme: colorTheme, showPrice: showPrice, scale: scale }
+                inputs: {
+                  data: seat,
+                  colorTheme: colorTheme,
+                  showPrice: showPrice,
+                  currencyOverride: currencyOverride,
+                  scale: scale,
+                }
               "
             />
           } @else {
@@ -35,6 +41,7 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
               [data]="seat"
               [colorTheme]="colorTheme"
               [showPrice]="showPrice"
+              [currencyOverride]="currencyOverride"
               [scale]="scale"
               (seatClick)="seatClick.emit($event)"
               (seatMouseEnter)="seatMouseEnter.emit($event)"
@@ -68,6 +75,7 @@ export class JetsRowComponent {
   @Input() row!: IRowData;
   @Input() colorTheme?: IColorTheme;
   @Input() showPrice = false;
+  @Input() currencyOverride?: string;
   @Input() prevRowTopOffset?: number;
   @Input() prevRowHeight = 0;
   @Input() scale = 1;

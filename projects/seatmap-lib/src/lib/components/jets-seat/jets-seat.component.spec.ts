@@ -329,6 +329,84 @@ describe('JetsSeatComponent', () => {
     });
   });
 
+  // ─── Price label ──────────────────────────────────────────────────────
+  //
+  // showPrice (driven by config.visibleSeatPriceLabels) toggles a per-seat
+  // overlay. The label renders only for available seats that carry a price.
+  // currencyOverride (config.currencySign) wins over the seat's own currency.
+
+  describe('Price label', () => {
+    it('renders price + currency when showPrice is true and seat is available with a price', () => {
+      component.data = makeSeat({
+        status: ENTITY_STATUS_MAP.available,
+        price: 42,
+        currency: 'USD',
+      });
+      component.showPrice = true;
+      fixture.detectChanges();
+
+      const priceEl = fixture.nativeElement.querySelector('.jets-seat__price');
+      expect(priceEl).toBeTruthy();
+      expect(priceEl.textContent.replace(/\s+/g, '')).toBe('USD42');
+      expect(priceEl.querySelector('.currency')?.textContent).toBe('USD');
+    });
+
+    it('does not render when showPrice is false', () => {
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available, price: 42, currency: 'USD' });
+      component.showPrice = false;
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.jets-seat__price')).toBeNull();
+    });
+
+    it('does not render when seat has no price', () => {
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available, currency: 'USD' });
+      component.showPrice = true;
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.jets-seat__price')).toBeNull();
+    });
+
+    it('does not render for non-available seats', () => {
+      component.data = makeSeat({
+        status: ENTITY_STATUS_MAP.unavailable,
+        price: 42,
+        currency: 'USD',
+      });
+      component.showPrice = true;
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.jets-seat__price')).toBeNull();
+    });
+
+    it('currencyOverride wins over seat.currency', () => {
+      component.data = makeSeat({
+        status: ENTITY_STATUS_MAP.available,
+        price: 42,
+        currency: 'USD',
+      });
+      component.showPrice = true;
+      component.currencyOverride = '€';
+      fixture.detectChanges();
+
+      const currencyEl = fixture.nativeElement.querySelector('.jets-seat__price .currency');
+      expect(currencyEl?.textContent).toBe('€');
+    });
+
+    it('falls back to empty string when neither override nor seat currency is set', () => {
+      component.data = makeSeat({
+        status: ENTITY_STATUS_MAP.available,
+        price: 42,
+        currency: undefined as unknown as string,
+      });
+      component.showPrice = true;
+      fixture.detectChanges();
+
+      const currencyEl = fixture.nativeElement.querySelector('.jets-seat__price .currency');
+      expect(currencyEl?.textContent).toBe('');
+    });
+  });
+
   // ─── Touch interactions ───────────────────────────────────────────────
   //
   // The seat element binds only (click)/(mouseenter)/(mouseleave). Mobile

@@ -99,6 +99,16 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
             {{ data.passenger.abbr }}
           </div>
         }
+        @if (showPriceLabel) {
+          <div
+            class="jets-seat__price"
+            [style.font-size.px]="priceFontSize"
+            [style.transform]="counterRotation"
+          >
+            <span class="jets-seat__price-currency currency">{{ resolvedCurrency }}</span
+            >{{ data.price }}
+          </div>
+        }
       }
       <!-- aisle/empty: no content -->
     </div>
@@ -108,8 +118,18 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 export class JetsSeatComponent implements OnChanges {
   @Input() data!: ISeatData;
   @Input() colorTheme?: IColorTheme;
-  /** @deprecated Price labels removed from render; kept for API compat. */
+  /**
+   * Toggle per-seat price overlay. Driven by `config.visibleSeatPriceLabels`
+   * from the parent map; the label renders for available seats that have a
+   * numeric `price`.
+   */
   @Input() showPrice = false;
+  /**
+   * Global currency string from `config.currencySign`. When set, overrides
+   * the per-seat `data.currency` at render time so the same map can be
+   * forced to a single currency without mutating data.
+   */
+  @Input() currencyOverride?: string;
   @Input() scale = 1;
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
@@ -171,6 +191,28 @@ export class JetsSeatComponent implements OnChanges {
    */
   get labelFontSize(): number {
     return Math.round(30 * this.scale);
+  }
+
+  get priceFontSize(): number {
+    return Math.round(22 * this.scale);
+  }
+
+  /** Whether the per-seat price overlay should render. */
+  get showPriceLabel(): boolean {
+    return (
+      this.showPrice &&
+      this.data?.type === ENTITY_TYPE_MAP.seat &&
+      this.data.status === ENTITY_STATUS_MAP.available &&
+      this.data.price != null
+    );
+  }
+
+  /** Config-level override wins over per-seat currency; empty string when neither is set. */
+  get resolvedCurrency(): string {
+    if (this.currencyOverride != null && this.currencyOverride !== '') {
+      return this.currencyOverride;
+    }
+    return this.data?.currency ?? '';
   }
 
   get showUnavailableCross(): boolean {

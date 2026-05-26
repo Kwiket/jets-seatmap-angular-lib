@@ -90,6 +90,26 @@
 .ST-48 { top: 30%; left: 36%; }
 
 
+/* Per-seat price overlay — only renders when config.visibleSeatPriceLabels is true */
+.jets-seat__price {
+  position: absolute;
+  bottom: 6%;
+  left: 0;
+  right: 0;
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  z-index: 2;
+  pointer-events: none;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.65);
+  line-height: 1;
+}
+
+.jets-seat__price-currency {
+  margin-right: 1px;
+  font-weight: 700;
+}
+
 /* Passenger badge — circular overlay on selected seat (matches React) */
 .jets-seat__passenger {
   border-radius: 50%;
