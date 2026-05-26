@@ -91,12 +91,15 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Generate demo env-config.js
+        # Intentionally do NOT pass FLIGHTS_API_URL — the e2e suite relies on
+        # the hardcoded DEMO_FLIGHTS[0] (flight.id='demo'), a fixture the
+        # sandbox API recognises. Sheet-loaded flights have IDs like 'qt888'
+        # that the sandbox doesn't know about, so seats wouldn't render.
         run: npm run generate:env
         env:
           API_URL: ${{ secrets.SEATMAP_API_URL }}
           API_APP_ID: ${{ secrets.SEATMAP_API_APP_ID }}
           API_KEY: ${{ secrets.SEATMAP_API_KEY }}
-          FLIGHTS_API_URL: ${{ secrets.SEATMAP_FLIGHTS_API_URL }}
 
       - name: Build library (consumed by demo dev-server)
         run: npm run build:lib
@@ -112,10 +115,10 @@ jobs:
         run: npm run e2e
         env:
           CI: '1'
+          # FLIGHTS_API_URL is intentionally omitted — see generate:env step.
           API_URL: ${{ secrets.SEATMAP_API_URL }}
           API_APP_ID: ${{ secrets.SEATMAP_API_APP_ID }}
           API_KEY: ${{ secrets.SEATMAP_API_KEY }}
-          FLIGHTS_API_URL: ${{ secrets.SEATMAP_FLIGHTS_API_URL }}
 
       - name: Upload Playwright HTML report
         if: always()
