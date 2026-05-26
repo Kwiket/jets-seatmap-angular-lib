@@ -56,3 +56,10 @@ Thumbs.db
 # Requirements docs
 REQUIREMENTS_RN.md
 .playwright-cli/
+
+# Playwright e2e artifacts (baselines under screenshots/ remain tracked)
+/projects/seatmap-demo/e2e/playwright-report/
+/projects/seatmap-demo/e2e/test-results/
+/playwright-report/
+/test-results/
+/playwright/.cache/
