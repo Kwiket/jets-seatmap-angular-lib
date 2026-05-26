@@ -92,14 +92,30 @@ jobs:
 
       - name: Generate demo env-config.js
         run: npm run generate:env
+        env:
+          API_URL: ${{ secrets.SEATMAP_API_URL }}
+          API_APP_ID: ${{ secrets.SEATMAP_API_APP_ID }}
+          API_KEY: ${{ secrets.SEATMAP_API_KEY }}
+          FLIGHTS_API_URL: ${{ secrets.SEATMAP_FLIGHTS_API_URL }}
 
       - name: Build library (consumed by demo dev-server)
         run: npm run build:lib
+
+      - name: Verify seatmap API secrets are present
+        run: |
+          if [ -z "${{ secrets.SEATMAP_API_URL }}" ] || [ -z "${{ secrets.SEATMAP_API_APP_ID }}" ] || [ -z "${{ secrets.SEATMAP_API_KEY }}" ]; then
+            echo "::error::SEATMAP_API_URL / SEATMAP_API_APP_ID / SEATMAP_API_KEY must be configured as repository secrets for e2e to run."
+            exit 1
+          fi
 
       - name: Run Playwright tests
         run: npm run e2e
         env:
           CI: '1'
+          API_URL: ${{ secrets.SEATMAP_API_URL }}
+          API_APP_ID: ${{ secrets.SEATMAP_API_APP_ID }}
+          API_KEY: ${{ secrets.SEATMAP_API_KEY }}
+          FLIGHTS_API_URL: ${{ secrets.SEATMAP_FLIGHTS_API_URL }}
 
       - name: Upload Playwright HTML report
         if: always()

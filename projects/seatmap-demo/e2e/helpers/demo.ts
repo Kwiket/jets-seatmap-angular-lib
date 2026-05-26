@@ -129,14 +129,36 @@ export async function clickButton(page: Page, label: string): Promise<void> {
 
 /**
  * Wait until the seatmap reports its `inited` event in the demo's event log,
- * or — as a fallback — at least one seat element appears in the DOM.
- * Whichever happens first.
+ * or — as a fallback — at least one seat element appears in the DOM. If the
+ * demo reports a `loadError` instead (e.g. API misconfigured), fail fast with
+ * a clear message rather than burning the full timeout.
+ *
+ * The base timeout is generous (25s) to absorb cold-start latency on CI
+ * (Angular dev-server warm-up, vite prebundle, first auth round-trip).
  */
-export async function waitForSeatMapReady(page: Page): Promise<void> {
-  await Promise.race([
-    page.locator('.demo-log-entry.log-inited').first().waitFor({ state: 'visible', timeout: 15_000 }),
-    page.locator('.jets-seat[data-seat-number]').first().waitFor({ state: 'visible', timeout: 15_000 }),
-  ]);
+export async function waitForSeatMapReady(page: Page, timeoutMs = 25_000): Promise<void> {
+  const inited = page
+    .locator('.demo-log-entry.log-inited')
+    .first()
+    .waitFor({ state: 'visible', timeout: timeoutMs });
+  const firstSeat = page
+    .locator('.jets-seat[data-seat-number]')
+    .first()
+    .waitFor({ state: 'visible', timeout: timeoutMs });
+  const loadError = page
+    .locator('.demo-log-entry.log-error, .jets-seat-map__error')
+    .first()
+    .waitFor({ state: 'visible', timeout: timeoutMs })
+    .then(async () => {
+      const message = await page
+        .locator('.demo-log-entry.log-error .log-msg, .jets-seat-map__error')
+        .first()
+        .innerText()
+        .catch(() => '(no error text)');
+      throw new Error(`Seatmap failed to initialize — demo reported: ${message}`);
+    });
+
+  await Promise.race([inited, firstSeat, loadError]);
   // Give Angular CD one more tick so animations/layout settle before the screenshot.
   await page.waitForTimeout(150);
 }
