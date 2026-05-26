@@ -192,10 +192,10 @@ export async function selectSeat(page: Page, seatNumber: string): Promise<void> 
 }
 
 const INTERACTIVE_SEAT_SELECTOR =
-  '.jets-seat[data-seat-number].jets-seat--available, ' +
-  '.jets-seat[data-seat-number].jets-seat--selected, ' +
-  '.jets-seat[data-seat-number].jets-seat--preferred, ' +
-  '.jets-seat[data-seat-number].jets-seat--extra';
+  '.jets-seat.jets-seat--available, ' +
+  '.jets-seat.jets-seat--selected, ' +
+  '.jets-seat.jets-seat--preferred, ' +
+  '.jets-seat.jets-seat--extra';
 
 /**
  * Click the first interactive seat (available/selected/preferred/extra). Use
@@ -217,15 +217,32 @@ export async function clickFirstAvailableSeat(page: Page): Promise<void> {
     await seat.waitFor({ state: 'visible', timeout: 25_000 });
   } catch (err) {
     const dist = await page.evaluate(() => {
-      const seats = Array.from(document.querySelectorAll('.jets-seat[data-seat-number]'));
+      const allSeats = Array.from(document.querySelectorAll('.jets-seat')) as HTMLElement[];
+      const withNumber = allSeats.filter(el => el.hasAttribute('data-seat-number'));
       const byStatus: Record<string, number> = {};
-      for (const el of seats) {
-        const cls = (el as HTMLElement).className;
-        const m = cls.match(/jets-seat--(available|selected|preferred|extra|unavailable|disabled)/);
-        const status = m ? m[1] : 'unknown';
-        byStatus[status] = (byStatus[status] ?? 0) + 1;
+      for (const el of allSeats) {
+        const cls = el.className;
+        const m = cls.match(/jets-seat--(available|selected|preferred|extra|unavailable|disabled|seat|aisle|empty)/g);
+        const tag = (m && m.join(',')) || 'no-status';
+        byStatus[tag] = (byStatus[tag] ?? 0) + 1;
       }
-      return { total: seats.length, byStatus };
+      const sample = allSeats.slice(0, 5).map(el => ({
+        class: el.className,
+        dataSeatNumber: el.getAttribute('data-seat-number'),
+      }));
+      const logEntries = Array.from(document.querySelectorAll('.demo-log-entry')).map(el => ({
+        type: el.className,
+        msg: (el.querySelector('.log-msg') as HTMLElement | null)?.innerText ?? '',
+      }));
+      const errorEl = document.querySelector('.jets-seat-map__error') as HTMLElement | null;
+      return {
+        seatTotal: allSeats.length,
+        seatsWithNumber: withNumber.length,
+        byStatus,
+        sample,
+        logEntries: logEntries.slice(0, 10),
+        errorText: errorEl?.innerText ?? null,
+      };
     });
     console.error(
       `[clickFirstAvailableSeat] no interactive seat found. Seat status distribution: ${JSON.stringify(dist)}`,
