@@ -41,4 +41,53 @@ describe('JetsBulkComponent', () => {
     expect(component.scale).toBeCloseTo(1.5);
     expect(component.topAdjust).toBe(12);
   });
+
+  // ─── flatBulks — pseudo-3D vs single-color rendering ──────────────────
+  //
+  // Default (flatBulks=false): the bulk SVG keeps two distinct fills —
+  // bulkBaseColor for the larger lower body and bulkCutColor for the thin
+  // top strip — producing the pseudo-3D illusion.
+  //
+  // flatBulks=true: both halves are painted with bulkCutColor, so the
+  // visible split disappears while the outer contour stays the same.
+
+  describe('flatBulks', () => {
+    const SAMPLE_BULK = {
+      id: '1',
+      type: 1,
+      width: 100,
+      height: 30,
+      topOffset: 0,
+      align: 'left' as const,
+    };
+
+    it('default renders both base and cut colors', () => {
+      component.bulks = [SAMPLE_BULK];
+      component.colorTheme = { bulkBaseColor: '#111111', bulkCutColor: '#eeeeee' };
+      component.ngOnChanges();
+      fixture.detectChanges();
+
+      const svg = fixture.nativeElement.querySelector('.jets-bulk__icon')?.innerHTML ?? '';
+      expect(svg).toContain('#111111');
+      expect(svg).toContain('#eeeeee');
+    });
+
+    it('flatBulks=true paints both halves with the cut color', () => {
+      component.bulks = [SAMPLE_BULK];
+      component.colorTheme = { bulkBaseColor: '#111111', bulkCutColor: '#eeeeee' };
+      component.flatBulks = true;
+      component.ngOnChanges();
+      fixture.detectChanges();
+
+      const svg = fixture.nativeElement.querySelector('.jets-bulk__icon')?.innerHTML ?? '';
+      expect(svg).not.toContain('#111111');
+      // Both bulk-base and bulk-cut paths should now use cutColor.
+      const matches = svg.match(/#eeeeee/gi) ?? [];
+      expect(matches.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('flatBulks defaults to false', () => {
+      expect(component.flatBulks).toBe(false);
+    });
+  });
 });

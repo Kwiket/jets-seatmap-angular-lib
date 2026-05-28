@@ -44,6 +44,7 @@ export const BASE_CONFIG: Omit<IConfig, 'width'> = {
   singleDeckMode: true,
   visibleFuselage: true,
   visibleSeatPriceLabels: true,
+  flatBulks: false,
   colorTheme: CABIN_THEME,
 };
 

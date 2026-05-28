@@ -166,6 +166,12 @@ export interface IConfig {
   singleDeckMode?: boolean;
   tooltipOnHover?: boolean;
   visibleSeatPriceLabels?: boolean;
+  /**
+   * When true, cabin partitions (bulks) render flat — both halves of the
+   * SVG (base body and top cap) use `bulkCutColor`, hiding the pseudo-3D
+   * upper/lower split. Default false keeps the existing two-tone look.
+   */
+  flatBulks?: boolean;
   currencySign?: string;
   externalPassengerManagement?: boolean;
   scaleType?: TScaleType;

@@ -63,6 +63,7 @@ interface ICabinSection {
           <sm-jets-bulk
             [bulks]="deck.extras!.bulks!"
             [colorTheme]="colorTheme"
+            [flatBulks]="flatBulks"
             [scale]="scale"
             [topAdjust]="overlayTopOffset"
           />
@@ -211,6 +212,7 @@ export class JetsDeckComponent {
   @Input() colorTheme?: IColorTheme;
   @Input() showPrice = false;
   @Input() currencyOverride?: string;
+  @Input() flatBulks = false;
   @Input() bodyWidth = 350;
   @Input() fuselageWidth = 350;
   @Input() visibleCabinTitles = true;

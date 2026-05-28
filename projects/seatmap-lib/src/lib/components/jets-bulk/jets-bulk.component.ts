@@ -149,6 +149,12 @@ const BULK_BASE_RATIO: Record<string, number> = {
 export class JetsBulkComponent implements OnChanges {
   @Input() bulks: IBulkData[] = [];
   @Input() colorTheme?: IColorTheme;
+  /**
+   * When true, paints both SVG halves of every bulk with `bulkCutColor`,
+   * collapsing the pseudo-3D base/cut split into a single uniform fill.
+   * The outer contour is preserved.
+   */
+  @Input() flatBulks = false;
   @Input() scale = 1;
   /** Extra vertical offset in px to align absolute positioning with flow-positioned rows. */
   @Input() topAdjust = 0;
@@ -235,9 +241,11 @@ export class JetsBulkComponent implements OnChanges {
 
   private _resolveBulkStyle(): IBulkStyle {
     const theme = this.colorTheme ?? {};
+    const cutColor = theme.bulkCutColor ?? DEFAULT_COLOR_THEME.bulkCutColor;
+    const baseColor = theme.bulkBaseColor ?? DEFAULT_COLOR_THEME.bulkBaseColor;
     return {
-      baseColor: theme.bulkBaseColor ?? DEFAULT_COLOR_THEME.bulkBaseColor,
-      cutColor: theme.bulkCutColor ?? DEFAULT_COLOR_THEME.bulkCutColor,
+      baseColor: this.flatBulks ? cutColor : baseColor,
+      cutColor,
       stickerColor: theme.bulkIconColor ?? DEFAULT_COLOR_THEME.bulkIconColor,
       bulkFloorIconColor: theme.bulkFloorIconColor ?? DEFAULT_COLOR_THEME.bulkFloorIconColor,
     };
