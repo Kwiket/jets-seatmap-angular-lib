@@ -147,6 +147,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       visibleFuselage: this.config?.visibleFuselage ?? true,
       visibleSeatPriceLabels: this.config?.visibleSeatPriceLabels ?? false,
       flatBulks: this.config?.flatBulks ?? false,
+      colorfulSeatsByClass: this.config?.colorfulSeatsByClass ?? false,
       scaleType,
     };
   }

@@ -18,6 +18,7 @@ import {
   DEFAULT_SEAT_TYPE,
 } from '../../constants';
 import { seatTemplateService, ISeatStyle } from '../../services/seat-template.service';
+import { tintSeatColorForClass } from '../../utils/color-tint';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
@@ -130,6 +131,11 @@ export class JetsSeatComponent implements OnChanges {
    * forced to a single currency without mutating data.
    */
   @Input() currencyOverride?: string;
+  /**
+   * Tint `available` seats by cabin class so different cabins are visually
+   * distinguishable. Driven by `config.colorfulSeatsByClass`. Default false.
+   */
+  @Input() colorfulSeatsByClass = false;
   @Input() scale = 1;
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
@@ -396,8 +402,8 @@ export class JetsSeatComponent implements OnChanges {
   }
 
   private _buildSvg(): string {
-    const style = this._resolveStyle();
     const classType = this.data.classType ?? 'E';
+    const style = this._resolveStyle(classType);
     const iconType = this.data.seatIconType ?? DEFAULT_SEAT_TYPE;
     const seatKey = `${classType}-${iconType}`;
     let svg = seatTemplateService.getSeatIcon(seatKey, style);
@@ -430,7 +436,7 @@ export class JetsSeatComponent implements OnChanges {
     return svg;
   }
 
-  private _resolveStyle(): ISeatStyle {
+  private _resolveStyle(classType: string = this.data.classType ?? 'E'): ISeatStyle {
     const theme = this.colorTheme ?? {};
     const def = DEFAULT_COLOR_THEME;
 
@@ -438,11 +444,16 @@ export class JetsSeatComponent implements OnChanges {
 
     let fillColor: string;
     switch (this.data.status) {
-      case 'available':
-        fillColor = force
+      case 'available': {
+        let base = force
           ? (theme.seatAvailableColor ?? def.seatAvailableColor)
           : (this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor);
+        if (this.colorfulSeatsByClass) {
+          base = tintSeatColorForClass(base, classType, theme.seatClassTints);
+        }
+        fillColor = base;
         break;
+      }
       case 'selected':
         fillColor = theme.seatSelectedStrokeColor
           ? force

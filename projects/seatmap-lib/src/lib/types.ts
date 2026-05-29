@@ -124,6 +124,12 @@ export interface IColorTheme {
   exitIconUrlRight?: string;
   // Score-based seat coloring
   customSeatColorRanges?: Array<{ range: [number, number]; color: string }>;
+  /**
+   * Optional per-class override palette used when `colorfulSeatsByClass`
+   * is enabled in IConfig. If a key is present for a cabin class, the
+   * algorithmic HSL tint is skipped and this colour wins.
+   */
+  seatClassTints?: Partial<Record<TCabinClass, string>>;
   /** When true, theme seat colors override API-provided per-seat colors */
   forceThemeSeatColors?: boolean;
 }
@@ -172,6 +178,12 @@ export interface IConfig {
    * upper/lower split. Default false keeps the existing two-tone look.
    */
   flatBulks?: boolean;
+  /**
+   * When true, `available` seats are tinted by cabin class so the
+   * boundaries between F / B / P / E are visible. The tint is applied
+   * on top of any score-based or API colour. Default false.
+   */
+  colorfulSeatsByClass?: boolean;
   currencySign?: string;
   externalPassengerManagement?: boolean;
   scaleType?: TScaleType;
