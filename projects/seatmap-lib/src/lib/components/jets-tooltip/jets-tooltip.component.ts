@@ -34,7 +34,8 @@ import {
             showPrice: showPrice,
             colorTheme: colorTheme,
             sidePanel: sidePanel,
-            rightToLeft: rightToLeft
+            rightToLeft: rightToLeft,
+            hiddenSeatFeatures: hiddenSeatFeatures
           }
         "
       />
@@ -185,6 +186,11 @@ export class JetsTooltipComponent {
   @Input() sidePanel = false;
   @Input() showActions = true;
   @Input() rightToLeft = false;
+  /**
+   * Feature keys (e.g. 'nearGalley', 'audioVideo') to omit from the tooltip's
+   * amenities/dimensions lists. Mirrors React's `params.hiddenSeatFeatures`.
+   */
+  @Input() hiddenSeatFeatures: string[] = [];
   @Output() select = new EventEmitter<ISeatData>();
   @Output() unselect = new EventEmitter<ISeatData>();
   @Output() close = new EventEmitter<void>();
@@ -199,12 +205,20 @@ export class JetsTooltipComponent {
 
   /** Features that have a numeric/text value (pitch, width, recline) */
   get dimensions(): ISeatFeature[] {
-    return (this.data.seat.features || []).filter(f => f.value != null);
+    return (this.data.seat.features || []).filter(
+      f => f.value != null && !this.isFeatureHidden(f),
+    );
   }
 
   /** Features that are amenities (icon-based, no numeric value) */
   get amenities(): ISeatFeature[] {
-    return (this.data.seat.features || []).filter(f => f.value == null);
+    return (this.data.seat.features || []).filter(
+      f => f.value == null && !this.isFeatureHidden(f),
+    );
+  }
+
+  private isFeatureHidden(f: ISeatFeature): boolean {
+    return !!f.key && this.hiddenSeatFeatures.includes(f.key);
   }
 
   getClassType(): string {
