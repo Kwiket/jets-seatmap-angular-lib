@@ -279,6 +279,15 @@ describe('JetsSeatMapPreparerService', () => {
       expect(JetsSeatMapPreparerService._calculateSeatColorByScore(3, ranges)).toBe('#FF0000');
       expect(JetsSeatMapPreparerService._calculateSeatColorByScore(10, ranges)).toBe('#00FF00');
     });
+
+    it('returns null when the score gate is off, even with valid score and ranges', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges, false)).toBeNull();
+    });
+
+    it('defaults the score gate to enabled', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges)).toBe('#FFFF00');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges, true)).toBe('#FFFF00');
+    });
   });
 
   // ─── mergeColorThemeWithConstraints (static) ──────────────────────────────

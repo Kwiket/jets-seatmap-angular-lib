@@ -46,6 +46,7 @@ export const BASE_CONFIG: Omit<IConfig, 'width'> = {
   visibleSeatPriceLabels: true,
   flatBulks: false,
   colorfulSeatsByClass: false,
+  colorfulSeatsByScore: true,
   colorTheme: CABIN_THEME,
 };
 

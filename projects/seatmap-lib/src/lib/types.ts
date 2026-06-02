@@ -184,6 +184,14 @@ export interface IConfig {
    * on top of any score-based or API colour. Default false.
    */
   colorfulSeatsByClass?: boolean;
+  /**
+   * Gate the `IColorTheme.customSeatColorRanges` score-based seat
+   * colouring. Default true keeps the legacy behaviour — when the theme
+   * provides ranges and a seat has a `score`, the seat picks up the
+   * matched colour. Set false to ignore ranges and fall back to
+   * `seatAvailableColor` (so only `colorfulSeatsByClass` remains).
+   */
+  colorfulSeatsByScore?: boolean;
   currencySign?: string;
   externalPassengerManagement?: boolean;
   scaleType?: TScaleType;
