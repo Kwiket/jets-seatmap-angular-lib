@@ -163,6 +163,7 @@ export class JetsSeatMapPreparerService {
         config.colorTheme,
         flightAmenities,
         config.units,
+        config.colorfulSeatsByScore ?? true,
       );
       if (classChanged) rendered.cabinClassCode = cabinClass.toUpperCase();
       // Always propagate cabinClassCode for cabin filtering
@@ -208,6 +209,7 @@ export class JetsSeatMapPreparerService {
     colorTheme?: import('../types').IColorTheme,
     flightAmenities: ISeatFeature[] = [],
     units?: string,
+    colorfulSeatsByScore = true,
   ): IRowData {
     const seats = row.seats ?? [];
     // Row-level seatType fallback (matches React's _rowSeatType)
@@ -288,6 +290,7 @@ export class JetsSeatMapPreparerService {
         JetsSeatMapPreparerService._calculateSeatColorByScore(
           s.score,
           colorTheme?.customSeatColorRanges,
+          colorfulSeatsByScore,
         ) ??
         undefined;
 
@@ -734,6 +737,7 @@ export class JetsSeatMapPreparerService {
         JetsSeatMapPreparerService._calculateSeatColorByScore(
           seatScore,
           config.colorTheme?.customSeatColorRanges,
+          config.colorfulSeatsByScore ?? true,
         ) ??
         undefined;
 
@@ -1139,8 +1143,10 @@ export class JetsSeatMapPreparerService {
   static _calculateSeatColorByScore(
     score: number | undefined,
     colorRanges?: Array<{ range: [number, number]; color: string }>,
+    enabled = true,
   ): string | null {
     if (
+      !enabled ||
       typeof score !== 'number' ||
       score < 1 ||
       score > 10 ||
