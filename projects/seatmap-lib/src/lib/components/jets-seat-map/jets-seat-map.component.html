@@ -10,7 +10,6 @@
     [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
     [style.transform]="mapTransform || null"
     [style.transform-origin]="mapTransformOrigin || null"
-    [style.direction]="mapDirection || null"
     (click)="onMapClick($event)"
   >
     <!-- Built-in tooltip (or user-provided override) -->
@@ -24,7 +23,8 @@
               isSelectAvailable: isSelectAvailable,
               showActions: hasAvailability,
               showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
-              colorTheme: resolvedConfig.colorTheme
+              colorTheme: resolvedConfig.colorTheme,
+              rightToLeft: resolvedConfig.rightToLeft ?? false
             }
           "
         />
@@ -34,6 +34,7 @@
           [isSelectAvailable]="isSelectAvailable"
           [showActions]="hasAvailability"
           [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
+          [rightToLeft]="resolvedConfig.rightToLeft ?? false"
           [viewOverride]="tooltipViewOverride"
           (select)="onTooltipSelect($event)"
           (unselect)="onTooltipUnselect($event)"
