@@ -118,6 +118,11 @@ export async function setAvailability(page: Page, items?: unknown[]): Promise<vo
     await writeRaw(page, 'availability', JSON.stringify(items, null, 2));
   }
   await clickControl(page, 'availability');
+  // SET AVAILABILITY updates a signal — Angular re-renders the seatmap on the
+  // next change-detection tick, but waitForSeatMapReady's race resolves
+  // immediately on the already-visible seat element. A short sleep lets the
+  // pill DOM land before the caller takes a screenshot.
+  await page.waitForTimeout(500);
 }
 
 export async function setPassengers(page: Page, list?: unknown[]): Promise<void> {
@@ -283,6 +288,13 @@ export async function applyConfigAndReady(
 ): Promise<void> {
   await setConfig(page, overrides);
   await setFlight(page);
+  // SET FLIGHT kicks off an async map fetch. If SET AVAILABILITY clicks
+  // before that fetch resolves, the map renders without applying the new
+  // availability override (signals collide with mid-flight data). Wait for
+  // the post-flight render to land before pushing availability.
+  if (opts.availability !== undefined) {
+    await waitForSeatMapReady(page);
+  }
   await setAvailability(page, opts.availability);
   await waitForSeatMapReady(page);
 }
