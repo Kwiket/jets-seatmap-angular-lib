@@ -1,8 +1,10 @@
 # rightToLeft
 
-Mirrors the seatmap horizontally for RTL locales.
+Enables RTL adjustments for RTL locales. The seat layout itself is not
+mirrored — only tooltip text direction and horizontal-mode orientation
+change.
 
-| name  | value | expected                                |
-|-------|-------|-----------------------------------------|
-| true  | true  | Row direction reversed; aisle on right. |
-| false | false | Default LTR layout.                     |
+| name  | value | expected                                                                 |
+|-------|-------|--------------------------------------------------------------------------|
+| true  | true  | Seat layout unchanged; tooltip header/features use `direction: rtl`.     |
+| false | false | Default LTR layout.                                                      |

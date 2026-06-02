@@ -280,11 +280,16 @@ describe('JetsSeatMapComponent', () => {
       expect(component.mapTransform).toContain('rotate(90deg)');
     });
 
-    it('should apply RTL direction when config.rightToLeft is true', () => {
+    it('should not mirror seat layout when config.rightToLeft is true', () => {
       component.config = makeConfig({ rightToLeft: true });
       fixture.detectChanges();
 
-      expect(component.mapDirection).toBe('rtl');
+      // RTL should NOT apply CSS direction to the container — that would
+      // flip the row order and mirror seat labels. RTL affects only tooltip
+      // text and horizontal-mode orientation.
+      const containerEl = fixture.nativeElement.querySelector('.jets-seat-map');
+      expect(containerEl?.style?.direction || '').toBe('');
+      expect(component.resolvedConfig.rightToLeft).toBe(true);
     });
 
     it('should default builtInTooltip to true', () => {

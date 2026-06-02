@@ -33,7 +33,8 @@ import {
             showActions: showActions,
             showPrice: showPrice,
             colorTheme: colorTheme,
-            sidePanel: sidePanel
+            sidePanel: sidePanel,
+            rightToLeft: rightToLeft
           }
         "
       />
@@ -48,7 +49,7 @@ import {
       <div class="jets-tooltip--body">
         <div class="jets-tooltip--content">
           <!-- Header -->
-          <div class="jets-tooltip--header">
+          <div class="jets-tooltip--header" [style.direction]="textDirection">
             <div class="jets-tooltip--header-title">
               <span
                 >{{ data.seat.name || data.seat.rowName || getClassType() }}
@@ -96,7 +97,7 @@ import {
 
           <!-- Amenities list -->
           @if (amenities.length) {
-            <div class="jets-tooltip--amenities">
+            <div class="jets-tooltip--amenities" [style.direction]="textDirection">
               @for (amenity of amenities; track amenity.title) {
                 <div
                   class="jets-tooltip--amenity"
@@ -183,12 +184,17 @@ export class JetsTooltipComponent {
   @Input() colorTheme?: IColorTheme;
   @Input() sidePanel = false;
   @Input() showActions = true;
+  @Input() rightToLeft = false;
   @Output() select = new EventEmitter<ISeatData>();
   @Output() unselect = new EventEmitter<ISeatData>();
   @Output() close = new EventEmitter<void>();
 
   get locale(): Record<string, string> {
     return LOCALES_MAP[this.data?.lang] || LOCALES_MAP['EN'];
+  }
+
+  get textDirection(): 'rtl' | 'ltr' {
+    return this.rightToLeft ? 'rtl' : 'ltr';
   }
 
   /** Features that have a numeric/text value (pitch, width, recline) */

@@ -167,11 +167,6 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     return this.resolvedConfig.horizontal ? 'top left' : '';
   }
 
-  /** CSS direction for RTL support */
-  get mapDirection(): string {
-    return this.resolvedConfig.rightToLeft ? 'rtl' : '';
-  }
-
   get lang(): string {
     return this.resolvedConfig.lang || DEFAULT_LANG;
   }
