@@ -146,9 +146,11 @@ export class JetsSeatMapPreparerService {
 
       const classChanged = cabinClass && cabinClass !== lastCabinClass;
 
-      // Use localized cabin class label (matches React: always "Business class" etc.)
+      // Use localized cabin class label (matches React: always "Business class" etc.).
+      // `config.customCabinTitles[code]` lets callers override per cabin code.
       const cabinTitle = classChanged
-        ? this._resolveCabinLabel(cabinClass, config.lang)
+        ? (config.customCabinTitles?.[cabinClass.toUpperCase()] ??
+           this._resolveCabinLabel(cabinClass, config.lang))
         : undefined;
 
       if (cabinClass) lastCabinClass = cabinClass;
@@ -595,9 +597,11 @@ export class JetsSeatMapPreparerService {
 
       const classChanged = cabinClass && cabinClass !== lastCabinClass;
 
-      // Use localized cabin class label (matches React: always "Business class" etc.)
+      // Use localized cabin class label (matches React: always "Business class" etc.).
+      // `config.customCabinTitles[code]` lets callers override per cabin code.
       const cabinTitle = classChanged
-        ? this._resolveCabinLabel(cabinClass, config.lang)
+        ? (config.customCabinTitles?.[cabinClass.toUpperCase()] ??
+           this._resolveCabinLabel(cabinClass, config.lang))
         : undefined;
 
       if (cabinClass) lastCabinClass = cabinClass;
