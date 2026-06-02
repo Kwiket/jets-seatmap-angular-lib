@@ -114,6 +114,13 @@
   z-index: 12;
 }
 
+/* pointer-events is not inherited — without this, the inner <strong>/<span>
+   default to `auto` and block clicks on whatever sits beneath the pill
+   (Playwright's "subtree intercepts pointer events" failure). */
+.jets-seat__price * {
+  pointer-events: none;
+}
+
 .jets-seat__price .currency {
   position: absolute;
   top: calc(11px * var(--s));
