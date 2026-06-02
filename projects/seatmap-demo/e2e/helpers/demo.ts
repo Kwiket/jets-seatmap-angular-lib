@@ -190,6 +190,41 @@ export async function screenshotSeatMap(
 }
 
 /**
+ * Crop a screenshot to the bounding box of an arbitrary number of consecutive
+ * rows. Useful for verifying small overlays (like price pills) that get
+ * lost in the full-deck screenshot.
+ */
+export async function screenshotRows(
+  page: Page,
+  specDir: string,
+  fileName: string,
+  fromIndex: number,
+  count: number,
+): Promise<string> {
+  const safe = fileName.replace(/[^\w.\-]+/g, '_');
+  const outPath = path.join(specDir, 'screenshots', `${safe}.png`);
+  const rows = page.locator('.jets-row');
+  const total = await rows.count();
+  const end = Math.min(total, fromIndex + count);
+  if (end <= fromIndex) throw new Error(`No rows in range ${fromIndex}..${end - 1}`);
+
+  const first = await rows.nth(fromIndex).boundingBox();
+  const last = await rows.nth(end - 1).boundingBox();
+  if (!first || !last) throw new Error('Failed to read row bounding boxes');
+
+  // Widen horizontally so the pills sitting above (top: -45px) are captured.
+  const pad = 60;
+  const clip = {
+    x: Math.max(0, Math.min(first.x, last.x) - pad),
+    y: Math.max(0, first.y - pad),
+    width: Math.max(first.width, last.width) + pad * 2,
+    height: last.y + last.height - first.y + pad * 2,
+  };
+  await page.screenshot({ path: outPath, clip, fullPage: true });
+  return outPath;
+}
+
+/**
  * Click a seat by its visible number (e.g. "20A"). Used by tooltip-related tests.
  * Times out after 5s to fail fast instead of locking up the test.
  */
