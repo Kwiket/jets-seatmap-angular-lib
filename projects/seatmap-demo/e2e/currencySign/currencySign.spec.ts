@@ -9,8 +9,10 @@ const VARIANTS = [
 ] as const;
 
 // Availability is required so seats carry a `price` and the pill renders.
-// Without it currencySign has nothing to show on the screenshot.
-const AVAILABILITY = [{ label: '*', price: 29, currency: 'USD' }];
+// Without it currencySign has nothing to show on the screenshot. The
+// currencySign config field overrides the per-seat currency, so the
+// availability value here only matters for the price (29).
+const AVAILABILITY = [{ label: '*', price: 29, currency: '$' }];
 
 test.describe('currencySign', () => {
   for (const v of VARIANTS) {

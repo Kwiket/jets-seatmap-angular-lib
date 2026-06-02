@@ -8,8 +8,10 @@ const VARIANTS = [
 
 // Availability covers every seat with a fixed price so the pill renders
 // for the `true` variant. Without it `data.price` is undefined and the
-// pill is suppressed regardless of the flag.
-const AVAILABILITY = [{ label: '*', price: 29, currency: 'USD' }];
+// pill is suppressed regardless of the flag. The currency symbol uses
+// '$' (single char) — React's SeatPriceLabel takes the first character
+// of the currency string, so multi-char codes ('USD') would render 'U'.
+const AVAILABILITY = [{ label: '*', price: 29, currency: '$' }];
 
 test.describe('visibleSeatPriceLabels', () => {
   for (const v of VARIANTS) {
