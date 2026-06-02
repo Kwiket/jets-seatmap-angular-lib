@@ -90,11 +90,14 @@ export class JetsSeatMapApiService {
         const classCode = id.split(':').pop()?.toUpperCase();
         if (!classCode || classCode === id.toUpperCase()) continue;
 
-        // Merge flight-level amenities from any cabin object (they're consistent across classes)
-        if (!response.entertainment && item.entertainment)
+        // Merge flight-level amenities: prefer the first per-class entry where `exists` is
+        // truthy, since some classes carry placeholder `{exists: null}` (e.g. First class
+        // on a route where only Business/Premium/Economy have power) that would otherwise
+        // shadow the real availability from a later class.
+        if (!response.entertainment?.exists && item.entertainment?.exists)
           response.entertainment = item.entertainment;
-        if (!response.wifi && item.wifi) response.wifi = item.wifi;
-        if (!response.power && item.power) response.power = item.power;
+        if (!response.wifi?.exists && item.wifi?.exists) response.wifi = item.wifi;
+        if (!response.power?.exists && item.power?.exists) response.power = item.power;
 
         // Store per-class cabin measurements
         if (item.cabin) {

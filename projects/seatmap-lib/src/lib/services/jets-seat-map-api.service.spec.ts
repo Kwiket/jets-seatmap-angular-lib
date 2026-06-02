@@ -194,6 +194,44 @@ describe('JetsSeatMapApiService', () => {
     expect(response.wifi).toMatchObject({ exists: true });
   });
 
+  it('should skip placeholder amenities (exists: null) when merging across classes', async () => {
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig());
+    await Promise.resolve();
+    await Promise.resolve();
+    const req = httpMock.expectOne(URL);
+
+    req.flush([
+      { id: 'plane', decks: [{ rows: [] }] },
+      {
+        id: 'plane:F',
+        cabin: { pitch: 50 },
+        power: { summary: 'n/a', exists: null },
+        entertainment: { exists: true, summary: 'Free on demand entertainment' },
+        wifi: { exists: true, summary: 'Wi-Fi enabled' },
+      },
+      {
+        id: 'plane:B',
+        cabin: { pitch: 38 },
+        power: {
+          summary: 'Power available: AC/USB',
+          exists: true,
+          type: 'AC/USB',
+          powerOutlet: true,
+          usbPort: true,
+        },
+      },
+    ]);
+
+    const response = await pending;
+    expect(response.power).toMatchObject({
+      exists: true,
+      powerOutlet: true,
+      usbPort: true,
+    });
+    expect(response.entertainment).toMatchObject({ exists: true });
+    expect(response.wifi).toMatchObject({ exists: true });
+  });
+
   it('should strip undefined/empty fields from the flight payload', async () => {
     const flight = makeFlightRequest({
       passengerType: undefined,
