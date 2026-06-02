@@ -75,9 +75,13 @@ async function writeRaw(page: Page, key: ControlKey, raw: string): Promise<void>
 }
 
 async function clickControl(page: Page, key: ControlKey): Promise<void> {
+  // `force: true` bypasses Playwright's actionability check that fails with
+  // "subtree intercepts pointer events" when, e.g. in horizontal mode the
+  // rotated seatmap visually overlaps the demo control bar. The button is
+  // still located and the click event is dispatched normally.
   await page
     .getByRole('button', { name: CONTROL_LABELS[key], exact: true })
-    .click();
+    .click({ force: true });
 }
 
 /**
