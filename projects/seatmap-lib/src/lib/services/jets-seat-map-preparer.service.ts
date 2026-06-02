@@ -436,24 +436,32 @@ export class JetsSeatMapPreparerService {
 
     // Amenities — descriptive titles matching React component style
     if (has(f.audioVideo))
-      features.push({ title: 'Free on demand entertainment', icon: 'audioVideo' });
+      features.push({ title: 'Free on demand entertainment', icon: 'audioVideo', key: 'audioVideo' });
 
     // Combine power + USB into single amenity when both present
     const hasPower = has(f.powerOutlet);
     const hasUsb = has(f.usbPort);
     if (hasPower && hasUsb) {
-      features.push({ title: 'Power available: AC/USB', icon: 'power' });
+      features.push({ title: 'Power available: AC/USB', icon: 'power', key: 'powerOutlet' });
     } else if (hasPower) {
-      features.push({ title: 'Power outlet', icon: 'power' });
+      features.push({ title: 'Power outlet', icon: 'power', key: 'powerOutlet' });
     } else if (hasUsb) {
-      features.push({ title: 'USB charging', icon: 'usb' });
+      features.push({ title: 'USB charging', icon: 'usb', key: 'usbPort' });
     }
 
-    if (has(f.wifiEnabled)) features.push({ title: 'Wi-Fi enabled', icon: 'wifi' });
-    if (has(f.bluetooth)) features.push({ title: 'Bluetooth', icon: 'bluetooth' });
-    if (has(f.extraLegroom)) features.push({ title: 'Extra legroom' });
+    if (has(f.wifiEnabled))
+      features.push({ title: 'Wi-Fi enabled', icon: 'wifi', key: 'wifiEnabled' });
+    if (has(f.bluetooth))
+      features.push({ title: 'Bluetooth', icon: 'bluetooth', key: 'bluetooth' });
+    if (has(f.extraLegroom))
+      features.push({ title: 'Extra legroom', key: 'extraLegroom' });
     if (has(f.restrictedLegroom))
-      features.push({ title: 'Restricted legroom', icon: 'negative', negative: true });
+      features.push({
+        title: 'Restricted legroom',
+        icon: 'negative',
+        negative: true,
+        key: 'restrictedLegroom',
+      });
 
     // Negative/warning amenities
     if (has(f.nearGalley))
@@ -461,60 +469,70 @@ export class JetsSeatMapPreparerService {
         title: locale['nearGalley'] ?? 'Close to galleys',
         icon: 'negative',
         negative: true,
+        key: 'nearGalley',
       });
     if (has(f.nearLavatory))
       features.push({
         title: locale['nearLavatory'] ?? 'Close to restrooms',
         icon: 'negative',
         negative: true,
+        key: 'nearLavatory',
       });
     if (has((f as any)['nearStairs']))
       features.push({
         title: locale['nearStairs'] ?? 'Stairs, heavy traffic area',
         icon: 'negative',
         negative: true,
+        key: 'nearStairs',
       });
     if (has(f.noFloorStorage))
       features.push({
         title: locale['noFloorStorage'] ?? 'No underseat storage',
         icon: 'negative',
         negative: true,
+        key: 'noFloorStorage',
       });
     if (has((f as any)['noOverheadStorage']))
       features.push({
         title: locale['noOverheadStorage'] ?? 'Limited storage space',
         icon: 'negative',
         negative: true,
+        key: 'noOverheadStorage',
       });
     if (has(f.getColdByExit))
       features.push({
         title: locale['getColdByExit'] ?? 'Close to exit, drafts and chilly',
         icon: 'negative',
         negative: true,
+        key: 'getColdByExit',
       });
     if (has(f.misalignedWindow))
       features.push({
         title: locale['misalignedWindow'] ?? 'Partial or no window view',
         icon: 'negative',
         negative: true,
+        key: 'misalignedWindow',
       });
     if (has(f.wingInWindow))
       features.push({
         title: locale['wingInWindow'] ?? 'Wing view from window',
         icon: 'negative',
         negative: true,
+        key: 'wingInWindow',
       });
     if (has(f.limitedRecline))
       features.push({
         title: locale['limitedRecline'] ?? 'Restricted recline',
         icon: 'negative',
         negative: true,
+        key: 'limitedRecline',
       });
     if (has(f.trayTableInArmrest))
       features.push({
         title: locale['trayTableInArmrest'] ?? 'Tray table in armrest',
         icon: 'negative',
         negative: true,
+        key: 'trayTableInArmrest',
       });
 
     return { features, measurements };
@@ -841,6 +859,7 @@ export class JetsSeatMapPreparerService {
         features.push({
           title: locale['entertainment'] ?? 'Free on demand entertainment',
           icon: 'audioVideo',
+          key: 'audioVideo',
         });
       }
 
@@ -848,31 +867,56 @@ export class JetsSeatMapPreparerService {
       const hasPower = has(nf.powerOutlet);
       const hasUsb = has(nf.usbPort);
       if (hasPower && hasUsb) {
-        features.push({ title: locale['powerAcUsb'] ?? 'Power available: AC/USB', icon: 'power' });
+        features.push({
+          title: locale['powerAcUsb'] ?? 'Power available: AC/USB',
+          icon: 'power',
+          key: 'powerOutlet',
+        });
       } else if (hasPower) {
-        features.push({ title: locale['powerOutletOnly'] ?? 'Power outlet', icon: 'power' });
+        features.push({
+          title: locale['powerOutletOnly'] ?? 'Power outlet',
+          icon: 'power',
+          key: 'powerOutlet',
+        });
       } else if (hasUsb) {
-        features.push({ title: locale['usbOnly'] ?? 'USB charging', icon: 'usb' });
+        features.push({ title: locale['usbOnly'] ?? 'USB charging', icon: 'usb', key: 'usbPort' });
       }
 
       if (has(nf.wifiEnabled)) {
-        features.push({ title: locale['wifiEnabled'] ?? 'Wi-Fi enabled', icon: 'wifi' });
+        features.push({
+          title: locale['wifiEnabled'] ?? 'Wi-Fi enabled',
+          icon: 'wifi',
+          key: 'wifiEnabled',
+        });
       }
       if (has(nf.bluetooth)) {
-        features.push({ title: locale['bluetooth'] ?? 'Bluetooth', icon: 'bluetooth' });
+        features.push({
+          title: locale['bluetooth'] ?? 'Bluetooth',
+          icon: 'bluetooth',
+          key: 'bluetooth',
+        });
       }
 
       if (has(nf.extraLegroom)) {
         features.push({
           title: locale['extra_legroom'] ?? 'Extra legroom',
           negative: isNeg(nf.extraLegroom),
+          key: 'extraLegroom',
         });
       }
       if (has(nf.exitRow)) {
-        features.push({ title: locale['exitRow'] ?? 'Exit row', negative: isNeg(nf.exitRow) });
+        features.push({
+          title: locale['exitRow'] ?? 'Exit row',
+          negative: isNeg(nf.exitRow),
+          key: 'exitRow',
+        });
       }
       if (has(nf.bassinet)) {
-        features.push({ title: locale['bassinet'] ?? 'Bassinet', negative: isNeg(nf.bassinet) });
+        features.push({
+          title: locale['bassinet'] ?? 'Bassinet',
+          negative: isNeg(nf.bassinet),
+          key: 'bassinet',
+        });
       }
 
       // Negative/warning amenities
@@ -881,6 +925,7 @@ export class JetsSeatMapPreparerService {
           title: locale['nearGalley'] ?? 'Close to galleys',
           icon: 'negative',
           negative: true,
+          key: 'nearGalley',
         });
       }
       if (has(nf.nearLavatory)) {
@@ -888,6 +933,7 @@ export class JetsSeatMapPreparerService {
           title: locale['nearLavatory'] ?? 'Close to restrooms',
           icon: 'negative',
           negative: true,
+          key: 'nearLavatory',
         });
       }
       if (has((nf as any).nearStairs)) {
@@ -895,6 +941,7 @@ export class JetsSeatMapPreparerService {
           title: locale['nearStairs'] ?? 'Stairs, heavy traffic area',
           icon: 'negative',
           negative: true,
+          key: 'nearStairs',
         });
       }
       if (has(nf.noFloorStorage)) {
@@ -902,6 +949,7 @@ export class JetsSeatMapPreparerService {
           title: locale['noFloorStorage'] ?? 'No underseat storage',
           icon: 'negative',
           negative: true,
+          key: 'noFloorStorage',
         });
       }
       if (has((nf as any).noOverheadStorage)) {
@@ -909,6 +957,7 @@ export class JetsSeatMapPreparerService {
           title: locale['noOverheadStorage'] ?? 'Limited storage space',
           icon: 'negative',
           negative: true,
+          key: 'noOverheadStorage',
         });
       }
       if (has(nf.getColdByExit)) {
@@ -916,6 +965,7 @@ export class JetsSeatMapPreparerService {
           title: locale['getColdByExit'] ?? 'Close to exit, drafts and chilly',
           icon: 'negative',
           negative: true,
+          key: 'getColdByExit',
         });
       }
       if (has(nf.misalignedWindow)) {
@@ -923,6 +973,7 @@ export class JetsSeatMapPreparerService {
           title: locale['misalignedWindow'] ?? 'Partial or no window view',
           icon: 'negative',
           negative: true,
+          key: 'misalignedWindow',
         });
       }
       if (has(nf.wingInWindow)) {
@@ -930,6 +981,7 @@ export class JetsSeatMapPreparerService {
           title: locale['wingInWindow'] ?? 'Wing view from window',
           icon: 'negative',
           negative: true,
+          key: 'wingInWindow',
         });
       }
       if (has(nf.limitedRecline)) {
@@ -937,6 +989,7 @@ export class JetsSeatMapPreparerService {
           title: locale['limitedRecline'] ?? 'Restricted recline',
           icon: 'negative',
           negative: true,
+          key: 'limitedRecline',
         });
       }
       if (has(nf.trayTableInArmrest)) {
@@ -944,6 +997,7 @@ export class JetsSeatMapPreparerService {
           title: locale['trayTableInArmrest'] ?? 'Tray table in armrest',
           icon: 'negative',
           negative: true,
+          key: 'trayTableInArmrest',
         });
       }
       if (has(nf.restrictedLegroom)) {
@@ -951,6 +1005,7 @@ export class JetsSeatMapPreparerService {
           title: locale['restrictedLegroom'] ?? 'Restricted legroom',
           icon: 'negative',
           negative: true,
+          key: 'restrictedLegroom',
         });
       }
     }
@@ -975,6 +1030,7 @@ export class JetsSeatMapPreparerService {
           locale['entertainment'] ??
           'Free on demand entertainment',
         icon: 'audioVideo',
+        key: 'audioVideo',
       });
     }
 
@@ -984,18 +1040,25 @@ export class JetsSeatMapPreparerService {
         amenities.push({
           title: pw.summary ?? locale['powerAcUsb'] ?? 'Power available: AC/USB',
           icon: 'power',
+          key: 'powerOutlet',
         });
       } else if (pw.powerOutlet) {
         amenities.push({
           title: pw.summary ?? locale['powerOutletOnly'] ?? 'Power outlet',
           icon: 'power',
+          key: 'powerOutlet',
         });
       } else if (pw.usbPort) {
-        amenities.push({ title: pw.summary ?? locale['usbOnly'] ?? 'USB charging', icon: 'usb' });
+        amenities.push({
+          title: pw.summary ?? locale['usbOnly'] ?? 'USB charging',
+          icon: 'usb',
+          key: 'usbPort',
+        });
       } else {
         amenities.push({
           title: pw.summary ?? locale['power'] ?? 'Power available',
           icon: 'power',
+          key: 'power',
         });
       }
     }
@@ -1004,6 +1067,7 @@ export class JetsSeatMapPreparerService {
       amenities.push({
         title: apiResponse.wifi.summary ?? locale['wifiEnabled'] ?? 'Wi-Fi enabled',
         icon: 'wifi',
+        key: 'wifiEnabled',
       });
     }
 
