@@ -103,11 +103,13 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
         @if (showPriceLabel) {
           <div
             class="jets-seat__price"
-            [style.font-size.px]="priceFontSize"
+            [title]="priceTooltip"
+            [style.--seat-scale]="scale"
+            [style.max-width.px]="seatWidth"
             [style.transform]="counterRotation"
           >
-            <span class="jets-seat__price-currency currency">{{ resolvedCurrency }}</span
-            >{{ data.price }}
+            <strong class="currency">{{ currencySymbol }}</strong>
+            <span class="priceValue">{{ data.price }}</span>
           </div>
         }
       }
@@ -199,18 +201,24 @@ export class JetsSeatComponent implements OnChanges {
     return Math.round(30 * this.scale);
   }
 
-  get priceFontSize(): number {
-    return Math.round(22 * this.scale);
-  }
-
-  /** Whether the per-seat price overlay should render. */
+  /** Whether the per-seat price pill should render — matches React: any seat with a price when the flag is on. */
   get showPriceLabel(): boolean {
     return (
       this.showPrice &&
       this.data?.type === ENTITY_TYPE_MAP.seat &&
-      this.data.status === ENTITY_STATUS_MAP.available &&
       this.data.price != null
     );
+  }
+
+  /** First-character currency symbol (e.g. '€', '$'). Falls back to '*' like the React reference. */
+  get currencySymbol(): string {
+    const c = this.resolvedCurrency;
+    return c ? c.toString().charAt(0) : '*';
+  }
+
+  /** Native tooltip / title — full "{currency}{price}" string. */
+  get priceTooltip(): string {
+    return `${this.resolvedCurrency}${this.data?.price ?? ''}`;
   }
 
   /** Config-level override wins over per-seat currency; empty string when neither is set. */

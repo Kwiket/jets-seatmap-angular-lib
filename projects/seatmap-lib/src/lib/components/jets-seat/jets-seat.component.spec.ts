@@ -336,7 +336,7 @@ describe('JetsSeatComponent', () => {
   // currencyOverride (config.currencySign) wins over the seat's own currency.
 
   describe('Price label', () => {
-    it('renders price + currency when showPrice is true and seat is available with a price', () => {
+    it('renders a pill with the first currency character + price for a priced seat', () => {
       component.data = makeSeat({
         status: ENTITY_STATUS_MAP.available,
         price: 42,
@@ -347,8 +347,10 @@ describe('JetsSeatComponent', () => {
 
       const priceEl = fixture.nativeElement.querySelector('.jets-seat__price');
       expect(priceEl).toBeTruthy();
-      expect(priceEl.textContent.replace(/\s+/g, '')).toBe('USD42');
-      expect(priceEl.querySelector('.currency')?.textContent).toBe('USD');
+      // Matches React SeatPriceLabel: first char of currency in <strong>, price in <span>.
+      expect(priceEl.querySelector('.currency')?.textContent).toBe('U');
+      expect(priceEl.querySelector('.priceValue')?.textContent).toBe('42');
+      expect(priceEl.getAttribute('title')).toBe('USD42');
     });
 
     it('does not render when showPrice is false', () => {
@@ -367,7 +369,10 @@ describe('JetsSeatComponent', () => {
       expect(fixture.nativeElement.querySelector('.jets-seat__price')).toBeNull();
     });
 
-    it('does not render for non-available seats', () => {
+    it('renders for non-available priced seats too (matches React)', () => {
+      // React's showSeatPriceLabel is `price && config.visibleSeatPriceLabels` —
+      // status is not part of the gate, so unavailable/selected/preferred all
+      // show the pill when they carry a price.
       component.data = makeSeat({
         status: ENTITY_STATUS_MAP.unavailable,
         price: 42,
@@ -376,10 +381,10 @@ describe('JetsSeatComponent', () => {
       component.showPrice = true;
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.jets-seat__price')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.jets-seat__price')).toBeTruthy();
     });
 
-    it('currencyOverride wins over seat.currency', () => {
+    it('currencyOverride wins over seat.currency (first char only)', () => {
       component.data = makeSeat({
         status: ENTITY_STATUS_MAP.available,
         price: 42,
@@ -393,7 +398,7 @@ describe('JetsSeatComponent', () => {
       expect(currencyEl?.textContent).toBe('€');
     });
 
-    it('falls back to empty string when neither override nor seat currency is set', () => {
+    it('falls back to "*" placeholder when neither override nor seat currency is set', () => {
       component.data = makeSeat({
         status: ENTITY_STATUS_MAP.available,
         price: 42,
@@ -403,7 +408,7 @@ describe('JetsSeatComponent', () => {
       fixture.detectChanges();
 
       const currencyEl = fixture.nativeElement.querySelector('.jets-seat__price .currency');
-      expect(currencyEl?.textContent).toBe('');
+      expect(currencyEl?.textContent).toBe('*');
     });
   });
 
