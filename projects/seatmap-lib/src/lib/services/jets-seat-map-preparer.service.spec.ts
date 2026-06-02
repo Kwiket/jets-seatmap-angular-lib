@@ -194,6 +194,62 @@ describe('JetsSeatMapPreparerService', () => {
       expect(result[0].rows[2].cabinTitle).toBe('Economy class');
     });
 
+    it('uses config.customCabinTitles[code] to override the localized cabin title', () => {
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [
+              {
+                seats: [{ letter: 'A', seatNumber: '1A', type: 0, seatType: 0 }],
+                classCode: 'B',
+                name: '1',
+              },
+              {
+                seats: [{ letter: 'A', seatNumber: '10A', type: 0, seatType: 0 }],
+                classCode: 'E',
+                name: '10',
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = service.prepareContent(response, {
+        ...baseConfig,
+        customCabinTitles: { B: 'Biz', E: 'Eco' },
+      });
+      expect(result[0].rows[0].cabinTitle).toBe('Biz');
+      expect(result[0].rows[1].cabinTitle).toBe('Eco');
+    });
+
+    it('falls back to the localized label when customCabinTitles is missing the code', () => {
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [
+              {
+                seats: [{ letter: 'A', seatNumber: '1A', type: 0, seatType: 0 }],
+                classCode: 'F',
+                name: '1',
+              },
+              {
+                seats: [{ letter: 'A', seatNumber: '10A', type: 0, seatType: 0 }],
+                classCode: 'E',
+                name: '10',
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = service.prepareContent(response, {
+        ...baseConfig,
+        customCabinTitles: { E: 'Eco' },
+      });
+      expect(result[0].rows[0].cabinTitle).toBe('First class');
+      expect(result[0].rows[1].cabinTitle).toBe('Eco');
+    });
+
     it('should extract flight-level amenities from response', () => {
       const response: IApiSeatmapResponse = {
         entertainment: { exists: true, summary: 'Personal screens' },
