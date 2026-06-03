@@ -286,8 +286,10 @@ export class JetsSeatMapPreparerService {
         ) ??
         undefined;
 
+      const classCode = (row.classCode ?? row.cabinClass ?? s.classType ?? 'E').toUpperCase();
       return {
         id: `seat-${rowIndex}-${i}`,
+        uniqId: genFeatureId(),
         letter,
         type: ENTITY_TYPE_MAP.seat,
         status:
@@ -300,7 +302,10 @@ export class JetsSeatMapPreparerService {
         originalColor: seatColor,
         score: s.score,
         rotation: this._mapRotation(s.rotation),
-        classType: (row.classCode ?? row.cabinClass ?? s.classType ?? 'E').toUpperCase(),
+        classCode,
+        classType: classCode,
+        // React's composite identifier: `${classCode}-${seatIconType}` (e.g. 'B-13').
+        seatType: `${classCode}-${seatIconType}`,
         seatIconType,
         features,
         measurements,
@@ -439,11 +444,11 @@ export class JetsSeatMapPreparerService {
     const hasPower = has(f.powerOutlet);
     const hasUsb = has(f.usbPort);
     if (hasPower && hasUsb) {
-      pushPositive('powerOutlet', f.powerOutlet, { iconKey: 'power', titleKey: 'powerAcUsb' });
+      pushPositive('powerOutlet', f.powerOutlet, { iconKey: 'power', titleKey: 'usbPowerPlug' });
     } else if (hasPower) {
-      pushPositive('powerOutlet', f.powerOutlet, { iconKey: 'power', titleKey: 'powerOutletOnly' });
+      pushPositive('powerOutlet', f.powerOutlet, { iconKey: 'power', titleKey: 'powerPlug' });
     } else if (hasUsb) {
-      pushPositive('usbPort', f.usbPort, { iconKey: 'usb', titleKey: 'usbOnly' });
+      pushPositive('usbPort', f.usbPort, { iconKey: 'usb', titleKey: 'usbPlug' });
     }
 
     if (has(f.wifiEnabled)) pushPositive('wifiEnabled', f.wifiEnabled, { iconKey: 'wifi' });
@@ -678,8 +683,10 @@ export class JetsSeatMapPreparerService {
         ) ??
         undefined;
 
+      const classCode = (row.classCode ?? row.cabinClass ?? newSeat?.classType ?? 'E').toUpperCase();
       return {
         id: `seat-${rowIndex}-${i}`,
+        uniqId: genFeatureId(),
         letter,
         type: ENTITY_TYPE_MAP.seat,
         status:
@@ -692,7 +699,10 @@ export class JetsSeatMapPreparerService {
         originalColor: seatColor,
         score: seatScore,
         rotation: this._mapRotation(newSeat?.rotation),
-        classType: (row.classCode ?? row.cabinClass ?? newSeat?.classType ?? 'E').toUpperCase(),
+        classCode,
+        classType: classCode,
+        // React's composite identifier: `${classCode}-${seatIconType}` (e.g. 'B-13').
+        seatType: `${classCode}-${seatIconTypeResolved}`,
         seatIconType: seatIconTypeResolved,
         features,
         measurements,
@@ -807,14 +817,14 @@ export class JetsSeatMapPreparerService {
       const hasPower = has(nf.powerOutlet);
       const hasUsb = has(nf.usbPort);
       if (hasPower && hasUsb) {
-        pushPositive('powerOutlet', nf.powerOutlet, { iconKey: 'power', titleKey: 'powerAcUsb' });
+        pushPositive('powerOutlet', nf.powerOutlet, { iconKey: 'power', titleKey: 'usbPowerPlug' });
       } else if (hasPower) {
         pushPositive('powerOutlet', nf.powerOutlet, {
           iconKey: 'power',
-          titleKey: 'powerOutletOnly',
+          titleKey: 'powerPlug',
         });
       } else if (hasUsb) {
-        pushPositive('usbPort', nf.usbPort, { iconKey: 'usb', titleKey: 'usbOnly' });
+        pushPositive('usbPort', nf.usbPort, { iconKey: 'usb', titleKey: 'usbPlug' });
       }
 
       if (has(nf.wifiEnabled)) pushPositive('wifiEnabled', nf.wifiEnabled, { iconKey: 'wifi' });
@@ -865,17 +875,17 @@ export class JetsSeatMapPreparerService {
       const powerIcon = SEAT_FEATURES_ICONS['power'] ?? '';
       if (pw.powerOutlet && pw.usbPort) {
         amenities.push({
-          key: 'powerOutlet',
+          key: 'power',
           icon: powerIcon,
-          title: pw.summary ?? locale['powerAcUsb'] ?? 'Power available: AC/USB',
+          title: pw.summary ?? locale['usbPowerPlug'] ?? 'USB and power plug',
           uniqId: genFeatureId(),
           value: true,
         });
       } else if (pw.powerOutlet) {
         amenities.push({
-          key: 'powerOutlet',
+          key: 'power',
           icon: powerIcon,
-          title: pw.summary ?? locale['powerOutletOnly'] ?? 'Power outlet',
+          title: pw.summary ?? locale['powerPlug'] ?? 'Power plug',
           uniqId: genFeatureId(),
           value: true,
         });
@@ -883,7 +893,7 @@ export class JetsSeatMapPreparerService {
         amenities.push({
           key: 'usbPort',
           icon: SEAT_FEATURES_ICONS['usb'] ?? powerIcon,
-          title: pw.summary ?? locale['usbOnly'] ?? 'USB charging',
+          title: pw.summary ?? locale['usbPlug'] ?? 'USB plug',
           uniqId: genFeatureId(),
           value: true,
         });
@@ -891,7 +901,7 @@ export class JetsSeatMapPreparerService {
         amenities.push({
           key: 'power',
           icon: powerIcon,
-          title: pw.summary ?? locale['power'] ?? 'Power available',
+          title: pw.summary ?? locale['power'] ?? 'Power plug',
           uniqId: genFeatureId(),
           value: true,
         });

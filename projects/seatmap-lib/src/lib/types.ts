@@ -24,13 +24,7 @@ export type TUnits = 'metric' | 'imperials';
 
 // ─── Seat types ───────────────────────────────────────────────────────────────
 export type TSeatType = 'seat' | 'aisle' | 'empty' | 'index';
-export type TSeatStatus =
-  | 'available'
-  | 'unavailable'
-  | 'selected'
-  | 'preferred'
-  | 'extra'
-  | 'disabled';
+export type TSeatStatus = 'available' | 'unavailable' | 'selected' | 'preferred' | 'extra' | 'disabled';
 export type TSeatRotation = 'nw' | 'nw45' | 'ne' | 'ne45' | 's' | 'se' | 'sw' | '';
 
 // ─── Flight ───────────────────────────────────────────────────────────────────
@@ -243,11 +237,25 @@ export interface ISeatFeature {
 // ─── Rendered seat ────────────────────────────────────────────────────────────
 export interface ISeatData {
   id: string;
+  /**
+   * Per-item identifier (React parity). Generated when the seat is prepared,
+   * stable for the lifetime of that seat instance. Integrators can use it as
+   * a `*ngFor` track key or to correlate `tooltipRequested` payloads with
+   * subsequent `seatSelected` events.
+   */
+  uniqId?: string;
   letter: string;
   type: TSeatType;
   status: TSeatStatus;
   size: number;
+  /** Internal seat number (e.g. '6L'). Renamed to `label` in the public emit payload. */
   number?: string;
+  /** Emitted alias for `number` (React parity). Present on `tooltipRequested.seat`. */
+  label?: string;
+  /** Cabin-class single-letter code from the API row (F/B/P/E). */
+  classCode?: string;
+  /** Composite identifier `${classCode}-${seatIconType}` — matches React's `seatType`. */
+  seatType?: string;
   color?: string;
   originalColor?: string;
   rotation?: TSeatRotation;
