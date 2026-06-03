@@ -318,6 +318,10 @@ const FIELD_CASES: FieldCase[] = [
     value: '#ff0000',
     closeUp: { kind: 'element', selector: '.jets-deck__title', padding: 30 },
   },
+  // NOTE: deckHeightSpacing is declared in IColorTheme + DEFAULT_COLOR_THEME
+  // but no component reads it (verified via grep). Leaving the screenshot in
+  // place as documentation of the public-API surface, but a verify here
+  // would always fail — covered by a separate lib-side task.
   { field: 'deckHeightSpacing', value: 200 },
   { field: 'deckSeparation', value: 80, extraConfig: { singleDeckMode: false } },
 
@@ -334,7 +338,19 @@ const FIELD_CASES: FieldCase[] = [
     pre: 'multiDeck',
     closeUp: DECK_SELECTOR_CLOSEUP,
   },
-  { field: 'deckSelectorSize', value: 50, pre: 'multiDeck', closeUp: DECK_SELECTOR_CLOSEUP },
+  {
+    field: 'deckSelectorSize',
+    value: 50,
+    pre: 'multiDeck',
+    closeUp: DECK_SELECTOR_CLOSEUP,
+    verify: async page => {
+      // Selector inline `width` / `height` come from colorTheme.deckSelectorSize.
+      const box = await page.locator('.jets-deck-selector').first().boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(48);
+      expect(box!.height).toBeGreaterThanOrEqual(48);
+    },
+  },
 
   // ─── Wings ────────────────────────────────────────────────────────────
   { field: 'wingsWidth', value: 150 },
