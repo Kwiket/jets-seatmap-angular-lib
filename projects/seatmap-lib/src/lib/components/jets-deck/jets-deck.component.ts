@@ -19,7 +19,7 @@ interface ICabinSection {
   imports: [CommonModule, JetsRowComponent, JetsDeckExitComponent, JetsBulkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="jets-deck">
+    <div class="jets-deck" [style.padding-top.px]="deckHeightSpacingPx" [style.padding-bottom.px]="deckHeightSpacingPx">
       @if (deck.title && showNumber) {
         <div class="jets-deck__title" [style.color]="titleColor">
           {{ deck.title }}
@@ -252,6 +252,17 @@ export class JetsDeckComponent {
 
   get scale(): number {
     return this.deck.scale ?? 1;
+  }
+
+  // Opt-in: return null when unset so Angular skips the inline style and the
+  // component CSS padding (4px 0) wins for consumers that don't theme the
+  // value. Mirrors the wingsWidth precedent.
+  get deckHeightSpacingPx(): number | null {
+    const themed = this.colorTheme?.deckHeightSpacing;
+    if (typeof themed === 'number' && themed > 0) {
+      return Math.round(themed * this.scale);
+    }
+    return null;
   }
 
   /**

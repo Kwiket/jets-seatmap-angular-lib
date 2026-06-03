@@ -370,11 +370,23 @@ const FIELD_CASES: FieldCase[] = [
     value: '#ff0000',
     closeUp: { kind: 'element', selector: '.jets-deck__title', padding: 30 },
   },
-  // NOTE: deckHeightSpacing is declared in IColorTheme + DEFAULT_COLOR_THEME
-  // but no component reads it (verified via grep). Leaving the screenshot in
-  // place as documentation of the public-API surface, but a verify here
-  // would always fail — covered by a separate lib-side task.
-  { field: 'deckHeightSpacing', value: 200 },
+  // deckHeightSpacing pads the top/bottom of `.jets-deck` (native px scaled by
+  // deck scale). BASELINE_THEME already sets 100; this case bumps it to 200,
+  // so paddingTop ≈ 200*scale (~49 at the demo's ~0.247 scale) — comfortably
+  // above the 4px CSS default and the ~25 px baseline shoulder. The screenshot
+  // picks up the shift; the verify pins the binding at the DOM level so a
+  // silent regression can't slip through.
+  {
+    field: 'deckHeightSpacing',
+    value: 200,
+    verify: async page => {
+      const paddingTop = await page
+        .locator('.jets-deck')
+        .first()
+        .evaluate(el => parseFloat(getComputedStyle(el).paddingTop));
+      expect(paddingTop).toBeGreaterThanOrEqual(40);
+    },
+  },
   { field: 'deckSeparation', value: 80, extraConfig: { singleDeckMode: false } },
 
   // ─── Deck selector (renders in .jets-seatmap-header above the map) ────
