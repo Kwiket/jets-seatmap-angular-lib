@@ -7,7 +7,7 @@
   transform: translateY(-100%);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   background: var(--tooltip-bg, #fff);
-  border: 1px solid var(--tooltip-border, transparent);
+  border: 2px solid var(--tooltip-border, transparent);
   font-family: inherit;
 
   // Downward arrow pointing to the seat (default: tooltip above seat)
