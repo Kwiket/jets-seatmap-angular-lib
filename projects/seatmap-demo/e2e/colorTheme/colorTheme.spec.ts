@@ -421,7 +421,26 @@ const FIELD_CASES: FieldCase[] = [
 
   // ─── Fuselage ─────────────────────────────────────────────────────────
   { field: 'fuselageStrokeWidth', value: 18 },
-  { field: 'fuselageFillColor', value: '#e1bee7' },
+  {
+    // `fuselageFillColor` is intentionally scoped to a thin (~16 px) hull
+    // lining band along the sides of `.jets-plane-body__fuselage` — the
+    // outer `.deck-floor` covers the rest of the interior with
+    // `colorTheme.floorColor` (see commit ea1f31d "expose
+    // colorTheme.fuselageFillColor as a visible hull lining"). At the
+    // full-deck downscale used for the per-field screenshot that 16 px
+    // band is only ~1-2 px wide and easy to miss visually, so pin the
+    // binding at the DOM level: the override must reach the fuselage
+    // element's `background-color`.
+    field: 'fuselageFillColor',
+    value: '#e1bee7',
+    verify: async page => {
+      const bg = await page
+        .locator('.jets-plane-body__fuselage')
+        .first()
+        .evaluate(el => (el as HTMLElement).style.backgroundColor);
+      expect(bg).toBe('rgb(225, 190, 231)');
+    },
+  },
   { field: 'fuselageStrokeColor', value: '#ff1744' },
   { field: 'fuselageWindowsColor', value: '#00e5ff' },
   { field: 'fuselageWingsColor', value: 'rgba(255, 0, 0, 0.8)' },
