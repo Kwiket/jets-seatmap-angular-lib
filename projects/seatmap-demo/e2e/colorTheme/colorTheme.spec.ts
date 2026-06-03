@@ -200,6 +200,11 @@ interface FieldCase {
   // `fuselageNoseType` is only visible when fuselage is on — which the
   // demo default already provides).
   extraTheme?: Record<string, unknown>;
+  // BASELINE_THEME keys to drop for this case. Use when the explicit
+  // baseline value would shadow the override under test — e.g.
+  // `customSeatColorRanges` needs `seatAvailableColor` undefined so the
+  // score-tiered palette gets a chance to paint.
+  omitFromBaseline?: string[];
   closeUp?: CloseUp;
 }
 
@@ -362,6 +367,11 @@ const FIELD_CASES: FieldCase[] = [
       { color: '#ffea00', range: [4, 7.99] },
       { color: '#00e676', range: [8, 10] },
     ],
+    // BASELINE_THEME ships seatAvailableColor: 'white', which (post the
+    // seat-palette override-precedence fix) silently outranks the score
+    // ranges. Drop the baseline key so the score palette is allowed to
+    // paint.
+    omitFromBaseline: ['seatAvailableColor'],
     closeUp: FEW_ROWS_FROM_TOP,
   },
 ];
@@ -371,8 +381,12 @@ test.describe('colorTheme · per-field matrix', () => {
     test(`field-${c.field}`, async ({ page }) => {
       await page.goto('/');
 
+      const baseline = { ...BASELINE_THEME };
+      for (const key of c.omitFromBaseline ?? []) {
+        delete baseline[key];
+      }
       const theme: Record<string, unknown> = {
-        ...BASELINE_THEME,
+        ...baseline,
         ...(c.extraTheme ?? {}),
         [c.field]: c.value,
       };
