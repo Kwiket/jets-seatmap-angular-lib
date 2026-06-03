@@ -10,6 +10,7 @@ import {
   IFlight,
   ISeatMouseClickData,
   ISeatMouseLeaveData,
+  ITooltipRequestData,
   TSeatAvailability,
 } from '@kwiket/jets-seatmap-angular-lib';
 import { DemoFlight } from './flights.data';
@@ -273,6 +274,11 @@ export class App {
       'availability',
       `Availability applied. Existing: ${data.existingSeatLabels.length}, missing: ${data.nonExistingSeatLabels.length}`
     );
+  }
+
+  onTooltipRequested(data: ITooltipRequestData): void {
+    console.log('Tooltip requested: ', data);
+    this.addLog('tooltip', `Tooltip requested for seat ${data.seat?.number ?? '?'}`);
   }
 
   onLoadError(message: string): void {
