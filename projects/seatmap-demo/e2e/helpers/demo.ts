@@ -200,6 +200,7 @@ export async function screenshotRows(
   fileName: string,
   fromIndex: number,
   count: number,
+  opts: { pad?: number } = {},
 ): Promise<string> {
   const safe = fileName.replace(/[^\w.\-]+/g, '_');
   const outPath = path.join(specDir, 'screenshots', `${safe}.png`);
@@ -213,7 +214,9 @@ export async function screenshotRows(
   if (!first || !last) throw new Error('Failed to read row bounding boxes');
 
   // Widen horizontally so the pills sitting above (top: -45px) are captured.
-  const pad = 60;
+  // Bigger pads also pull the vertical cabin-title labels (rendered on the
+  // seatmap's left/right edges) into the clip.
+  const pad = opts.pad ?? 60;
   const clip = {
     x: Math.max(0, Math.min(first.x, last.x) - pad),
     y: Math.max(0, first.y - pad),

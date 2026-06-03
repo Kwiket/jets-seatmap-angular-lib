@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { applyConfigAndReady, screenshotSeatMap } from '../helpers/demo';
+import { applyConfigAndReady, screenshotRows, screenshotSeatMap } from '../helpers/demo';
 
 const VARIANTS = [
   { name: 'true', value: true },
@@ -22,7 +22,11 @@ test.describe('visibleSeatPriceLabels', () => {
         { visibleSeatPriceLabels: v.value },
         { availability: AVAILABILITY },
       );
+      // Full deck shows the layout — handy for spotting that *no* pills exist
+      // in the `false` variant — but the per-seat pill at full deck scale is
+      // ~13×11 px. The zoom crop makes the on/off difference obvious.
       await screenshotSeatMap(page, __dirname, `visibleSeatPriceLabels-${v.name}`);
+      await screenshotRows(page, __dirname, `visibleSeatPriceLabels-${v.name}-zoom`, 0, 3);
     });
   }
 });
