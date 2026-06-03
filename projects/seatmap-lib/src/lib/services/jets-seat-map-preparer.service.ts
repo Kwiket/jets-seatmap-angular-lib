@@ -63,25 +63,15 @@ export class JetsSeatMapPreparerService {
 
     // Compute sideSpace: native-coordinate margin for wings/cabin titles (matches React)
     const hasWings = decks.some(d => d.wingsInfo?.height != null);
-    const wingsW =
-      config.visibleWings !== false && hasWings ? (config.colorTheme?.wingsWidth ?? 30) : 0;
-    const cabinTitlesW =
-      config.visibleCabinTitles !== false ? (config.colorTheme?.cabinTitlesWidth ?? 80) : 0;
+    const wingsW = config.visibleWings !== false && hasWings ? (config.colorTheme?.wingsWidth ?? 30) : 0;
+    const cabinTitlesW = config.visibleCabinTitles !== false ? (config.colorTheme?.cabinTitlesWidth ?? 80) : 0;
     const sideSpace = Math.max(wingsW, cabinTitlesW);
 
     // Detect format: new (per-seat topOffset) vs legacy (seatScheme strings)
     const isNewFormat = this._isNewApiFormat(decks);
     if (isNewFormat) {
       return decks.map((deck, i) =>
-        this._prepareDeckNew(
-          deck,
-          i,
-          config,
-          noseType,
-          flightAmenities,
-          globalNativeDeckWidth,
-          sideSpace,
-        ),
+        this._prepareDeckNew(deck, i, config, noseType, flightAmenities, globalNativeDeckWidth, sideSpace)
       );
     } else {
       const biggestRowSize = this._getBiggestRowSizeLegacy(decks);
@@ -96,8 +86,8 @@ export class JetsSeatMapPreparerService {
           flightAmenities,
           globalNativeDeckWidth,
           sideSpace,
-          cabinsByClass,
-        ),
+          cabinsByClass
+        )
       );
     }
   }
@@ -125,7 +115,7 @@ export class JetsSeatMapPreparerService {
     noseType?: string,
     flightAmenities: ISeatFeature[] = [],
     globalNativeDeckWidth?: number,
-    sideSpace = 0,
+    sideSpace = 0
   ): IDeckData {
     const rows = deck.rows ?? [];
 
@@ -133,12 +123,7 @@ export class JetsSeatMapPreparerService {
     const nativeDeckWidth = this._computeNativeDeckWidth(rows);
     // Use global (widest) deck width for scale — matches React's single global scale
     const scaleBase = globalNativeDeckWidth ?? nativeDeckWidth;
-    const { scale, deckWidth } = this._computeDeckScale(
-      scaleBase,
-      config.width,
-      fuselageStrokeWidth,
-      sideSpace,
-    );
+    const { scale, deckWidth } = this._computeDeckScale(scaleBase, config.width, fuselageStrokeWidth, sideSpace);
 
     // Row area width = this deck's OWN native width × global scale.
     // Narrower decks (e.g. A380 upper) get proportionally narrower rows.
@@ -158,8 +143,7 @@ export class JetsSeatMapPreparerService {
       // Use localized cabin class label (matches React: always "Business class" etc.).
       // `config.customCabinTitles[code]` lets callers override per cabin code.
       const cabinTitle = classChanged
-        ? (config.customCabinTitles?.[cabinClass.toUpperCase()] ??
-           this._resolveCabinLabel(cabinClass, config.lang))
+        ? (config.customCabinTitles?.[cabinClass.toUpperCase()] ?? this._resolveCabinLabel(cabinClass, config.lang))
         : undefined;
 
       if (cabinClass) lastCabinClass = cabinClass;
@@ -174,12 +158,11 @@ export class JetsSeatMapPreparerService {
         config.colorTheme,
         flightAmenities,
         config.units,
-        config.colorfulSeatsByScore ?? true,
+        config.colorfulSeatsByScore ?? true
       );
       if (classChanged) rendered.cabinClassCode = cabinClass.toUpperCase();
       // Always propagate cabinClassCode for cabin filtering
-      if (cabinClass && !rendered.cabinClassCode)
-        rendered.cabinClassCode = cabinClass.toUpperCase();
+      if (cabinClass && !rendered.cabinClassCode) rendered.cabinClassCode = cabinClass.toUpperCase();
       // Only keep name in row data when it's a numeric row identifier
       if (rendered.name && !/^\d/.test(rendered.name)) {
         rendered.name = undefined;
@@ -203,8 +186,7 @@ export class JetsSeatMapPreparerService {
   private _getMaxSeatsInRowNew(rows: IApiRow[]): number {
     let max = 0;
     for (const row of rows) {
-      const count =
-        row.seats?.filter(s => this._apiSeatType(s) !== ENTITY_TYPE_MAP.aisle).length ?? 0;
+      const count = row.seats?.filter(s => this._apiSeatType(s) !== ENTITY_TYPE_MAP.aisle).length ?? 0;
       if (count > max) max = count;
     }
     return max || 6;
@@ -220,7 +202,7 @@ export class JetsSeatMapPreparerService {
     colorTheme?: import('../types').IColorTheme,
     flightAmenities: ISeatFeature[] = [],
     units?: string,
-    colorfulSeatsByScore = true,
+    colorfulSeatsByScore = true
   ): IRowData {
     const seats = row.seats ?? [];
     // Row-level seatType fallback (matches React's _rowSeatType)
@@ -250,9 +232,7 @@ export class JetsSeatMapPreparerService {
     const [rowNativeW] = SEAT_SIZE_BY_TYPE[rowSeatType] ?? [100, 100];
     const renderedRowW = Math.round(rowNativeW * scale);
     const aisleSize =
-      aisleCount > 0
-        ? Math.max(1, Math.min(Math.round(remaining / aisleCount), renderedRowW))
-        : renderedRowW;
+      aisleCount > 0 ? Math.max(1, Math.min(Math.round(remaining / aisleCount), renderedRowW)) : renderedRowW;
 
     let letterIdx = 0;
     let seatIdx = 0;
@@ -302,7 +282,7 @@ export class JetsSeatMapPreparerService {
         JetsSeatMapPreparerService._calculateSeatColorByScore(
           s.score,
           colorTheme?.customSeatColorRanges,
-          colorfulSeatsByScore,
+          colorfulSeatsByScore
         ) ??
         undefined;
 
@@ -387,7 +367,7 @@ export class JetsSeatMapPreparerService {
   private _prepareSeatFeaturesNew(
     seat: IApiSeat,
     lang = 'EN',
-    units?: string,
+    units?: string
   ): { features: ISeatFeature[]; measurements: ISeatFeature[] } {
     const locale = LOCALES_MAP[lang] ?? LOCALES_MAP['EN'];
     const features: ISeatFeature[] = [];
@@ -535,18 +515,13 @@ export class JetsSeatMapPreparerService {
     flightAmenities: ISeatFeature[] = [],
     globalNativeDeckWidth?: number,
     sideSpace = 0,
-    cabinsByClass: Record<string, IApiCabin> = {},
+    cabinsByClass: Record<string, IApiCabin> = {}
   ): IDeckData {
     const fuselageStrokeWidth = config.colorTheme?.fuselageStrokeWidth ?? 12;
     const nativeDeckWidth = this._computeNativeDeckWidth(deck.rows);
     // Use global (widest) deck width for scale — matches React's single global scale
     const scaleBase = globalNativeDeckWidth ?? nativeDeckWidth;
-    const { scale, deckWidth } = this._computeDeckScale(
-      scaleBase,
-      config.width,
-      fuselageStrokeWidth,
-      sideSpace,
-    );
+    const { scale, deckWidth } = this._computeDeckScale(scaleBase, config.width, fuselageStrokeWidth, sideSpace);
 
     // Row area width = this deck's OWN native width × global scale.
     // Narrower decks (e.g. A380 upper) get proportionally narrower rows.
@@ -565,8 +540,7 @@ export class JetsSeatMapPreparerService {
       // Use localized cabin class label (matches React: always "Business class" etc.).
       // `config.customCabinTitles[code]` lets callers override per cabin code.
       const cabinTitle = classChanged
-        ? (config.customCabinTitles?.[cabinClass.toUpperCase()] ??
-           this._resolveCabinLabel(cabinClass, config.lang))
+        ? (config.customCabinTitles?.[cabinClass.toUpperCase()] ?? this._resolveCabinLabel(cabinClass, config.lang))
         : undefined;
 
       if (cabinClass) lastCabinClass = cabinClass;
@@ -583,12 +557,11 @@ export class JetsSeatMapPreparerService {
         scale,
         rowAreaWidth,
         cabinTitle,
-        flightAmenities,
+        flightAmenities
       );
       if (classChanged) rendered.cabinClassCode = cabinClass.toUpperCase();
       // Always propagate cabinClassCode for cabin filtering
-      if (cabinClass && !rendered.cabinClassCode)
-        rendered.cabinClassCode = cabinClass.toUpperCase();
+      if (cabinClass && !rendered.cabinClassCode) rendered.cabinClassCode = cabinClass.toUpperCase();
       if (rendered.name && !/^\d/.test(rendered.name)) {
         rendered.name = undefined;
       }
@@ -613,7 +586,7 @@ export class JetsSeatMapPreparerService {
     scale: number,
     containerWidth: number,
     cabinTitle?: string,
-    flightAmenities: ISeatFeature[] = [],
+    flightAmenities: ISeatFeature[] = []
   ): IRowData {
     const scheme = row.seatScheme ?? '';
     const legacySeats: IApiSeatLegacy[] = row.apiSeats ?? [];
@@ -639,9 +612,7 @@ export class JetsSeatMapPreparerService {
     const remaining = containerWidth - totalSeatWidth;
     const renderedSeatW = Math.round(nativeRowW * scale);
     const aisleSize =
-      aisleCount > 0
-        ? Math.max(1, Math.min(Math.round(remaining / aisleCount), renderedSeatW))
-        : renderedSeatW;
+      aisleCount > 0 ? Math.max(1, Math.min(Math.round(remaining / aisleCount), renderedSeatW)) : renderedSeatW;
 
     let seatIdx = 0;
     let letterIdx = 0;
@@ -679,17 +650,14 @@ export class JetsSeatMapPreparerService {
       // Per-seat seatType overrides row default; use || to match React (seatType=0 means "use row default")
       const seatIconTypeResolved = newSeat?.seatType || rowSeatType;
       const [nativeSeatW] = SEAT_SIZE_BY_TYPE[seatIconTypeResolved] ?? [100, 100];
-      const perSeatRenderedSize = Math.max(
-        Math.round(Math.max(nativeRowW, nativeSeatW) * scale),
-        8,
-      );
+      const perSeatRenderedSize = Math.max(Math.round(Math.max(nativeRowW, nativeSeatW) * scale), 8);
 
       const { features: seatFeatures, measurements } = this._prepareSeatFeaturesLegacy(
         cabin,
         legacy,
         config.lang,
         newSeat,
-        config.units,
+        config.units
       );
       // Merge flight-level amenities with per-seat amenities, dedup by feature key.
       // Measurements stay in their own array (React-aligned shape).
@@ -706,7 +674,7 @@ export class JetsSeatMapPreparerService {
         JetsSeatMapPreparerService._calculateSeatColorByScore(
           seatScore,
           config.colorTheme?.customSeatColorRanges,
-          config.colorfulSeatsByScore ?? true,
+          config.colorfulSeatsByScore ?? true
         ) ??
         undefined;
 
@@ -751,7 +719,7 @@ export class JetsSeatMapPreparerService {
     seat: IApiSeatLegacy | undefined,
     lang: string,
     newSeat?: IApiSeat,
-    units?: string,
+    units?: string
   ): { features: ISeatFeature[]; measurements: ISeatFeature[] } {
     const locale = LOCALES_MAP[lang] ?? LOCALES_MAP['EN'];
     const features: ISeatFeature[] = [];
@@ -811,11 +779,7 @@ export class JetsSeatMapPreparerService {
       const has = (v: unknown): boolean => v === true || v === '+' || v === '-';
       const isNeg = (v: unknown): boolean => v === '-';
 
-      const pushPositive = (
-        key: string,
-        apiValue: unknown,
-        opts: { iconKey?: string; titleKey?: string } = {},
-      ) => {
+      const pushPositive = (key: string, apiValue: unknown, opts: { iconKey?: string; titleKey?: string } = {}) => {
         const iconKey = opts.iconKey ?? key;
         features.push({
           key,
@@ -856,8 +820,7 @@ export class JetsSeatMapPreparerService {
       if (has(nf.wifiEnabled)) pushPositive('wifiEnabled', nf.wifiEnabled, { iconKey: 'wifi' });
       if (has(nf.bluetooth)) pushPositive('bluetooth', nf.bluetooth);
 
-      if (has(nf.extraLegroom))
-        pushEither('extraLegroom', nf.extraLegroom, { titleKey: 'extra_legroom' });
+      if (has(nf.extraLegroom)) pushEither('extraLegroom', nf.extraLegroom, { titleKey: 'extra_legroom' });
       if (has(nf.exitRow)) pushEither('exitRow', nf.exitRow);
       if (has(nf.bassinet)) pushEither('bassinet', nf.bassinet);
 
@@ -891,10 +854,7 @@ export class JetsSeatMapPreparerService {
       amenities.push({
         key: 'audioVideo',
         icon: SEAT_FEATURES_ICONS['audioVideo'] ?? '',
-        title:
-          apiResponse.entertainment.summary ??
-          locale['audioVideo'] ??
-          'Free on demand entertainment',
+        title: apiResponse.entertainment.summary ?? locale['audioVideo'] ?? 'Free on demand entertainment',
         uniqId: genFeatureId(),
         value: true,
       });
@@ -1039,7 +999,7 @@ export class JetsSeatMapPreparerService {
     nativeDeckWidth: number,
     containerWidth: number,
     fuselageStrokeWidth = 12,
-    sideSpace = 0,
+    sideSpace = 0
   ): { scale: number; deckWidth: number } {
     const DECK_PADDING = 10;
     const FUSELAGE_OUTLINE = 12;
@@ -1088,7 +1048,7 @@ export class JetsSeatMapPreparerService {
   static _calculateSeatColorByScore(
     score: number | undefined,
     colorRanges?: Array<{ range: [number, number]; color: string }>,
-    enabled = true,
+    enabled = true
   ): string | null {
     if (
       !enabled ||
@@ -1106,7 +1066,7 @@ export class JetsSeatMapPreparerService {
 
   /** Merge user-provided color theme with defaults and apply constraints */
   static mergeColorThemeWithConstraints(
-    theme: import('../types').IColorTheme | undefined,
+    theme: import('../types').IColorTheme | undefined
   ): import('../types').IColorTheme {
     if (!theme) return {};
     const merged = { ...theme };
@@ -1123,7 +1083,7 @@ export class JetsSeatMapPreparerService {
           typeof r.range[0] === 'number' &&
           typeof r.range[1] === 'number' &&
           typeof r.color === 'string' &&
-          r.color.length > 0,
+          r.color.length > 0
       );
     }
     return merged;
@@ -1131,7 +1091,7 @@ export class JetsSeatMapPreparerService {
 
   /** Prepare additionalProps from availability for tooltip rendering */
   prepareSeatAdditionalProps(
-    additionalProps?: Array<{ type: string; icon?: string; label?: string; cssClass?: string }>,
+    additionalProps?: Array<{ type: string; icon?: string; label?: string; cssClass?: string }>
   ): ISeatFeature[] {
     if (!additionalProps?.length) return [];
     return additionalProps.map(item => ({

@@ -355,16 +355,13 @@ describe('JetsSeatMapPreparerService', () => {
 
     it('should clamp fuselageStrokeWidth to 10-18', () => {
       expect(
-        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 5 })
-          .fuselageStrokeWidth,
+        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 5 }).fuselageStrokeWidth
       ).toBe(10);
       expect(
-        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 25 })
-          .fuselageStrokeWidth,
+        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 25 }).fuselageStrokeWidth
       ).toBe(18);
       expect(
-        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 14 })
-          .fuselageStrokeWidth,
+        JetsSeatMapPreparerService.mergeColorThemeWithConstraints({ fuselageStrokeWidth: 14 }).fuselageStrokeWidth
       ).toBe(14);
     });
 
@@ -401,9 +398,7 @@ describe('JetsSeatMapPreparerService', () => {
     });
 
     it('should map additional props to features', () => {
-      const props = [
-        { type: 'info', icon: 'dot', label: 'Priority boarding', cssClass: 'priority' },
-      ];
+      const props = [{ type: 'info', icon: 'dot', label: 'Priority boarding', cssClass: 'priority' }];
       const result = service.prepareSeatAdditionalProps(props);
       expect(result).toHaveLength(1);
       expect(result[0].value).toBe('Priority boarding');
