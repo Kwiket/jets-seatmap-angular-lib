@@ -64,6 +64,10 @@
 .jets-tooltip--close-btn {
   background: none;
   border: none;
+  // UA stylesheet sets `button { font-family: ... }`, breaking the cascade
+  // from .jets-tooltip / .jets-seat-map. Re-establish inheritance so
+  // colorTheme.fontFamily reaches the close button glyph.
+  font-family: inherit;
   cursor: pointer;
   padding: 2px;
   margin-left: 8px;
@@ -201,6 +205,10 @@
   flex: 1;
   padding: 14px 16px;
   border: none;
+  // Inherit colorTheme.fontFamily through the .jets-seat-map root; the UA
+  // `button { font-family: ... }` rule would otherwise pin Cancel/Select
+  // to the browser default.
+  font-family: inherit;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
