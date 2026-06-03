@@ -216,7 +216,16 @@ const DECK_SELECTOR_CLOSEUP: CloseUp = {
   selector: '.jets-seatmap-header',
   padding: 20,
 };
-const BULK_CLOSEUP: CloseUp = { kind: 'element', selector: '.jets-bulk', padding: 30 };
+// Pick a bulk that actually carries a sticker overlay — the first .jets-bulk
+// match in the demo data is a plain partition (galley) that exercises only
+// base/cut, so bulkIconColor (the sticker tint) and bulkFloorIconColor (the
+// floor-icon sub-type) appear "broken" when in fact the selector misses
+// their visual targets.
+const BULK_CLOSEUP: CloseUp = {
+  kind: 'element',
+  selector: '.jets-bulk:has(.jets-bulk__sticker-wrap)',
+  padding: 30,
+};
 
 const FIELD_CASES: FieldCase[] = [
   // ─── Background / floor / fonts ────────────────────────────────────────
