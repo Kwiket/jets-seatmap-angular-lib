@@ -1,22 +1,10 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
-  Input,
-  Output,
-  Type,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Type } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IDeckData, ISeatData, IRowData, IColorTheme } from '../../types';
 import { JetsRowComponent } from '../jets-row/jets-row.component';
 import { JetsDeckExitComponent } from '../jets-deck-exit/jets-deck-exit.component';
 import { JetsBulkComponent } from '../jets-bulk/jets-bulk.component';
-import {
-  DEFAULT_COLOR_THEME,
-  LOCALES_MAP,
-  SEAT_SIZE_BY_TYPE,
-  DEFAULT_SEAT_TYPE,
-} from '../../constants';
+import { DEFAULT_COLOR_THEME, LOCALES_MAP, SEAT_SIZE_BY_TYPE, DEFAULT_SEAT_TYPE } from '../../constants';
 
 interface ICabinSection {
   title: string;
@@ -37,9 +25,7 @@ interface ICabinSection {
           {{ deck.title }}
         </div>
       } @else if (showNumber && deck.number != null) {
-        <div class="jets-deck__title" [style.color]="titleColor">
-          {{ deckLabel }}: {{ deck.number }}
-        </div>
+        <div class="jets-deck__title" [style.color]="titleColor">{{ deckLabel }}: {{ deck.number }}</div>
       }
 
       <div
@@ -80,11 +66,9 @@ interface ICabinSection {
               [style.height.px]="section.height"
               [style.border-color]="section.color"
             >
-              <span
-                class="jets-cabin-label__text jets-cabin-label__text--left"
-                [style.color]="labelColor"
-                >{{ section.title }}</span
-              >
+              <span class="jets-cabin-label__text jets-cabin-label__text--left" [style.color]="labelColor">{{
+                section.title
+              }}</span>
             </div>
             <div
               class="jets-cabin-label jets-cabin-label--right"
@@ -92,9 +76,7 @@ interface ICabinSection {
               [style.height.px]="section.height"
               [style.border-color]="section.color"
             >
-              <span class="jets-cabin-label__text" [style.color]="labelColor">{{
-                section.title
-              }}</span>
+              <span class="jets-cabin-label__text" [style.color]="labelColor">{{ section.title }}</span>
             </div>
           }
         }
@@ -402,17 +384,14 @@ export class JetsDeckComponent {
       const lastRowOffset = lastCabinRow.topOffset ?? startOffset;
       const lastRowNativeHeight = this._getNativeRowHeight(lastCabinRow);
       const rawHeight =
-        lastCabinRow === row
-          ? lastRowNativeHeight
-          : lastRowOffset - startOffset + lastRowNativeHeight / 2;
+        lastCabinRow === row ? lastRowNativeHeight : lastRowOffset - startOffset + lastRowNativeHeight / 2;
 
       const height = Math.max(20, Math.round(rawHeight * sc));
       const top = Math.round(startOffset * sc);
 
       const cabinCode = row.cabinClassCode ?? this._cabinCodeFromTitle(row.cabinTitle);
       const highlightColors =
-        this.colorTheme?.cabinTitlesHighlightColors ??
-        DEFAULT_COLOR_THEME.cabinTitlesHighlightColors;
+        this.colorTheme?.cabinTitlesHighlightColors ?? DEFAULT_COLOR_THEME.cabinTitlesHighlightColors;
       const color = highlightColors[cabinCode] ?? '#9e9e9e';
 
       sections.push({ title: row.cabinTitle, top, height, color });

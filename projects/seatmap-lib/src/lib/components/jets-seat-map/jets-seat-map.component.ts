@@ -126,7 +126,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   constructor(
     private seatmapService: JetsSeatMapService,
-    private cdr: ChangeDetectorRef,
+    private cdr: ChangeDetectorRef
   ) {}
 
   get resolvedConfig(): IConfig {
@@ -226,8 +226,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
               const currency = seat.currency || '';
               items.push({
                 label: `${currency} ${seat.price}`,
-                color:
-                  seat.color || theme.seatAvailableColor || DEFAULT_COLOR_THEME.seatAvailableColor,
+                color: seat.color || theme.seatAvailableColor || DEFAULT_COLOR_THEME.seatAvailableColor,
               });
             }
           }
@@ -238,7 +237,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     // If no priced seats found but there are available seats, add a generic available item
     if (items.length === 0) {
       const hasAvailable = this.content.some(d =>
-        d.rows.some(r => r.seats.some(s => s.type === 'seat' && s.status === 'available')),
+        d.rows.some(r => r.seats.some(s => s.type === 'seat' && s.status === 'available'))
       );
       if (hasAvailable) {
         items.push({
@@ -302,13 +301,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   get sideSpaceNative(): number {
     const hasWings = this.content.some(d => d.extras?.wingsInfo?.height != null);
     const wingsW =
-      this.resolvedConfig.visibleWings !== false && hasWings
-        ? (this.resolvedConfig.colorTheme?.wingsWidth ?? 30)
-        : 0;
+      this.resolvedConfig.visibleWings !== false && hasWings ? (this.resolvedConfig.colorTheme?.wingsWidth ?? 30) : 0;
     const cabinTitlesW =
-      this.resolvedConfig.visibleCabinTitles !== false
-        ? (this.resolvedConfig.colorTheme?.cabinTitlesWidth ?? 80)
-        : 0;
+      this.resolvedConfig.visibleCabinTitles !== false ? (this.resolvedConfig.colorTheme?.cabinTitlesWidth ?? 80) : 0;
     return Math.max(wingsW, cabinTitlesW);
   }
 
@@ -508,7 +503,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
             // Scroll into view after rendering
             setTimeout(() => {
               const el = this.mapContainer?.nativeElement?.querySelector(
-                `[data-seat-number="${seat.number}"]`,
+                `[data-seat-number="${seat.number}"]`
               ) as HTMLElement;
               if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -552,7 +547,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
         this.flight,
         this.availability,
         passengersList,
-        this.resolvedConfig,
+        this.resolvedConfig
       );
 
       if (this._flightId !== flightId) return;
@@ -657,7 +652,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       element,
       this.mapContainer.nativeElement,
       nextPassenger,
-      this.lang,
+      this.lang
     );
     this.activeTooltip = tooltipData;
 
@@ -668,11 +663,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onTooltipSelect(seat: ISeatData): void {
-    const { data, passengers } = this.seatmapService.selectSeatHandler(
-      this.content,
-      seat,
-      this.passengersList,
-    );
+    const { data, passengers } = this.seatmapService.selectSeatHandler(this.content, seat, this.passengersList);
     this.content = data;
     this.passengersList = passengers;
     this.activeTooltip = null;
@@ -684,11 +675,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onTooltipUnselect(seat: ISeatData): void {
-    const { data, passengers } = this.seatmapService.unselectSeatHandler(
-      this.content,
-      seat,
-      this.passengersList,
-    );
+    const { data, passengers } = this.seatmapService.unselectSeatHandler(this.content, seat, this.passengersList);
     this.content = data;
     this.passengersList = passengers;
     this.activeTooltip = null;

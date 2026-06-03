@@ -17,8 +17,7 @@ export const noseTemplateService = {
 .nw{fill:${style.windowColor}}
 .nd{fill:none;stroke:none;stroke-width:${style.strokeWidth};stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:0.9715,5.8292}
 </style>`;
-    const fn =
-      (noseMap as Record<string, (c: string) => string>)[noseType ?? ''] ?? noseMap['default'];
+    const fn = (noseMap as Record<string, (c: string) => string>)[noseType ?? ''] ?? noseMap['default'];
     return fn(css);
   },
 };

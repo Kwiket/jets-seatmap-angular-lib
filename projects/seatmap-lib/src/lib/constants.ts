@@ -179,10 +179,7 @@ export const DEFAULT_COLOR_THEME = {
   // Cabin titles
   cabinTitlesWidth: 80,
   cabinTitlesLabelColor: '#00BFFF',
-  cabinTitlesHighlightColors: { F: '#BDB76B', B: '#FF8C00', P: '#8FBC8F', E: '#1E90FF' } as Record<
-    string,
-    string
-  >,
+  cabinTitlesHighlightColors: { F: '#BDB76B', B: '#FF8C00', P: '#8FBC8F', E: '#1E90FF' } as Record<string, string>,
   // Typography
   fontFamily: '',
 };

@@ -74,10 +74,7 @@ describe('JetsSeatMapService', () => {
     });
 
     it('should apply wildcard availability to all seats', () => {
-      const seats = [
-        makeSeat({ number: '1A' }),
-        makeSeat({ number: '1B', id: 'seat-0-1', letter: 'B' }),
-      ];
+      const seats = [makeSeat({ number: '1A' }), makeSeat({ number: '1B', id: 'seat-0-1', letter: 'B' })];
       const content = [makeDeck(seats)];
       const availability: TSeatAvailability = [{ label: '*', price: 0, currency: 'EUR' }];
 
@@ -90,9 +87,7 @@ describe('JetsSeatMapService', () => {
     it('should apply seat color from availability', () => {
       const seat = makeSeat();
       const content = [makeDeck([seat])];
-      const availability: TSeatAvailability = [
-        { label: '1A', price: 100, currency: 'USD', color: '#FF0000' },
-      ];
+      const availability: TSeatAvailability = [{ label: '1A', price: 100, currency: 'USD', color: '#FF0000' }];
 
       const result = service.setAvailabilityHandler(content, availability);
       expect(result[0].rows[0].seats[0].color).toBe('#FF0000');
@@ -260,9 +255,7 @@ describe('JetsSeatMapService', () => {
     });
 
     it('should truncate abbreviation to 2 characters', () => {
-      const result = service.addAbbrToPassengers([
-        makePassenger({ passengerLabel: 'Anna Maria Smith' }),
-      ]);
+      const result = service.addAbbrToPassengers([makePassenger({ passengerLabel: 'Anna Maria Smith' })]);
       expect(result[0].abbr).toBe('AM');
     });
 

@@ -9,12 +9,7 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div
-      class="jets-wings"
-      [style.top.px]="scaledTop"
-      [style.width.px]="containerWidth"
-      [style.height.px]="wingHeight"
-    >
+    <div class="jets-wings" [style.top.px]="scaledTop" [style.width.px]="containerWidth" [style.height.px]="wingHeight">
       <!-- Left wing: rectangle body -->
       <svg
         class="jets-wing jets-wing--left"
@@ -24,12 +19,7 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
         xmlns="http://www.w3.org/2000/svg"
         preserveAspectRatio="none"
       >
-        <path
-          [attr.fill]="hullColor"
-          [attr.stroke]="strokeColor"
-          stroke-width="1.5"
-          d="M60,0 L0,0 L0,200 L60,200 Z"
-        />
+        <path [attr.fill]="hullColor" [attr.stroke]="strokeColor" stroke-width="1.5" d="M60,0 L0,0 L0,200 L60,200 Z" />
       </svg>
 
       <!-- Left wing-leading (triangular mask at top) -->
@@ -49,12 +39,7 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
         xmlns="http://www.w3.org/2000/svg"
         preserveAspectRatio="none"
       >
-        <path
-          [attr.fill]="hullColor"
-          [attr.stroke]="strokeColor"
-          stroke-width="1.5"
-          d="M0,0 L60,0 L60,200 L0,200 Z"
-        />
+        <path [attr.fill]="hullColor" [attr.stroke]="strokeColor" stroke-width="1.5" d="M0,0 L60,0 L60,200 L0,200 Z" />
       </svg>
 
       <!-- Right wing-leading (triangular mask at top) -->
@@ -141,11 +126,7 @@ export class JetsWingComponent {
   }
 
   get hullColor(): string {
-    return (
-      this.colorTheme?.fuselageWingsColor ??
-      this.colorTheme?.hullColor ??
-      DEFAULT_COLOR_THEME.fuselageWingsColor
-    );
+    return this.colorTheme?.fuselageWingsColor ?? this.colorTheme?.hullColor ?? DEFAULT_COLOR_THEME.fuselageWingsColor;
   }
 
   get strokeColor(): string {

@@ -21,7 +21,7 @@ export class SeatmapAuthService {
     const resolvedKey = typeof apiKey === 'function' ? (apiKey as () => string)() : apiKey;
     const headers = new HttpHeaders({ Authorization: `Bearer ${resolvedKey}` });
     const response = await firstValueFrom(
-      this.http.get<{ accessToken: string }>(`${apiUrl}/auth?appId=${apiAppId}`, { headers }),
+      this.http.get<{ accessToken: string }>(`${apiUrl}/auth?appId=${apiAppId}`, { headers })
     );
 
     if (!response?.accessToken) {
@@ -68,7 +68,7 @@ export class SeatmapAuthService {
       atob(base64)
         .split('')
         .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join(''),
+        .join('')
     );
     return JSON.parse(jsonPayload);
   }

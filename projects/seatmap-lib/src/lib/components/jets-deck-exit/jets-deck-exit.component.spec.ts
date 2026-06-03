@@ -47,12 +47,8 @@ describe('JetsDeckExitComponent', () => {
     fixture.detectChanges();
 
     const host: HTMLElement = fixture.nativeElement;
-    const leftImg = host.querySelector(
-      '.jets-exit--left img.jets-exit__icon',
-    ) as HTMLImageElement | null;
-    const rightImg = host.querySelector(
-      '.jets-exit--right img.jets-exit__icon',
-    ) as HTMLImageElement | null;
+    const leftImg = host.querySelector('.jets-exit--left img.jets-exit__icon') as HTMLImageElement | null;
+    const rightImg = host.querySelector('.jets-exit--right img.jets-exit__icon') as HTMLImageElement | null;
 
     expect(leftImg).not.toBeNull();
     expect(rightImg).not.toBeNull();

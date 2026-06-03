@@ -4,15 +4,7 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { JetsSeatMapComponent } from './jets-seat-map.component';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
 import { resetCachedEnvironmentInfo } from '../../services/environment.service';
-import {
-  IConfig,
-  IDeckData,
-  IFlight,
-  IPassenger,
-  ISeatData,
-  IInitialLayoutData,
-  TSeatAvailability,
-} from '../../types';
+import { IConfig, IDeckData, IFlight, IPassenger, ISeatData, IInitialLayoutData, TSeatAvailability } from '../../types';
 import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../../constants';
 
 // ─── Test data factories ────────────────────────────────────────────────────
@@ -254,7 +246,7 @@ describe('JetsSeatMapComponent', () => {
         component.flight,
         availability,
         expect.anything(),
-        expect.anything(),
+        expect.anything()
       );
     });
 
@@ -334,7 +326,7 @@ describe('JetsSeatMapComponent', () => {
         expect.objectContaining({
           decksCount: 1,
           currentDeckIndex: 0,
-        }),
+        })
       );
     });
 
@@ -566,11 +558,7 @@ describe('JetsSeatMapComponent', () => {
 
     it('should ignore stale responses after flight change', async () => {
       // Start first load
-      let resolveFirst: (v: {
-        content: IDeckData[];
-        media: null;
-        availableCabins: never[];
-      }) => void;
+      let resolveFirst: (v: { content: IDeckData[]; media: null; availableCabins: never[] }) => void;
       const firstPromise = new Promise<{
         content: IDeckData[];
         media: null;

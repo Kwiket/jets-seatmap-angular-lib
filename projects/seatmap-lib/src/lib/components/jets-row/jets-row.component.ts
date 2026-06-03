@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
-  Input,
-  Output,
-  Type,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Type } from '@angular/core';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { ISeatData, IRowData, IColorTheme } from '../../types';
 import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
@@ -16,11 +9,7 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
   imports: [CommonModule, NgComponentOutlet, JetsSeatComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div
-      class="jets-row"
-      [class.jets-row--has-offset]="row.topOffset != null"
-      [style.margin-top.px]="rowMarginTop"
-    >
+    <div class="jets-row" [class.jets-row--has-offset]="row.topOffset != null" [style.margin-top.px]="rowMarginTop">
       <div class="jets-row__seats">
         @for (seat of row.seats; track seat.id) {
           @if (seatOverride) {

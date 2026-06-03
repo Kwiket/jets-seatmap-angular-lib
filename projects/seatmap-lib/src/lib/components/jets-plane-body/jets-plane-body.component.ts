@@ -89,9 +89,7 @@ export class JetsPlaneBodyComponent {
 
   /** Border width that matches the nose SVG stroke scaled to rendered size. */
   get scaledStrokeWidth(): number {
-    return (
-      (JetsPlaneBodyComponent.NOSE_STROKE * this.width) / JetsPlaneBodyComponent.NOSE_VIEWBOX_W
-    );
+    return (JetsPlaneBodyComponent.NOSE_STROKE * this.width) / JetsPlaneBodyComponent.NOSE_VIEWBOX_W;
   }
 
   get bgColor(): string {
@@ -99,11 +97,7 @@ export class JetsPlaneBodyComponent {
   }
 
   get fuselageFill(): string {
-    return (
-      this.colorTheme?.hullColor ??
-      this.colorTheme?.fuselageFillColor ??
-      DEFAULT_COLOR_THEME.fuselageFillColor
-    );
+    return this.colorTheme?.hullColor ?? this.colorTheme?.fuselageFillColor ?? DEFAULT_COLOR_THEME.fuselageFillColor;
   }
 
   get fuselageStroke(): string {
