@@ -247,10 +247,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       }
     }
 
-    // Unavailable
+    // Unavailable — notAvailableSeatsColor is the documented alias.
     items.push({
       label: locale['unavailable'],
-      color: theme.seatUnavailableColor || DEFAULT_COLOR_THEME.seatUnavailableColor,
+      color: theme.notAvailableSeatsColor || theme.seatUnavailableColor || DEFAULT_COLOR_THEME.seatUnavailableColor,
       icon: 'cross',
     });
 

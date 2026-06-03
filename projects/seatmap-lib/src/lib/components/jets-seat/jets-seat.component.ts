@@ -447,7 +447,10 @@ export class JetsSeatComponent implements OnChanges {
         fillColor = theme.seatExtraColor ?? def.seatExtraColor;
         break;
       default:
-        fillColor = theme.seatUnavailableColor ?? def.seatUnavailableColor;
+        // notAvailableSeatsColor is the documented public alias (README + demo
+        // both use it). Honour it first; seatUnavailableColor stays as the
+        // legacy fallback so existing consumers don't regress.
+        fillColor = theme.notAvailableSeatsColor ?? theme.seatUnavailableColor ?? def.seatUnavailableColor;
     }
 
     const uniformUnavailable = this.data.status === 'unavailable' && !!theme.seatUnavailableCrossColor;
