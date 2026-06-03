@@ -5,6 +5,7 @@ import {
   screenshotElement,
   screenshotRows,
   screenshotSeatMap,
+  setPassengers,
 } from '../helpers/demo';
 
 /**
@@ -174,7 +175,7 @@ const BASELINE_THEME: Record<string, unknown> = {
   ],
 };
 
-type Precondition = 'plain' | 'tooltip' | 'cabinTitles' | 'multiDeck';
+type Precondition = 'plain' | 'tooltip' | 'cabinTitles' | 'multiDeck' | 'passengerSeated';
 
 /**
  * How to capture the screenshot for a per-field test.
@@ -304,12 +305,54 @@ const FIELD_CASES: FieldCase[] = [
   { field: 'bulkFloorIconColor', value: '#ffeb3b', closeUp: BULK_CLOSEUP },
 
   // ─── Passenger badge ──────────────────────────────────────────────────
-  // Badge only renders on seats that have an assigned passenger; the demo's
-  // default passenger list has no seat. Without seating, no badge → leave
-  // these as full screenshots (and mark them as covered by Task #24).
-  { field: 'defaultPassengerBadgeColor', value: '#00e676' },
-  { field: 'defaultPassengerBadgeLabelColor', value: '#000000' },
-  { field: 'defaultPassengerBadgeBorderColor', value: '#ff1744' },
+  // Badge only renders on seats that have an assigned passenger. The
+  // pre:'passengerSeated' preset clicks a seat after applyConfigAndReady so
+  // the next-in-queue demo passenger gets assigned to it; closing up on
+  // .jets-seat--selected shows the small circular badge with the
+  // passenger's abbr inside.
+  {
+    field: 'defaultPassengerBadgeColor',
+    value: '#00e676',
+    pre: 'passengerSeated',
+    closeUp: { kind: 'element', selector: '.jets-seat--selected', padding: 20 },
+    verify: async page => {
+      const bg = await page
+        .locator('.jets-seat--selected .jets-seat__passenger')
+        .first()
+        .evaluate(el => (el as HTMLElement).style.backgroundColor);
+      expect(bg).toBe('rgb(0, 230, 118)');
+    },
+  },
+  {
+    field: 'defaultPassengerBadgeLabelColor',
+    value: '#000000',
+    pre: 'passengerSeated',
+    closeUp: { kind: 'element', selector: '.jets-seat--selected', padding: 20 },
+    verify: async page => {
+      const color = await page
+        .locator('.jets-seat--selected .jets-seat__passenger')
+        .first()
+        .evaluate(el => getComputedStyle(el).color);
+      // colorTheme.defaultPassengerBadgeLabelColor is read from a getter,
+      // not a literal style binding, so check computed color rather than
+      // inline style.
+      expect(color).toBe('rgb(0, 0, 0)');
+    },
+  },
+  {
+    field: 'defaultPassengerBadgeBorderColor',
+    value: '#ff1744',
+    pre: 'passengerSeated',
+    closeUp: { kind: 'element', selector: '.jets-seat--selected', padding: 20 },
+    verify: async page => {
+      const border = await page
+        .locator('.jets-seat--selected .jets-seat__passenger')
+        .first()
+        .evaluate(el => (el as HTMLElement).style.border);
+      // Either "1px solid #ff1744" or computed "rgb(255, 23, 68)".
+      expect(border).toMatch(/#ff1744|rgb\(255,\s*23,\s*68\)/i);
+    },
+  },
 
   // ─── Deck ──────────────────────────────────────────────────────────────
   // Deck title text sits at the top of each deck.
@@ -462,6 +505,20 @@ test.describe('colorTheme · per-field matrix', () => {
       await applyConfigAndReady(page, config);
       if (c.pre === 'tooltip') {
         await clickFirstAvailableSeat(page);
+      } else if (c.pre === 'passengerSeated') {
+        // Push the demo's default passenger list, click a seat (which opens
+        // the built-in tooltip), then click "Select" in the tooltip to
+        // assign the next-in-queue passenger to the seat. After that the
+        // seat flips to .jets-seat--selected and shows .jets-seat__passenger.
+        await setPassengers(page);
+        await clickFirstAvailableSeat(page);
+        const selectBtn = page.locator('.jets-tooltip .jets-select-btn');
+        await selectBtn.waitFor({ state: 'visible', timeout: 5_000 });
+        await selectBtn.click();
+        await page.locator('.jets-seat--selected .jets-seat__passenger').first().waitFor({
+          state: 'visible',
+          timeout: 5_000,
+        });
       }
       // DOM assertion runs BEFORE the screenshot so a failed verify aborts
       // with a clear stack trace, and the screenshot reflects the state
