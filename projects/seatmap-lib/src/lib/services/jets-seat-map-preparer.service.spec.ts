@@ -296,6 +296,149 @@ describe('JetsSeatMapPreparerService', () => {
       expect(result[0].number).toBe(1);
       expect(result[1].number).toBe(2);
     });
+
+    // ─── Seat colour priority: ranges vs API seat colour ─────────────────
+    // Locks in React parity (data-preparer.js:371) — customSeatColorRanges
+    // override the API's per-seat colour when (a) the gate flag is on and
+    // (b) the score lands in one of the configured bands. Otherwise the
+    // API colour is preserved.
+    describe('seat colour: customSeatColorRanges vs API color', () => {
+      const ranges = [
+        { range: [1, 3] as [number, number], color: '#FF0000' },
+        { range: [4, 7] as [number, number], color: '#FFFF00' },
+        { range: [8, 10] as [number, number], color: '#00FF00' },
+      ];
+      const configWithRanges: IConfig = {
+        ...baseConfig,
+        colorTheme: { customSeatColorRanges: ranges },
+      };
+
+      it('new format: range colour wins over API seat.color when score matches', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  seats: [
+                    {
+                      letter: 'A',
+                      seatNumber: '1A',
+                      type: 0,
+                      seatType: 0,
+                      score: 8.4,
+                      color: '#6CB64A',
+                    } as any,
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, configWithRanges)[0].rows[0].seats[0];
+        expect(seat.color).toBe('#00FF00');
+      });
+
+      it('new format: API seat.color wins when score is out of every range', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  seats: [
+                    {
+                      letter: 'A',
+                      seatNumber: '1A',
+                      type: 0,
+                      seatType: 0,
+                      score: 11,
+                      color: '#6CB64A',
+                    } as any,
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, configWithRanges)[0].rows[0].seats[0];
+        expect(seat.color).toBe('#6CB64A');
+      });
+
+      it('new format: API seat.color wins when colorfulSeatsByScore is false', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  seats: [
+                    {
+                      letter: 'A',
+                      seatNumber: '1A',
+                      type: 0,
+                      seatType: 0,
+                      score: 2,
+                      color: '#6CB64A',
+                    } as any,
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, {
+          ...configWithRanges,
+          colorfulSeatsByScore: false,
+        })[0].rows[0].seats[0];
+        expect(seat.color).toBe('#6CB64A');
+      });
+
+      it('new format: API seat.color wins when no ranges are configured', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  seats: [
+                    {
+                      letter: 'A',
+                      seatNumber: '1A',
+                      type: 0,
+                      seatType: 0,
+                      score: 2,
+                      color: '#6CB64A',
+                    } as any,
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, baseConfig)[0].rows[0].seats[0];
+        expect(seat.color).toBe('#6CB64A');
+      });
+
+      it('legacy format: range colour wins over API seat.color when score matches', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  seatScheme: 'S',
+                  seatType: 0,
+                  number: 1,
+                  name: '1',
+                  // Legacy path reads per-seat data from `apiSeats[]` (line 678).
+                  apiSeats: [
+                    { letter: 'A', score: 8.4, color: '#6CB64A', available: true } as any,
+                  ],
+                } as any,
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, configWithRanges)[0].rows[0].seats[0];
+        expect(seat.color).toBe('#00FF00');
+      });
+    });
   });
 
   // ─── _calculateSeatColorByScore (static) ──────────────────────────────────

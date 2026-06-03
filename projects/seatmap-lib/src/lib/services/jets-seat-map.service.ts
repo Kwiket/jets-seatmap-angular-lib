@@ -106,7 +106,12 @@ export class JetsSeatMapService {
             status: ENTITY_STATUS_MAP.available,
             price: source.price,
             currency: source.currency,
-            color: source.color,
+            // React parity (service.js:108) — availability `color` overrides
+            // the prepared score/API colour, but when the availability entry
+            // doesn't carry a colour (e.g. a `{ label: '*', price }` wildcard)
+            // we fall back to the seat's originalColor so customSeatColorRanges
+            // and per-seat API colours survive the availability merge.
+            color: source.color ?? seat.originalColor ?? seat.color,
             passengerTypes: seat.passengerTypes?.length
               ? seat.passengerTypes
               : source.onlyForPassengerType

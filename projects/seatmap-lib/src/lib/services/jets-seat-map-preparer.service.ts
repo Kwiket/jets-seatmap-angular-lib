@@ -287,13 +287,19 @@ export class JetsSeatMapPreparerService {
       const seatAmenities = seatFeatures.filter(f => f.value == null && !flightIcons.has(f.icon));
       const seatDimensions = seatFeatures.filter(f => f.value != null);
       const features = [...flightAmenities, ...seatAmenities, ...seatDimensions];
+      // React parity (data-preparer.js:371): score-range colour wins over the
+      // API's `seat.color`. The customSeatColorRanges contract is "the theme
+      // overrides whatever the seat ships with for this score band" — so the
+      // matcher comes first; if it returns null (no ranges configured, gate
+      // off, score missing/out of band), we fall back to the per-seat API
+      // colour.
       const seatColor =
-        s.color ??
         JetsSeatMapPreparerService._calculateSeatColorByScore(
           s.score,
           colorTheme?.customSeatColorRanges,
           colorfulSeatsByScore,
         ) ??
+        s.color ??
         undefined;
 
       return {
@@ -754,13 +760,14 @@ export class JetsSeatMapPreparerService {
       const seatScore = newSeat?.score ?? legacyAny?.score;
       const seatApiColor = newSeat?.color ?? legacyAny?.color;
       const seatAvailable = newSeat?.available ?? legacyAny?.available;
+      // React parity — see new-format path above for the rationale.
       const seatColor =
-        seatApiColor ??
         JetsSeatMapPreparerService._calculateSeatColorByScore(
           seatScore,
           config.colorTheme?.customSeatColorRanges,
           config.colorfulSeatsByScore ?? true,
         ) ??
+        seatApiColor ??
         undefined;
 
       return {
