@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   applyConfigAndReady,
   clickFirstAvailableSeat,
@@ -206,6 +206,11 @@ interface FieldCase {
   // score-tiered palette gets a chance to paint.
   omitFromBaseline?: string[];
   closeUp?: CloseUp;
+  // Optional DOM-level assertion that runs AFTER applyConfigAndReady
+  // (and any tooltip click), BEFORE the screenshot. Use for micro-detail
+  // changes the screenshot can't reliably verify (1-4 px stroke widths,
+  // computed colours of tiny elements, structural dimensions).
+  verify?: (page: Page) => Promise<void>;
 }
 
 /**
@@ -242,11 +247,53 @@ const FIELD_CASES: FieldCase[] = [
   { field: 'fontFamily', value: 'Courier New, monospace', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
 
   // ─── Seat ──────────────────────────────────────────────────────────────
-  // Seat labels / strokes / armrests are sub-pixel at full-deck zoom — crop.
-  { field: 'seatLabelColor', value: '#ff0000', closeUp: FEW_ROWS_FROM_TOP },
-  { field: 'seatStrokeColor', value: '#000000', closeUp: FEW_ROWS_FROM_TOP },
-  { field: 'seatStrokeWidth', value: 4, closeUp: FEW_ROWS_FROM_TOP },
-  { field: 'seatArmrestColor', value: '#ff5722', closeUp: FEW_ROWS_FROM_TOP },
+  // Seat labels / strokes / armrests are sub-pixel at full-deck zoom — crop
+  // for visual confirmation, plus assert the actual DOM value so the test
+  // fails loudly if the override silently drops.
+  {
+    field: 'seatLabelColor',
+    value: '#ff0000',
+    closeUp: FEW_ROWS_FROM_TOP,
+    verify: async page => {
+      const color = await page
+        .locator('.jets-seat--available .jets-seat__number')
+        .first()
+        .evaluate(el => (el as HTMLElement).style.color);
+      expect(color).toBe('rgb(255, 0, 0)');
+    },
+  },
+  {
+    field: 'seatStrokeColor',
+    value: '#000000',
+    closeUp: FEW_ROWS_FROM_TOP,
+    verify: async page => {
+      // SVG paths carry `stroke="..."` attributes set from the seat template.
+      const stroke = await page.locator('.jets-seat--available .jets-seat__svg path.bd').first().getAttribute('stroke');
+      expect(stroke).toBe('#000000');
+    },
+  },
+  {
+    field: 'seatStrokeWidth',
+    value: 4,
+    closeUp: FEW_ROWS_FROM_TOP,
+    verify: async page => {
+      const width = await page
+        .locator('.jets-seat--available .jets-seat__svg path.bd')
+        .first()
+        .getAttribute('stroke-width');
+      expect(width).toBe('4');
+    },
+  },
+  {
+    field: 'seatArmrestColor',
+    value: '#ff5722',
+    closeUp: FEW_ROWS_FROM_TOP,
+    verify: async page => {
+      // The armrest paths use class `bc` and receive `fill="${armrestColor}"`.
+      const fill = await page.locator('.jets-seat--available .jets-seat__svg path.bc').first().getAttribute('fill');
+      expect(fill).toBe('#ff5722');
+    },
+  },
   { field: 'notAvailableSeatsColor', value: '#9c27b0' },
 
   // ─── Bulk (cabin partitions) ──────────────────────────────────────────
@@ -399,6 +446,12 @@ test.describe('colorTheme · per-field matrix', () => {
       await applyConfigAndReady(page, config);
       if (c.pre === 'tooltip') {
         await clickFirstAvailableSeat(page);
+      }
+      // DOM assertion runs BEFORE the screenshot so a failed verify aborts
+      // with a clear stack trace, and the screenshot reflects the state
+      // that was just asserted.
+      if (c.verify) {
+        await c.verify(page);
       }
       const name = `colorTheme-field-${c.field}`;
       if (!c.closeUp) {
