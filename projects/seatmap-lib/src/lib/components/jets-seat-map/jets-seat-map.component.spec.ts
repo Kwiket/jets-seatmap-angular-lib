@@ -375,19 +375,16 @@ describe('JetsSeatMapComponent', () => {
       //   - `priceValue` carries the raw number; `price` becomes a formatted string.
       //   - features/measurements default to empty arrays.
       const { id: _id, size: _size, number: _number, ...rest } = seat;
+      // Emit shape: undefined-valued keys (`currency`, `price`, `priceValue`)
+      // are stripped, `passengerTypes` defaults to [] when unset.
       const expectedSeat = {
         ...rest,
         label: seat.number,
         classCode: 'E',
         classType: 'Economy',
-        // Contract: `color: string`. Emit also back-fills `originalColor`
-        // from `color` if the source seat didn't carry one — so an integrator
-        // reading either field always gets a real colour.
         color: seat.color,
         originalColor: seat.color,
-        currency: undefined,
-        price: undefined,
-        priceValue: undefined,
+        passengerTypes: [],
         features: [],
         measurements: [],
         additionalProps: [],

@@ -721,7 +721,13 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     const numericPrice = typeof price === 'number' ? price : undefined;
     const priceStr = numericPrice != null ? `${currency ?? ''}${currency ? ' ' : ''}${numericPrice}` : undefined;
 
-    return {
+    // `passengerTypes` semantically means "allowed passenger types for this
+    // seat". When the API/availability don't restrict the seat, default to []
+    // ("no restriction = open to all"). Avoids surfacing `undefined` to
+    // integrators, who'd otherwise need to defensive-check before iterating.
+    const passengerTypes = (rest as ISeatData).passengerTypes ?? [];
+
+    const emitted = {
       ...(rest as ISeatData),
       label: number,
       classCode: code,
@@ -732,10 +738,20 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       // `price` becomes the formatted string; `priceValue` carries the number.
       price: priceStr as unknown as number,
       priceValue: numericPrice,
+      passengerTypes,
       features: (features ?? []).map(stringifyFeature),
       measurements: (measurements ?? []).map(stringifyFeature),
       additionalProps: ((rest as ISeatData).additionalProps ?? []).map(stringifyFeature),
     };
+
+    // Strip any remaining undefined-valued keys so the payload only carries
+    // fields the lib actually has data for. Mirrors how integrators would
+    // hand-craft a JSON contract — present keys mean "set", missing keys
+    // mean "unset" — instead of `{ price: undefined }` style noise.
+    for (const k of Object.keys(emitted) as Array<keyof typeof emitted>) {
+      if (emitted[k] === undefined) delete emitted[k];
+    }
+    return emitted;
   }
 
   onTooltipSelect(seat: ISeatData): void {

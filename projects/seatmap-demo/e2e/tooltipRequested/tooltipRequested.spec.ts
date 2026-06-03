@@ -120,6 +120,12 @@ test.describe('tooltipRequested payload', () => {
     // belt-and-braces fallback in _prepareSeatForEmit.
     expect(typeof seat.color).toBe('string');
     expect((seat.color as string).length).toBeGreaterThan(0);
+    // passengerTypes is always an array (defaults to [] for unrestricted seats).
+    expect(Array.isArray((seat as Record<string, unknown>)['passengerTypes'])).toBe(true);
+    // No emitted key carries `undefined` — _prepareSeatForEmit strips them.
+    for (const k of Object.keys(seat)) {
+      expect((seat as Record<string, unknown>)[k]).toBeDefined();
+    }
     // Layout-only fields stripped on emit:
     expect(seat.number).toBeUndefined();
     expect(seat.topOffset).toBeUndefined();
