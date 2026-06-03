@@ -25,7 +25,8 @@
               showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
               colorTheme: resolvedConfig.colorTheme,
               rightToLeft: resolvedConfig.rightToLeft ?? false,
-              hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? []
+              hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
+              currencyOverride: resolvedConfig.currencySign || ''
             }
           "
         />
@@ -37,6 +38,7 @@
           [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
           [rightToLeft]="resolvedConfig.rightToLeft ?? false"
           [hiddenSeatFeatures]="resolvedConfig.hiddenSeatFeatures ?? []"
+          [currencyOverride]="resolvedConfig.currencySign || ''"
           [viewOverride]="tooltipViewOverride"
           (select)="onTooltipSelect($event)"
           (unselect)="onTooltipUnselect($event)"

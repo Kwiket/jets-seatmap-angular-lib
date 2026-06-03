@@ -58,7 +58,7 @@ import {
               >
               @if (data.seat.price != null && data.seat.price > 0) {
                 <span class="jets-tooltip--header-price"
-                  >{{ data.seat.currency }} {{ data.seat.price }}</span
+                  >{{ resolvedCurrency }} {{ data.seat.price }}</span
                 >
               }
               @if (data.seat.price === 0) {
@@ -191,6 +191,20 @@ export class JetsTooltipComponent {
    * amenities/dimensions lists. Mirrors React's `params.hiddenSeatFeatures`.
    */
   @Input() hiddenSeatFeatures: string[] = [];
+  /**
+   * Global currency override (from `config.currencySign`). When set, the
+   * tooltip header shows this string instead of the per-seat `data.seat.currency`,
+   * mirroring the behaviour of the per-seat price pill.
+   */
+  @Input() currencyOverride?: string;
+
+  /** Config-level override wins over per-seat currency; falls back to the seat's own currency. */
+  get resolvedCurrency(): string {
+    if (this.currencyOverride != null && this.currencyOverride !== '') {
+      return this.currencyOverride;
+    }
+    return this.data?.seat?.currency ?? '';
+  }
   @Output() select = new EventEmitter<ISeatData>();
   @Output() unselect = new EventEmitter<ISeatData>();
   @Output() close = new EventEmitter<void>();

@@ -101,6 +101,25 @@ describe('JetsTooltipComponent', () => {
       ) as HTMLButtonElement;
       expect(selectBtn?.disabled).toBe(true);
     });
+
+    it('renders seat.currency in header price by default', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ number: '13A', price: 29, currency: 'USD' }),
+      });
+      fixture.detectChanges();
+      const price = fixture.nativeElement.querySelector('.jets-tooltip--header-price');
+      expect(price?.textContent?.trim()).toBe('USD 29');
+    });
+
+    it('currencyOverride (config.currencySign) wins over seat.currency in header price', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ number: '13A', price: 29, currency: 'USD' }),
+      });
+      component.currencyOverride = '$';
+      fixture.detectChanges();
+      const price = fixture.nativeElement.querySelector('.jets-tooltip--header-price');
+      expect(price?.textContent?.trim()).toBe('$ 29');
+    });
   });
 
   // ─── Amenities ─────────────────────────────────────────────────────────
