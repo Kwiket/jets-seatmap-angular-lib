@@ -106,7 +106,13 @@ export class JetsSeatMapService {
             status: ENTITY_STATUS_MAP.available,
             price: source.price,
             currency: source.currency,
-            color: source.color,
+            // Availability colour wins when set; otherwise preserve the seat's
+            // existing colour (e.g. score-based tint) instead of clobbering it
+            // to undefined. The earlier `color: source.color` lost the
+            // pre-computed colour whenever the availability entry omitted one,
+            // which both broke the integrator contract (`color: string`) and
+            // forced the renderer back to the theme default.
+            color: source.color ?? seat.color,
             passengerTypes: seat.passengerTypes?.length
               ? seat.passengerTypes
               : source.onlyForPassengerType

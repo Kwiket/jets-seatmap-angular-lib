@@ -115,6 +115,11 @@ test.describe('tooltipRequested payload', () => {
     expect(seat.classType!.length).toBeGreaterThan(1);
     expect(typeof seat.seatType).toBe('string'); // composite 'B-13' / 'E-5' / etc.
     expect(seat.seatType).toMatch(/^[A-Z]-\d+$/);
+    // Contract: `color: string` (non-optional). Used to be undefined when the
+    // availability entry had no colour — fixed in setAvailabilityHandler +
+    // belt-and-braces fallback in _prepareSeatForEmit.
+    expect(typeof seat.color).toBe('string');
+    expect((seat.color as string).length).toBeGreaterThan(0);
     // Layout-only fields stripped on emit:
     expect(seat.number).toBeUndefined();
     expect(seat.topOffset).toBeUndefined();
@@ -163,8 +168,7 @@ test.describe('tooltipRequested payload', () => {
       if (!p) return;
 
       const TRUNCATE = 60;
-      const esc = (s: string) =>
-        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
       const fmtValue = (v: unknown): string => {
         if (v === null) return `<span style="color:#cc7832">null</span>`;
@@ -191,7 +195,7 @@ test.describe('tooltipRequested payload', () => {
       const lines: string[] = [];
       lines.push(`<span style="color:#a9b7c6">Tooltip requested:</span>`);
       lines.push(
-        `<span style="color:#808080">▼ {seat: {…}, element: div.jets-seat.jets-seat--available, event: MouseEvent}</span>`,
+        `<span style="color:#808080">▼ {seat: {…}, element: div.jets-seat.jets-seat--available, event: MouseEvent}</span>`
       );
       lines.push(`  <span style="color:#808080">▼</span> <span style="color:#9876aa">seat</span>:`);
 
@@ -199,17 +203,15 @@ test.describe('tooltipRequested payload', () => {
       for (const [k, v] of Object.entries(seat)) {
         if (Array.isArray(v)) {
           lines.push(
-            `    <span style="color:#808080">▼</span> <span style="color:#9876aa">${esc(k)}</span>: Array(${v.length})`,
+            `    <span style="color:#808080">▼</span> <span style="color:#9876aa">${esc(k)}</span>: Array(${v.length})`
           );
           v.forEach((item, idx) => {
             if (item && typeof item === 'object') {
               lines.push(
-                `      <span style="color:#808080">▶</span> <span style="color:#6897bb">${idx}</span>: ${renderItem(item as Record<string, unknown>)}`,
+                `      <span style="color:#808080">▶</span> <span style="color:#6897bb">${idx}</span>: ${renderItem(item as Record<string, unknown>)}`
               );
             } else {
-              lines.push(
-                `      <span style="color:#6897bb">${idx}</span>: ${fmtValue(item)}`,
-              );
+              lines.push(`      <span style="color:#6897bb">${idx}</span>: ${fmtValue(item)}`);
             }
           });
           lines.push(`      <span style="color:#9876aa">length</span>: ${v.length}`);

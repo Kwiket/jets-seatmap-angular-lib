@@ -689,6 +689,8 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       id: _id,
       cabinTitle: _ct,
       classCode,
+      color,
+      originalColor,
       price,
       currency,
       features,
@@ -699,6 +701,14 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     // `classType` becomes the full word ('Business'), `classCode` stays single-letter.
     const code = (classCode || rest.classType || 'E').toString();
     const classTypeFull = CLASS_CODE_MAP[code.toLowerCase()] || CLASS_CODE_MAP[code] || code;
+
+    // Defensive fallback: the contract is `color: string` (not optional). The
+    // availability handler was the historic culprit that produced `color:
+    // undefined`; even though that's now fixed, fall back through
+    // `originalColor` → theme's seat-available colour → DEFAULT_COLOR_THEME so
+    // a downstream regression cannot ship an undefined colour again.
+    const theme = this.resolvedConfig.colorTheme ?? {};
+    const resolvedColor = color ?? originalColor ?? theme.seatAvailableColor ?? DEFAULT_COLOR_THEME.seatAvailableColor;
 
     // Public ISeatFeature requires `title: string` and `value: string`. Internally we
     // carry `title: null` on negative amenities (with the localized phrase living in
@@ -716,6 +726,8 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       label: number,
       classCode: code,
       classType: classTypeFull,
+      color: resolvedColor,
+      originalColor: originalColor ?? resolvedColor,
       currency,
       // `price` becomes the formatted string; `priceValue` carries the number.
       price: priceStr as unknown as number,

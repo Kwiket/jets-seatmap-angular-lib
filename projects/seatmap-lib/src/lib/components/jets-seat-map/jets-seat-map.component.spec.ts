@@ -380,6 +380,11 @@ describe('JetsSeatMapComponent', () => {
         label: seat.number,
         classCode: 'E',
         classType: 'Economy',
+        // Contract: `color: string`. Emit also back-fills `originalColor`
+        // from `color` if the source seat didn't carry one — so an integrator
+        // reading either field always gets a real colour.
+        color: seat.color,
+        originalColor: seat.color,
         currency: undefined,
         price: undefined,
         priceValue: undefined,
