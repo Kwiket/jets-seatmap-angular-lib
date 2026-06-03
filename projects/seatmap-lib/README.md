@@ -758,9 +758,12 @@ onSeatMouseLeave(data: ISeatMouseLeaveData): void {
 
 ### <a name="seatmouseclick"></a> seatMouseClick
 
-Triggered when a seat is clicked, **only** when `externalPassengerManagement === true && tooltipOnHover === true &&
-builtInTooltip === false`. Use this to drive a custom tooltip/side panel from outside the library. Payload —
-`ISeatMouseClickData`, structurally identical to [ tooltipRequested](#-tooltiprequested).
+Triggered when a seat is clicked while `externalPassengerManagement === true && tooltipOnHover === true` on a non-touch
+device. The `builtInTooltip` setting is intentionally not part of the contract — when external passenger management
+takes over, clicks become a routing signal to your code rather than to the internal tooltip. Hovering still emits
+[ tooltipRequested](#-tooltiprequested) (so you can render your own hover affordance), and the built-in tooltip stays
+hidden when `builtInTooltip === false`. Payload — `ISeatMouseClickData`, structurally identical to
+[ tooltipRequested](#-tooltiprequested).
 
 ```typescript
 interface ISeatMouseClickData {

@@ -698,6 +698,34 @@ describe('JetsSeatMapComponent', () => {
   });
 
   describe('seatMouseClick (external management + hover tooltip mode)', () => {
+    // jsdom's HTMLElement prototype has `ontouchstart`, so the default
+    // environment reads as touch. The contract here is non-touch-only, so we
+    // force the env and reset the cached signal before each test.
+    let savedDescriptor: PropertyDescriptor | undefined;
+    let hadOntouchstart = false;
+
+    beforeEach(() => {
+      resetCachedEnvironmentInfo();
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      hadOntouchstart = Object.prototype.hasOwnProperty.call(proto, 'ontouchstart');
+      if (hadOntouchstart) {
+        savedDescriptor = Object.getOwnPropertyDescriptor(proto, 'ontouchstart');
+        delete proto['ontouchstart'];
+      }
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        configurable: true,
+        get: () => 0,
+      });
+    });
+
+    afterEach(() => {
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      if (hadOntouchstart && savedDescriptor) {
+        Object.defineProperty(proto, 'ontouchstart', savedDescriptor);
+      }
+      resetCachedEnvironmentInfo();
+    });
+
     async function ready() {
       fixture.detectChanges();
       await fixture.whenStable();
@@ -741,6 +769,59 @@ describe('JetsSeatMapComponent', () => {
 
       expect(clickSpy).not.toHaveBeenCalled();
       expect(tooltipSpy).toHaveBeenCalled();
+    });
+
+    it('should emit seatMouseClick even when builtInTooltip is left at its default (true)', async () => {
+      // Regression: React's onSeatMouseClick branch does NOT check builtInTooltip
+      // (SeatMap.js:303-308 has the equivalent guard commented out). Earlier the
+      // Angular port mistakenly required `builtInTooltip === false`, so consumers
+      // who flipped only externalPassengerManagement + tooltipOnHover saw two
+      // tooltipRequested events instead of seatMouseClick.
+      component.config = makeConfig({
+        externalPassengerManagement: true,
+        tooltipOnHover: true,
+        // builtInTooltip left undefined → resolves to true
+      });
+      await ready();
+
+      const clickSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatMouseClick.subscribe(clickSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatClick({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+        event: new MouseEvent('click'),
+      });
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+    });
+
+    it('should emit tooltipRequested (not seatMouseClick) on hover in external+hover mode', async () => {
+      // Hovering goes through `_showTooltip` directly — mirroring React's
+      // JetsSeat.js, where mouseEnter calls `showTooltip`, not `onSeatClick`.
+      component.config = makeConfig({
+        externalPassengerManagement: true,
+        tooltipOnHover: true,
+      });
+      await ready();
+
+      const clickSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatMouseClick.subscribe(clickSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+        event: new MouseEvent('mouseenter'),
+      });
+
+      expect(clickSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).toHaveBeenCalledTimes(1);
     });
   });
 
