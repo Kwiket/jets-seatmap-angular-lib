@@ -102,7 +102,7 @@ describe('JetsTooltipComponent', () => {
       expect(selectBtn?.disabled).toBe(true);
     });
 
-    it('renders seat.currency in header price by default', () => {
+    it('renders seat.currency in header price by default (multi-char: space-separated)', () => {
       component.data = makeTooltipData({
         seat: makeSeat({ number: '13A', price: 29, currency: 'USD' }),
       });
@@ -111,14 +111,33 @@ describe('JetsTooltipComponent', () => {
       expect(price?.textContent?.trim()).toBe('USD 29');
     });
 
-    it('currencyOverride (config.currencySign) wins over seat.currency in header price', () => {
+    it('hugs a single-char currency glyph to the price (no space)', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ number: '13A', price: 29, currency: '$' }),
+      });
+      fixture.detectChanges();
+      const price = fixture.nativeElement.querySelector('.jets-tooltip--header-price');
+      expect(price?.textContent?.trim()).toBe('$29');
+    });
+
+    it('currencyOverride wins over seat.currency, single-char hugs the price', () => {
       component.data = makeTooltipData({
         seat: makeSeat({ number: '13A', price: 29, currency: 'USD' }),
       });
       component.currencyOverride = '$';
       fixture.detectChanges();
       const price = fixture.nativeElement.querySelector('.jets-tooltip--header-price');
-      expect(price?.textContent?.trim()).toBe('$ 29');
+      expect(price?.textContent?.trim()).toBe('$29');
+    });
+
+    it('currencyOverride with multi-char value keeps the separating space', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ number: '13A', price: 29, currency: '$' }),
+      });
+      component.currencyOverride = 'EUR';
+      fixture.detectChanges();
+      const price = fixture.nativeElement.querySelector('.jets-tooltip--header-price');
+      expect(price?.textContent?.trim()).toBe('EUR 29');
     });
   });
 
