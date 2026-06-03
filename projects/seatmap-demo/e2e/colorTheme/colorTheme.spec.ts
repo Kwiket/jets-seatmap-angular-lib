@@ -7,18 +7,30 @@ import {
 
 /**
  * `colorTheme` is a large object covering 30+ knobs (seat colors, tooltip
- * theming, deck background, exits, bulks, passenger badge, fonts, …). The
- * React Playwright suite splits each into its own sub-folder. Here we
- * consolidate the most visually distinctive variants into a single suite —
- * each test exercises the same lifecycle but flips a different family of
- * theme keys. To match React's split exactly, additional sub-describes can
- * be added without touching helpers.
+ * theming, deck background, exits, bulks, passenger badge, fonts, …).
+ *
+ * Two layers of coverage live here:
+ *
+ *  1. THEMED VARIANTS — the original suite. Each variant flips a whole
+ *     family of theme keys (dark/bright/monochrome/tooltip-dark) so the
+ *     visual diff between baselines is obvious at a glance.
+ *
+ *  2. PER-FIELD MATRIX — one test per `IColorTheme` field listed in the
+ *     library's public contract. Each test starts from a realistic
+ *     baseline (mirrors the demo's CABIN_THEME) and overrides exactly one
+ *     field with a vivid, easily-distinguishable value. The resulting
+ *     screenshot under `colorTheme/screenshots/colorTheme-field-<name>.png`
+ *     is the per-field visual artefact.
+ *
+ * `helpers/demo.setConfig` merges overrides at the TOP level only — i.e.
+ * `colorTheme` is replaced wholesale, not deep-merged. To preserve the
+ * baseline look while changing a single key we pass the full baseline +
+ * override on every call.
  */
 
 interface ThemeVariant {
   name: string;
   theme: Record<string, unknown>;
-  // If set, click this seat (or first available) and screenshot tooltip too.
   clickSeat?: boolean;
 }
 
@@ -83,18 +95,218 @@ test.describe('colorTheme', () => {
   }
 
   // Tooltip-specific theme — click a seat after applying to capture the
-  // tooltip's colors.
+  // tooltip's colors. Uses only real `IColorTheme` keys (`tooltipFontColor`,
+  // not the legacy `tooltipColor`/`tooltipFontSize` from the React demo).
   test('tooltip-dark', async ({ page }) => {
     await page.goto('/');
     await applyConfigAndReady(page, {
       colorTheme: {
         tooltipBackgroundColor: '#111',
-        tooltipColor: '#f1f1f1',
-        tooltipFontSize: '14px',
+        tooltipFontColor: '#f1f1f1',
+        tooltipHeaderColor: '#f1f1f1',
         tooltipBorderColor: '#666',
+        tooltipIconColor: '#f1f1f1',
       },
     });
     await clickFirstAvailableSeat(page);
     await screenshotSeatMap(page, __dirname, 'colorTheme-tooltip-dark');
   });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Per-field matrix
+ *
+ * Baseline mirrors the demo's CABIN_THEME so the screenshot diff is driven
+ * by the single-field override, not by the absence of other fields.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+const BASELINE_THEME: Record<string, unknown> = {
+  seatMapBackgroundColor: 'white',
+  deckLabelTitleColor: 'white',
+  deckHeightSpacing: 100,
+  wingsWidth: 50,
+  deckSeparation: 0,
+  floorColor: 'rgb(30,60,90)',
+  seatLabelColor: 'white',
+  seatStrokeColor: 'rgb(237, 237, 237)',
+  seatStrokeWidth: 1,
+  seatArmrestColor: '#cccccc',
+  notAvailableSeatsColor: 'lightgray',
+  bulkBaseColor: 'dimgrey',
+  bulkCutColor: 'lightgrey',
+  bulkIconColor: 'darkslategray',
+  bulkFloorIconColor: 'lightgrey',
+  defaultPassengerBadgeColor: 'darkred',
+  defaultPassengerBadgeLabelColor: '#fff',
+  defaultPassengerBadgeBorderColor: '#fff',
+  fontFamily: 'Montserrat, sans-serif',
+  tooltipBackgroundColor: 'rgb(255,255,255)',
+  tooltipHeaderColor: '#4f6f8f',
+  tooltipBorderColor: 'rgb(255,255,255)',
+  tooltipFontColor: '#4f6f8f',
+  tooltipIconColor: '#4f6f8f',
+  tooltipIconBorderColor: '#4f6f8f',
+  tooltipIconBackgroundColor: '#fff',
+  tooltipSelectButtonTextColor: '#fff',
+  tooltipSelectButtonBackgroundColor: 'rgb(42, 85, 128)',
+  tooltipCancelButtonTextColor: '#fff',
+  tooltipCancelButtonBackgroundColor: 'rgb(55, 55, 55)',
+  deckSelectorStrokeColor: '#fff',
+  deckSelectorFillColor: 'rgba(55, 55, 55, 0.5)',
+  deckSelectorSize: 25,
+  fuselageStrokeWidth: 16,
+  fuselageFillColor: 'lightgrey',
+  fuselageStrokeColor: 'darkgrey',
+  fuselageWindowsColor: 'darkgrey',
+  fuselageWingsColor: 'rgba(55, 55, 55, 0.5)',
+  fuselageNoseType: 'by-type',
+  exitIconUrlLeft: 'https://panorama.quicket.io/icons/exit-left.svg',
+  exitIconUrlRight: 'https://panorama.quicket.io/icons/exit-right.svg',
+  cabinTitlesWidth: 80,
+  cabinTitlesHighlightColors: { F: '#BDB76B', B: '#FF8C00', P: '#8FBC8F', E: '#1E90FF' },
+  cabinTitlesLabelColor: '#00BFFF',
+  customSeatColorRanges: [
+    { color: 'red', range: [1, 3.99] },
+    { color: 'yellow', range: [4, 7.99] },
+    { color: 'green', range: [8, 10] },
+  ],
+};
+
+type Precondition = 'plain' | 'tooltip' | 'cabinTitles' | 'multiDeck';
+
+interface FieldCase {
+  field: string;
+  value: unknown;
+  pre?: Precondition;
+  extraConfig?: Record<string, unknown>;
+  // Extra theme keys to layer on top of BASELINE_THEME alongside `field`.
+  // Used when one field's visual effect depends on another (e.g.
+  // `cabinTitlesHighlightColors` needs `visibleCabinTitles: true`, while
+  // `fuselageNoseType` is only visible when fuselage is on — which the
+  // demo default already provides).
+  extraTheme?: Record<string, unknown>;
+}
+
+/**
+ * Per-field cases. Each entry overrides ONE `colorTheme` field with a
+ * vivid value designed to make the change easy to spot in the screenshot
+ * against the BASELINE_THEME look.
+ */
+const FIELD_CASES: FieldCase[] = [
+  // ─── Background / floor / fonts ────────────────────────────────────────
+  { field: 'seatMapBackgroundColor', value: '#ffcdd2' },
+  { field: 'floorColor', value: '#8e24aa' },
+  { field: 'fontFamily', value: 'Courier New, monospace' },
+
+  // ─── Seat ──────────────────────────────────────────────────────────────
+  { field: 'seatLabelColor', value: '#ff0000' },
+  { field: 'seatStrokeColor', value: '#000000' },
+  { field: 'seatStrokeWidth', value: 4 },
+  { field: 'seatArmrestColor', value: '#ff5722' },
+  { field: 'notAvailableSeatsColor', value: '#9c27b0' },
+
+  // ─── Bulk (cabin partitions) ──────────────────────────────────────────
+  { field: 'bulkBaseColor', value: '#ff9800' },
+  { field: 'bulkCutColor', value: '#00bcd4' },
+  { field: 'bulkIconColor', value: '#e91e63' },
+  { field: 'bulkFloorIconColor', value: '#ffeb3b' },
+
+  // ─── Passenger badge ──────────────────────────────────────────────────
+  { field: 'defaultPassengerBadgeColor', value: '#00e676' },
+  { field: 'defaultPassengerBadgeLabelColor', value: '#000000' },
+  { field: 'defaultPassengerBadgeBorderColor', value: '#ff1744' },
+
+  // ─── Deck ──────────────────────────────────────────────────────────────
+  { field: 'deckLabelTitleColor', value: '#ff0000' },
+  { field: 'deckHeightSpacing', value: 200 },
+  { field: 'deckSeparation', value: 80, extraConfig: { singleDeckMode: false } },
+
+  // ─── Deck selector (only meaningful when multi-deck) ──────────────────
+  { field: 'deckSelectorStrokeColor', value: '#ff0000', pre: 'multiDeck' },
+  { field: 'deckSelectorFillColor', value: '#ffeb3b', pre: 'multiDeck' },
+  { field: 'deckSelectorSize', value: 50, pre: 'multiDeck' },
+
+  // ─── Wings ────────────────────────────────────────────────────────────
+  { field: 'wingsWidth', value: 150 },
+
+  // ─── Fuselage ─────────────────────────────────────────────────────────
+  { field: 'fuselageStrokeWidth', value: 18 },
+  { field: 'fuselageFillColor', value: '#e1bee7' },
+  { field: 'fuselageStrokeColor', value: '#ff1744' },
+  { field: 'fuselageWindowsColor', value: '#00e5ff' },
+  { field: 'fuselageWingsColor', value: 'rgba(255, 0, 0, 0.8)' },
+  { field: 'fuselageNoseType', value: 'default' },
+
+  // ─── Exit icons ───────────────────────────────────────────────────────
+  {
+    field: 'exitIconUrlLeft',
+    value: 'https://panorama.quicket.io/icons/exit_icon_red.svg',
+  },
+  {
+    field: 'exitIconUrlRight',
+    value: 'https://panorama.quicket.io/icons/exit_icon_red.svg',
+  },
+
+  // ─── Cabin titles (need visibleCabinTitles: true) ────────────────────
+  {
+    field: 'cabinTitlesWidth',
+    value: 160,
+    pre: 'cabinTitles',
+  },
+  {
+    field: 'cabinTitlesHighlightColors',
+    value: { F: '#ff0000', B: '#00ff00', P: '#0000ff', E: '#ffff00' },
+    pre: 'cabinTitles',
+  },
+  { field: 'cabinTitlesLabelColor', value: '#ff00ff', pre: 'cabinTitles' },
+
+  // ─── Tooltip (click a seat to open it) ────────────────────────────────
+  { field: 'tooltipBackgroundColor', value: '#212121', pre: 'tooltip' },
+  { field: 'tooltipHeaderColor', value: '#ff5252', pre: 'tooltip' },
+  { field: 'tooltipBorderColor', value: '#ffeb3b', pre: 'tooltip' },
+  { field: 'tooltipFontColor', value: '#ff5722', pre: 'tooltip' },
+  { field: 'tooltipIconColor', value: '#00e676', pre: 'tooltip' },
+  { field: 'tooltipIconBorderColor', value: '#ff1744', pre: 'tooltip' },
+  { field: 'tooltipIconBackgroundColor', value: '#ffeb3b', pre: 'tooltip' },
+  { field: 'tooltipSelectButtonTextColor', value: '#000000', pre: 'tooltip' },
+  { field: 'tooltipSelectButtonBackgroundColor', value: '#ffeb3b', pre: 'tooltip' },
+  { field: 'tooltipCancelButtonTextColor', value: '#000000', pre: 'tooltip' },
+  { field: 'tooltipCancelButtonBackgroundColor', value: '#ffeb3b', pre: 'tooltip' },
+
+  // ─── Score-based custom seat colors ──────────────────────────────────
+  {
+    field: 'customSeatColorRanges',
+    value: [
+      { color: '#ff1744', range: [1, 3.99] },
+      { color: '#ffea00', range: [4, 7.99] },
+      { color: '#00e676', range: [8, 10] },
+    ],
+  },
+];
+
+test.describe('colorTheme · per-field matrix', () => {
+  for (const c of FIELD_CASES) {
+    test(`field-${c.field}`, async ({ page }) => {
+      await page.goto('/');
+
+      const theme: Record<string, unknown> = {
+        ...BASELINE_THEME,
+        ...(c.extraTheme ?? {}),
+        [c.field]: c.value,
+      };
+      const config: Record<string, unknown> = {
+        colorTheme: theme,
+        ...(c.pre === 'cabinTitles' ? { visibleCabinTitles: true } : {}),
+        ...(c.pre === 'multiDeck'
+          ? { singleDeckMode: true, builtInDeckSelector: true }
+          : {}),
+        ...(c.extraConfig ?? {}),
+      };
+      await applyConfigAndReady(page, config);
+      if (c.pre === 'tooltip') {
+        await clickFirstAvailableSeat(page);
+      }
+      await screenshotSeatMap(page, __dirname, `colorTheme-field-${c.field}`);
+    });
+  }
 });
