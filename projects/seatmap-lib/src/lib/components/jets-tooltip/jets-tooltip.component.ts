@@ -33,6 +33,7 @@ import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICO
         [class.jets-tooltip--side-panel]="sidePanel"
         [style.top.px]="sidePanel ? null : data.top"
         [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
+        [style.font-family]="colorTheme?.fontFamily || null"
         [style.--tooltip-bg]="colorTheme?.tooltipBackgroundColor || null"
         [style.--tooltip-border]="colorTheme?.tooltipBorderColor || null"
         [style.--tooltip-font]="colorTheme?.tooltipFontColor || null"

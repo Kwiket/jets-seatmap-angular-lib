@@ -245,7 +245,24 @@ const FIELD_CASES: FieldCase[] = [
   { field: 'seatMapBackgroundColor', value: '#ffcdd2' },
   { field: 'floorColor', value: '#8e24aa' },
   // Font change is most visible in tooltip text; open the tooltip and crop to it.
-  { field: 'fontFamily', value: 'Courier New, monospace', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
+  // The seatmap-host inline font-family alone wasn't reaching the tooltip's
+  // headings/amenity/dimension text (proportional sans-serif kept showing
+  // through in screenshots), so the tooltip now binds font-family on its own
+  // root. Verify the binding at the DOM level so a silent regression cannot
+  // slip through.
+  {
+    field: 'fontFamily',
+    value: 'Courier New, monospace',
+    pre: 'tooltip',
+    closeUp: TOOLTIP_CLOSEUP,
+    verify: async page => {
+      const family = await page
+        .locator('.jets-tooltip')
+        .first()
+        .evaluate(el => getComputedStyle(el).fontFamily);
+      expect(family).toContain('Courier New');
+    },
+  },
 
   // ─── Seat ──────────────────────────────────────────────────────────────
   // Seat labels / strokes / armrests are sub-pixel at full-deck zoom — crop
