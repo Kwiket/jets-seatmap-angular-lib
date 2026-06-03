@@ -53,7 +53,7 @@
         <p class="demo-log-empty">Events will appear here when you interact with the seat map</p>
         }
         <ul class="demo-log-list">
-          @for (entry of eventLog(); track entry.time) {
+          @for (entry of eventLog(); track entry.id) {
           <li class="demo-log-entry" [class]="'log-' + entry.type">
             <span class="log-time">{{ entry.time }}</span>
             <span class="log-badge">{{ entry.type }}</span>

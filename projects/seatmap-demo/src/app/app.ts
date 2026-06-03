@@ -16,6 +16,7 @@ import { DemoFlight } from './flights.data';
 import { FlightsService } from './flights.service';
 
 interface EventLogEntry {
+  id: number;
   type: string;
   message: string;
   time: string;
@@ -108,6 +109,7 @@ export class App {
 
   selectedIndex = signal(0);
   eventLog = signal<EventLogEntry[]>([]);
+  private nextLogId = 0;
   sidePanelEnabled = signal(false);
   sidePanelSide = signal<'left' | 'right'>('left');
 
@@ -279,6 +281,7 @@ export class App {
 
   private addLog(type: string, message: string): void {
     const entry: EventLogEntry = {
+      id: this.nextLogId++,
       type,
       message,
       time: new Date().toLocaleTimeString(),
