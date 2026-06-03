@@ -15,11 +15,22 @@ const VARIANTS = [
 // (e.g. 79E vs 43A), producing changes driven by seat identity, not config.
 const TARGET_SEAT = '43A';
 
+// `label: '*'` flags every seat as available, so 43A is always clickable
+// regardless of what the sandbox API reports for the flight on a given day.
+// Without this override the test flapped: 43A would occasionally render with
+// `.jets-seat--unavailable`, the click wouldn't open a tooltip, and the test
+// would time out.
+const AVAILABILITY = [{ label: '*', price: 29, currency: '$' }];
+
 test.describe('hiddenSeatFeatures', () => {
   for (const v of VARIANTS) {
     test(v.name, async ({ page }) => {
       await page.goto('/');
-      await applyConfigAndReady(page, { hiddenSeatFeatures: [...v.hidden] });
+      await applyConfigAndReady(
+        page,
+        { hiddenSeatFeatures: [...v.hidden] },
+        { availability: AVAILABILITY },
+      );
       // Surface the tooltip — features list lives inside it. Wait for the
       // seat element, scroll it into view, then click. Without the explicit
       // wait+scroll, the click can race with the lib's late re-render and
