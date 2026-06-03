@@ -239,7 +239,15 @@ export class JetsDeckComponent {
   }
 
   get titleColor(): string {
-    return this.colorTheme?.deckTitleColor ?? this.colorTheme?.seatmapFontColor ?? '#333';
+    // deckLabelTitleColor is the documented public alias (README + demo +
+    // DEFAULT_COLOR_THEME); deckTitleColor stays as a legacy fallback so
+    // existing consumers don't regress.
+    return (
+      this.colorTheme?.deckLabelTitleColor ??
+      this.colorTheme?.deckTitleColor ??
+      this.colorTheme?.seatmapFontColor ??
+      '#333'
+    );
   }
 
   get scale(): number {
