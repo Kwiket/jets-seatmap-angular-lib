@@ -215,8 +215,13 @@
   transition: background 0.15s;
 
   &:disabled {
-    opacity: 0.45;
     cursor: not-allowed;
+    // Colour-preserving dim instead of opacity: an opacity sweep washes any
+    // theme-driven inline color/background into the disabled-grey, making
+    // consumer overrides like tooltipSelectButtonTextColor look as if they
+    // were silently dropped. grayscale + brightness keeps the override
+    // recognisable while still reading as "disabled".
+    filter: grayscale(0.25) brightness(0.85);
   }
 }
 
