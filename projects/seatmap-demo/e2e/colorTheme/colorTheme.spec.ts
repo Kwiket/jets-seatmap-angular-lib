@@ -329,14 +329,19 @@ const FIELD_CASES: FieldCase[] = [
     pre: 'passengerSeated',
     closeUp: { kind: 'element', selector: '.jets-seat--selected', padding: 20 },
     verify: async page => {
-      const color = await page
-        .locator('.jets-seat--selected .jets-seat__passenger')
-        .first()
-        .evaluate(el => getComputedStyle(el).color);
-      // colorTheme.defaultPassengerBadgeLabelColor is read from a getter,
-      // not a literal style binding, so check computed color rather than
-      // inline style.
-      expect(color).toBe('rgb(0, 0, 0)');
+      // The seat status (and therefore the badge) may take a render tick
+      // to settle when this case runs as part of a longer suite — poll the
+      // computed style instead of reading once.
+      await expect
+        .poll(
+          () =>
+            page
+              .locator('.jets-seat--selected .jets-seat__passenger')
+              .first()
+              .evaluate(el => getComputedStyle(el).color),
+          { timeout: 5_000 }
+        )
+        .toBe('rgb(0, 0, 0)');
     },
   },
   {
@@ -345,12 +350,16 @@ const FIELD_CASES: FieldCase[] = [
     pre: 'passengerSeated',
     closeUp: { kind: 'element', selector: '.jets-seat--selected', padding: 20 },
     verify: async page => {
-      const border = await page
-        .locator('.jets-seat--selected .jets-seat__passenger')
-        .first()
-        .evaluate(el => (el as HTMLElement).style.border);
-      // Either "1px solid #ff1744" or computed "rgb(255, 23, 68)".
-      expect(border).toMatch(/#ff1744|rgb\(255,\s*23,\s*68\)/i);
+      await expect
+        .poll(
+          () =>
+            page
+              .locator('.jets-seat--selected .jets-seat__passenger')
+              .first()
+              .evaluate(el => getComputedStyle(el).borderColor),
+          { timeout: 5_000 }
+        )
+        .toBe('rgb(255, 23, 68)');
     },
   },
 
