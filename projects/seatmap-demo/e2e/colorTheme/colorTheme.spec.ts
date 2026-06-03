@@ -523,6 +523,19 @@ const FIELD_CASES: FieldCase[] = [
   },
 
   // ─── Score-based custom seat colors ──────────────────────────────────
+  // NOTE: customSeatColorRanges is score-gated — it only paints seats whose
+  // API data carries a `score` field in the 1-10 range (see
+  // _calculateSeatColorByScore in jets-seat-map-preparer.service.ts). The
+  // demo's flights are loaded from a live API that doesn't return scores, so
+  // the per-field screenshot here will visually match its baseline — the
+  // ranges are configured but the gate never opens. Unit coverage for the
+  // score-tier palette lives in
+  // projects/seatmap-lib/src/lib/services/jets-seat-map-preparer.service.spec.ts
+  // ("seat colour: customSeatColorRanges vs API color"); the screenshot
+  // stays as documentation of the public-API surface, with a verify
+  // callback that asserts the seat fill falls back to its API colour rather
+  // than any of the prescribed ranges — proving the gate behaves as
+  // documented even when the demo can't show the painted state.
   {
     field: 'customSeatColorRanges',
     value: [
@@ -530,12 +543,27 @@ const FIELD_CASES: FieldCase[] = [
       { color: '#ffea00', range: [4, 7.99] },
       { color: '#00e676', range: [8, 10] },
     ],
-    // BASELINE_THEME ships seatAvailableColor: 'white', which (post the
-    // seat-palette override-precedence fix) silently outranks the score
-    // ranges. Drop the baseline key so the score palette is allowed to
-    // paint.
     omitFromBaseline: ['seatAvailableColor'],
     closeUp: FEW_ROWS_FROM_TOP,
+    verify: async page => {
+      // Collect every available seat's primary path.bd fill — the score-tier
+      // path would have stamped one of the configured range colours onto at
+      // least one seat. Use poll so DOM hydration after applyConfigAndReady
+      // doesn't race the read (same flaky-locator class as the other seat-SVG
+      // verify callbacks in this spec).
+      const rangeColours = new Set(['#ff1744', '#ffea00', '#00e676']);
+      await expect
+        .poll(
+          async () => {
+            const fills = await page
+              .locator('.jets-seat__svg path.bd')
+              .evaluateAll(els => els.map(el => el.getAttribute('fill')?.toLowerCase() ?? null));
+            return fills.some(f => f && rangeColours.has(f));
+          },
+          { timeout: 10_000 }
+        )
+        .toBe(false);
+    },
   },
 ];
 
