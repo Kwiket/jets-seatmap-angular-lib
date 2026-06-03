@@ -57,7 +57,7 @@ import {
               >
               @if (data.seat.price != null && data.seat.price > 0) {
                 <span class="jets-tooltip--header-price"
-                  >{{ resolvedCurrency }} {{ data.seat.price }}</span
+                  >{{ resolvedCurrency }}{{ currencySeparator }}{{ data.seat.price }}</span
                 >
               }
               @if (data.seat.price === 0) {
@@ -198,6 +198,15 @@ export class JetsTooltipComponent {
       return this.currencyOverride;
     }
     return this.data?.seat?.currency ?? '';
+  }
+
+  /**
+   * Typographic rule for the header price: single-char currency glyphs
+   * (`$`, `€`, `£`, `¥`) hug the digits, multi-char codes (`USD`, `EUR`)
+   * keep a separating space.
+   */
+  get currencySeparator(): string {
+    return this.resolvedCurrency.length > 1 ? ' ' : '';
   }
   @Output() select = new EventEmitter<ISeatData>();
   @Output() unselect = new EventEmitter<ISeatData>();
