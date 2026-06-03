@@ -417,14 +417,21 @@ export class JetsSeatComponent implements OnChanges {
     const theme = this.colorTheme ?? {};
     const def = DEFAULT_COLOR_THEME;
 
+    // Explicit theme.seatAvailableColor / seatSelectedColor outrank
+    // API/score-injected per-seat colours, matching the precedence already
+    // applied to the unavailable branch. The legacy `forceThemeSeatColors`
+    // flag remains supported as a belt-and-braces alias.
     const force = theme.forceThemeSeatColors === true;
+    const availOverride = theme.seatAvailableColor != null;
+    const selOverride = theme.seatSelectedColor != null;
 
     let fillColor: string;
     switch (this.data.status) {
       case 'available': {
-        let base = force
-          ? (theme.seatAvailableColor ?? def.seatAvailableColor)
-          : (this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor);
+        let base =
+          force || availOverride
+            ? (theme.seatAvailableColor ?? def.seatAvailableColor)
+            : (this.data.color ?? def.seatAvailableColor);
         if (this.colorfulSeatsByClass) {
           base = tintSeatColorForClass(base, classType, theme.seatClassTints);
         }
@@ -433,10 +440,10 @@ export class JetsSeatComponent implements OnChanges {
       }
       case 'selected':
         fillColor = theme.seatSelectedStrokeColor
-          ? force
+          ? force || availOverride
             ? (theme.seatAvailableColor ?? def.seatAvailableColor)
             : (this.data.originalColor ?? this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor)
-          : force
+          : force || selOverride
             ? (theme.seatSelectedColor ?? def.seatSelectedColor)
             : (this.data.originalColor ?? this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor);
         break;
