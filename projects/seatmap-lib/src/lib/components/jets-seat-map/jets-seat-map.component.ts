@@ -454,6 +454,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       this.activeTooltipChanged.emit(null);
       this.legendReady.emit(this.legendItems);
       this.hasAvailabilityChanged.emit(this.hasAvailability);
+      this._emitAvailabilityApplied(this.availability);
       this.cdr.markForCheck();
     }
 
@@ -583,6 +584,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       this.passengersChanged.emit(this.passengersList);
       this.currencyDetected.emit(this.currencySign);
       this.hasAvailabilityChanged.emit(this.hasAvailability);
+      if (this.availability?.length) {
+        this._emitAvailabilityApplied(this.availability);
+      }
     } catch (err: any) {
       if (this._flightId !== flightId) return;
       const httpBody = err?.error ? JSON.stringify(err.error) : '';
@@ -605,6 +609,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       decksCount: this.content.length,
       currentDeckIndex: this.activeDeckIndex,
     };
+  }
+
+  private _emitAvailabilityApplied(availability: TSeatAvailability): void {
+    const labels = availability.map(item => item.label).filter(label => label !== '*');
+    const info = this.seatmapService.compareWithDecksSeatsInfo(labels, this.content);
+    this.availabilityApplied.emit(info);
   }
 
   private _applyPassengers(): void {

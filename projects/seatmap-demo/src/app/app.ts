@@ -6,7 +6,10 @@ import {
   IPassenger,
   IInitialLayoutData,
   IConfig,
+  IExistingSeatsLabelsInfo,
   IFlight,
+  ISeatMouseClickData,
+  ISeatMouseLeaveData,
   TSeatAvailability,
 } from '@kwiket/jets-seatmap-angular-lib';
 import { DemoFlight } from './flights.data';
@@ -34,7 +37,9 @@ const CONTROLS: ControlDef[] = [
 
 const DEFAULT_AVAILABILITY = [
   {
-    currency: 'USD', label: '20A', price: 33,
+    currency: 'USD',
+    label: '20A',
+    price: 33,
     onlyForPassengerType: ['ADT', 'CHD', 'INF'],
     additionalProps: [
       { label: 'Test prop for all', icon: null },
@@ -43,7 +48,9 @@ const DEFAULT_AVAILABILITY = [
     color: 'green',
   },
   {
-    currency: 'USD', label: '20E', price: 33,
+    currency: 'USD',
+    label: '20E',
+    price: 33,
     onlyForPassengerType: ['ADT', 'CHD', 'INF'],
     additionalProps: [
       { label: 'Clear air', icon: null, cssClass: 'clear-air-style' },
@@ -52,24 +59,34 @@ const DEFAULT_AVAILABILITY = [
     color: 'red',
   },
   {
-    currency: 'USD', label: '20K', price: 33,
+    currency: 'USD',
+    label: '20K',
+    price: 33,
     onlyForPassengerType: ['ADT', 'CHD', 'INF'],
     color: 'magenta',
   },
   {
-    currency: 'USD', label: '21F', price: 13,
+    currency: 'USD',
+    label: '21F',
+    price: 13,
     onlyForPassengerType: ['ADT', 'CHD', 'INF'],
   },
   {
-    currency: 'USD', label: '21J', price: 13,
+    currency: 'USD',
+    label: '21J',
+    price: 13,
     onlyForPassengerType: ['CHD', 'INF'],
   },
   {
-    currency: 'USD', label: '35K', price: 137,
+    currency: 'USD',
+    label: '35K',
+    price: 137,
     onlyForPassengerType: ['CHD', 'INF'],
   },
   {
-    currency: 'EUR', label: '70E', price: 133399,
+    currency: 'EUR',
+    label: '70E',
+    price: 133399,
   },
 ];
 
@@ -222,7 +239,10 @@ export class App {
   }
 
   onSeatMapInited(event: IInitialLayoutData): void {
-    this.addLog('inited', `Seatmap loaded. Available seats: ${event.availableSeats.length}, decks: ${event.decksCount}`);
+    this.addLog(
+      'inited',
+      `Seatmap loaded. Available seats: ${event.availableSeats.length}, decks: ${event.decksCount}`
+    );
   }
 
   onSeatSelected(passengers: IPassenger[]): void {
@@ -233,6 +253,24 @@ export class App {
 
   onSeatUnselected(passengers: IPassenger[]): void {
     this.addLog('unselected', 'Seat unselected');
+  }
+
+  onSeatMouseLeave(data: ISeatMouseLeaveData): void {
+    console.log('Seat mouse leave: ', data);
+    this.addLog('mouseLeave', `Mouse leave seat ${data.seat?.number ?? '?'}`);
+  }
+
+  onSeatMouseClick(data: ISeatMouseClickData): void {
+    console.log('Seat mouse click: ', data);
+    this.addLog('mouseClick', `Mouse click seat ${data.seat?.number ?? '?'}`);
+  }
+
+  onAvailabilityApplied(data: IExistingSeatsLabelsInfo): void {
+    console.log('Availability applied: ', data);
+    this.addLog(
+      'availability',
+      `Availability applied. Existing: ${data.existingSeatLabels.length}, missing: ${data.nonExistingSeatLabels.length}`
+    );
   }
 
   onLoadError(message: string): void {

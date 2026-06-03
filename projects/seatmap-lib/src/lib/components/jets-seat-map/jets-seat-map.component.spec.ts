@@ -115,6 +115,10 @@ function createMockJetsSeatMapService(content: IDeckData[] = [makeDeckData()]) {
       lang: 'EN',
     }),
     getDeckIndexBySeatLabel: vi.fn().mockReturnValue(0),
+    compareWithDecksSeatsInfo: vi.fn().mockImplementation((labels: string[]) => ({
+      existingSeatLabels: labels?.map(l => l.toUpperCase()) ?? [],
+      nonExistingSeatLabels: [],
+    })),
   };
 }
 
@@ -615,6 +619,84 @@ describe('JetsSeatMapComponent', () => {
 
   // ─── React-parity API ─────────────────────────────────────────────────
 
+  describe('availabilityApplied (React parity)', () => {
+    async function ready() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    it('should emit availabilityApplied when availability changes via ngOnChanges', async () => {
+      await ready();
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+
+      component.availability = [
+        { label: '1A', price: 10, currency: 'USD' },
+        { label: '1B', price: 10, currency: 'USD' },
+      ];
+      mockService.compareWithDecksSeatsInfo.mockReturnValueOnce({
+        existingSeatLabels: ['1A', '1B'],
+        nonExistingSeatLabels: [],
+      });
+      component.ngOnChanges({
+        availability: {
+          currentValue: component.availability,
+          previousValue: undefined,
+          firstChange: false,
+          isFirstChange: () => false,
+        } as any,
+      });
+
+      expect(spy).toHaveBeenCalledWith({
+        existingSeatLabels: ['1A', '1B'],
+        nonExistingSeatLabels: [],
+      });
+    });
+
+    it('should exclude wildcard entries from compared labels', async () => {
+      await ready();
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+
+      component.availability = [
+        { label: '*', price: 5, currency: 'USD' },
+        { label: '1A', price: 10, currency: 'USD' },
+      ];
+      component.ngOnChanges({
+        availability: {
+          currentValue: component.availability,
+          previousValue: undefined,
+          firstChange: false,
+          isFirstChange: () => false,
+        } as any,
+      });
+
+      expect(mockService.compareWithDecksSeatsInfo).toHaveBeenLastCalledWith(['1A'], component.content);
+    });
+
+    it('should NOT emit availabilityApplied when availability is cleared', async () => {
+      component.availability = [{ label: '1A', price: 10, currency: 'USD' }];
+      await ready();
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+
+      component.availability = undefined;
+      component.ngOnChanges({
+        availability: {
+          currentValue: undefined,
+          previousValue: [{ label: '1A', price: 10, currency: 'USD' }],
+          firstChange: false,
+          isFirstChange: () => false,
+        } as any,
+      });
+      await fixture.whenStable();
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('seatMouseClick (external management + hover tooltip mode)', () => {
     async function ready() {
       fixture.detectChanges();
@@ -901,6 +983,34 @@ describe('JetsSeatMapComponent', () => {
       component.availability = [{ label: '1A', price: 10, currency: 'USD' }];
       await load();
       expect(spy).toHaveBeenCalledWith(true);
+    });
+
+    it('should emit availabilityApplied after initial load when availability is provided', async () => {
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+      component.availability = [
+        { label: '1A', price: 10, currency: 'USD' },
+        { label: '99Z', price: 10, currency: 'USD' },
+      ];
+      mockService.compareWithDecksSeatsInfo.mockReturnValueOnce({
+        existingSeatLabels: ['1A'],
+        nonExistingSeatLabels: ['99Z'],
+      });
+      await load();
+      expect(spy).toHaveBeenCalledWith({
+        existingSeatLabels: ['1A'],
+        nonExistingSeatLabels: ['99Z'],
+      });
+      // Wildcard must be filtered out before passing labels to the comparator.
+      expect(mockService.compareWithDecksSeatsInfo).toHaveBeenCalledWith(['1A', '99Z'], component.content);
+    });
+
+    it('should NOT emit availabilityApplied after initial load when availability is empty', async () => {
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+      component.availability = undefined;
+      await load();
+      expect(spy).not.toHaveBeenCalled();
     });
 
     it('should emit selectAvailableChanged on seat click', async () => {

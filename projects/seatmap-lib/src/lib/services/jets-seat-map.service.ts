@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import {
   IConfig,
   IDeckData,
+  IExistingSeatsLabelsInfo,
   IFlight,
   IMediaData,
   IPassenger,
@@ -291,5 +292,37 @@ export class JetsSeatMapService {
       }
     }
     return 0;
+  }
+
+  /**
+   * Split the availability-provided labels into seats that actually exist in
+   * the rendered decks and seats that do not. Mirrors React's
+   * `compareWithDecksSeatsInfo` and powers the `availabilityApplied` event.
+   */
+  compareWithDecksSeatsInfo(seatLabels: string[], decks: IDeckData[]): IExistingSeatsLabelsInfo {
+    const result: IExistingSeatsLabelsInfo = { existingSeatLabels: [], nonExistingSeatLabels: [] };
+    if (!seatLabels?.length || !decks?.length) return result;
+
+    const knownLabels = new Set<string>();
+    for (const deck of decks) {
+      for (const row of deck.rows ?? []) {
+        for (const seat of row.seats ?? []) {
+          if (seat.type === ENTITY_TYPE_MAP.seat && seat.number) {
+            knownLabels.add(seat.number.toUpperCase());
+          }
+        }
+      }
+    }
+
+    for (const raw of seatLabels) {
+      const label = String(raw).toUpperCase();
+      if (knownLabels.has(label)) {
+        result.existingSeatLabels.push(label);
+      } else {
+        result.nonExistingSeatLabels.push(label);
+      }
+    }
+
+    return result;
   }
 }

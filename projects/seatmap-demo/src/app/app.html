@@ -6,13 +6,9 @@
 
   <nav class="demo-tabs">
     @for (flight of flights; track $index; let i = $index) {
-      <button
-        class="demo-tab"
-        [class.active]="selectedIndex() === i"
-        (click)="selectFlight(i)"
-      >
-        {{ flight.label }}
-      </button>
+    <button class="demo-tab" [class.active]="selectedIndex() === i" (click)="selectFlight(i)">
+      {{ flight.label }}
+    </button>
     }
   </nav>
 
@@ -28,6 +24,9 @@
         (seatMapInited)="onSeatMapInited($event)"
         (seatSelected)="onSeatSelected($event)"
         (seatUnselected)="onSeatUnselected($event)"
+        (seatMouseLeave)="onSeatMouseLeave($event)"
+        (seatMouseClick)="onSeatMouseClick($event)"
+        (availabilityApplied)="onAvailabilityApplied($event)"
         (loadError)="onLoadError($event)"
       />
     </div>
@@ -36,32 +35,30 @@
       <aside class="demo-controls-panel">
         <h3 class="demo-controls-title">Send Events</h3>
         @for (ctrl of controls; track ctrl.key) {
-          <div class="demo-control-row">
-            <button class="demo-control-btn" (click)="applyControl(ctrl.key)">
-              {{ ctrl.label }}
-            </button>
-            <textarea
-              class="demo-control-textarea"
-              [ngModel]="getTextarea(ctrl.key)"
-              (ngModelChange)="setTextarea(ctrl.key, $event)"
-              spellcheck="false"
-            ></textarea>
-          </div>
+        <div class="demo-control-row">
+          <button class="demo-control-btn" (click)="applyControl(ctrl.key)">{{ ctrl.label }}</button>
+          <textarea
+            class="demo-control-textarea"
+            [ngModel]="getTextarea(ctrl.key)"
+            (ngModelChange)="setTextarea(ctrl.key, $event)"
+            spellcheck="false"
+          ></textarea>
+        </div>
         }
       </aside>
 
       <aside class="demo-log-panel">
         <h3 class="demo-log-title">Event Log</h3>
         @if (eventLog().length === 0) {
-          <p class="demo-log-empty">Events will appear here when you interact with the seat map</p>
+        <p class="demo-log-empty">Events will appear here when you interact with the seat map</p>
         }
         <ul class="demo-log-list">
           @for (entry of eventLog(); track entry.time) {
-            <li class="demo-log-entry" [class]="'log-' + entry.type">
-              <span class="log-time">{{ entry.time }}</span>
-              <span class="log-badge">{{ entry.type }}</span>
-              <span class="log-msg">{{ entry.message }}</span>
-            </li>
+          <li class="demo-log-entry" [class]="'log-' + entry.type">
+            <span class="log-time">{{ entry.time }}</span>
+            <span class="log-badge">{{ entry.type }}</span>
+            <span class="log-msg">{{ entry.message }}</span>
+          </li>
           }
         </ul>
       </aside>

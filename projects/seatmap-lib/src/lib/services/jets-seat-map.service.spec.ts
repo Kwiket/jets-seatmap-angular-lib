@@ -315,4 +315,46 @@ describe('JetsSeatMapService', () => {
       expect(service.getDeckIndexBySeatLabel(content, '5b')).toBe(0);
     });
   });
+
+  // ─── compareWithDecksSeatsInfo ────────────────────────────────────────────
+
+  describe('compareWithDecksSeatsInfo', () => {
+    it('should split labels into existing and non-existing buckets', () => {
+      const content = [makeDeck([makeSeat({ number: '1A' }), makeSeat({ number: '1B', id: 's2', letter: 'B' })])];
+      const result = service.compareWithDecksSeatsInfo(['1A', '1B', '99Z'], content);
+      expect(result).toEqual({
+        existingSeatLabels: ['1A', '1B'],
+        nonExistingSeatLabels: ['99Z'],
+      });
+    });
+
+    it('should be case-insensitive and uppercase the labels in the result', () => {
+      const content = [makeDeck([makeSeat({ number: '1A' })])];
+      const result = service.compareWithDecksSeatsInfo(['1a', 'zz'], content);
+      expect(result.existingSeatLabels).toEqual(['1A']);
+      expect(result.nonExistingSeatLabels).toEqual(['ZZ']);
+    });
+
+    it('should ignore non-seat entities (aisles, bulks) when matching', () => {
+      const content = [makeDeck([makeAisle('aisle-0'), makeSeat({ number: '1A' })])];
+      const result = service.compareWithDecksSeatsInfo(['1A'], content);
+      expect(result.existingSeatLabels).toEqual(['1A']);
+      expect(result.nonExistingSeatLabels).toEqual([]);
+    });
+
+    it('should return empty buckets when no labels are provided', () => {
+      const content = [makeDeck([makeSeat({ number: '1A' })])];
+      expect(service.compareWithDecksSeatsInfo([], content)).toEqual({
+        existingSeatLabels: [],
+        nonExistingSeatLabels: [],
+      });
+    });
+
+    it('should return empty buckets when decks are empty', () => {
+      expect(service.compareWithDecksSeatsInfo(['1A'], [])).toEqual({
+        existingSeatLabels: [],
+        nonExistingSeatLabels: [],
+      });
+    });
+  });
 });
