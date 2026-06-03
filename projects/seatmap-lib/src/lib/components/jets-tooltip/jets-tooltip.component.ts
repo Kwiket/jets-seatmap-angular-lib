@@ -1,12 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
-  inject,
-  Input,
-  Output,
-  Type,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, Type } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
@@ -30,137 +22,126 @@ import { LOCALES_MAP } from '../../constants';
             colorTheme: colorTheme,
             sidePanel: sidePanel,
             rightToLeft: rightToLeft,
-            hiddenSeatFeatures: hiddenSeatFeatures
+            hiddenSeatFeatures: hiddenSeatFeatures,
           }
         "
       />
     } @else {
-    <div
-      class="jets-tooltip"
-      [class.jets-tooltip--below]="!sidePanel && data.openBelow"
-      [class.jets-tooltip--side-panel]="sidePanel"
-      [style.top.px]="sidePanel ? null : data.top"
-      [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
-    >
-      <div class="jets-tooltip--body">
-        <div class="jets-tooltip--content">
-          <!-- Header -->
-          <div class="jets-tooltip--header" [style.direction]="textDirection">
-            <div class="jets-tooltip--header-title">
-              <span
-                >{{ data.seat.name || data.seat.rowName || getClassType() }}
-                {{ data.seat.number }}</span
-              >
-              @if (data.seat.price != null && data.seat.price > 0) {
-                <span class="jets-tooltip--header-price"
-                  >{{ resolvedCurrency }}{{ currencySeparator }}{{ data.seat.price }}</span
-                >
-              }
-              @if (data.seat.price === 0) {
-                <span class="jets-tooltip--header-price">Free</span>
-              }
-              @if (!sidePanel) {
-                <button class="jets-tooltip--close-btn" (click)="close.emit()" aria-label="Close">
-                  <svg width="12" height="12" viewBox="0 0 12 12">
-                    <line
-                      x1="1"
-                      y1="1"
-                      x2="11"
-                      y2="11"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                    />
-                    <line
-                      x1="11"
-                      y1="1"
-                      x2="1"
-                      y2="11"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
+      <div
+        class="jets-tooltip"
+        [class.jets-tooltip--below]="!sidePanel && data.openBelow"
+        [class.jets-tooltip--side-panel]="sidePanel"
+        [style.top.px]="sidePanel ? null : data.top"
+        [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
+      >
+        <div class="jets-tooltip--body">
+          <div class="jets-tooltip--content">
+            <!-- Header -->
+            <div class="jets-tooltip--header" [style.direction]="textDirection">
+              <div class="jets-tooltip--header-title">
+                <span>{{ data.seat.name || data.seat.rowName || getClassType() }} {{ data.seat.number }}</span>
+                @if (hasNumericPrice() && getNumericPrice() > 0) {
+                  <span class="jets-tooltip--header-price"
+                    >{{ resolvedCurrency }}{{ currencySeparator }}{{ getNumericPrice() }}</span
+                  >
+                }
+                @if (getNumericPrice() === 0) {
+                  <span class="jets-tooltip--header-price">Free</span>
+                }
+                @if (!sidePanel) {
+                  <button class="jets-tooltip--close-btn" (click)="close.emit()" aria-label="Close">
+                    <svg width="12" height="12" viewBox="0 0 12 12">
+                      <line
+                        x1="1"
+                        y1="1"
+                        x2="11"
+                        y2="11"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                      />
+                      <line
+                        x1="11"
+                        y1="1"
+                        x2="1"
+                        y2="11"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </button>
+                }
+              </div>
+              @if (data.seat.passenger?.passengerLabel) {
+                <div class="jets-tooltip--header-passenger">
+                  {{ data.seat.passenger!.passengerLabel }}
+                </div>
               }
             </div>
-            @if (data.seat.passenger?.passengerLabel) {
-              <div class="jets-tooltip--header-passenger">
-                {{ data.seat.passenger!.passengerLabel }}
+
+            <!-- Amenities list -->
+            @if (amenities.length) {
+              <div class="jets-tooltip--amenities" [style.direction]="textDirection">
+                @for (amenity of amenities; track amenity.uniqId || amenity.key) {
+                  <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.title === null">
+                    <span class="jets-tooltip--amenity-icon" [innerHTML]="safeSvg(amenity.icon)"></span>
+                    <span class="jets-tooltip--amenity-text">{{ amenity.title ?? amenity.value }}</span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Seat dimensions (pitch / width / recline) -->
+            @if (dimensions.length) {
+              <div class="jets-tooltip--dimensions">
+                @for (dim of dimensions; track dim.uniqId || dim.key) {
+                  <div class="jets-tooltip--dimension">
+                    <div class="jets-tooltip--dim-icon" [innerHTML]="safeSvg(dim.icon)"></div>
+                    <div class="jets-tooltip--dim-label">{{ dim.title }}</div>
+                    <div class="jets-tooltip--dim-value">{{ dim.value }}</div>
+                  </div>
+                }
               </div>
             }
           </div>
 
-          <!-- Amenities list -->
-          @if (amenities.length) {
-            <div class="jets-tooltip--amenities" [style.direction]="textDirection">
-              @for (amenity of amenities; track amenity.uniqId || amenity.key) {
-                <div
-                  class="jets-tooltip--amenity"
-                  [class.jets-tooltip--amenity-negative]="amenity.title === null"
-                >
-                  <span
-                    class="jets-tooltip--amenity-icon"
-                    [innerHTML]="safeSvg(amenity.icon)"
-                  ></span>
-                  <span class="jets-tooltip--amenity-text">{{
-                    amenity.title ?? amenity.value
-                  }}</span>
-                </div>
-              }
-            </div>
-          }
+          <!-- Action buttons -->
+          @if (showActions) {
+            <div class="jets-tooltip--btns-block">
+              <button
+                class="jets-btn jets-tooltip--btn jets-cancel-btn"
+                [style.color]="colorTheme?.tooltipCancelButtonTextColor || ''"
+                [style.background-color]="colorTheme?.tooltipCancelButtonBackgroundColor || ''"
+                (click)="close.emit()"
+              >
+                {{ locale['cancel'] }}
+              </button>
 
-          <!-- Seat dimensions (pitch / width / recline) -->
-          @if (dimensions.length) {
-            <div class="jets-tooltip--dimensions">
-              @for (dim of dimensions; track dim.uniqId || dim.key) {
-                <div class="jets-tooltip--dimension">
-                  <div class="jets-tooltip--dim-icon" [innerHTML]="safeSvg(dim.icon)"></div>
-                  <div class="jets-tooltip--dim-label">{{ dim.title }}</div>
-                  <div class="jets-tooltip--dim-value">{{ dim.value }}</div>
-                </div>
+              @if (data.seat.passenger) {
+                <button
+                  class="jets-btn jets-tooltip--btn jets-select-btn"
+                  [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
+                  [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
+                  (click)="unselect.emit(data.seat)"
+                >
+                  {{ locale['unselect'] }}
+                </button>
+              } @else {
+                <button
+                  class="jets-btn jets-tooltip--btn jets-select-btn"
+                  [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
+                  [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
+                  [disabled]="isSelectDisabled()"
+                  (click)="select.emit(data.seat)"
+                >
+                  {{ locale['select'] }}
+                </button>
               }
             </div>
           }
         </div>
-
-        <!-- Action buttons -->
-        @if (showActions) {
-          <div class="jets-tooltip--btns-block">
-            <button
-              class="jets-btn jets-tooltip--btn jets-cancel-btn"
-              [style.color]="colorTheme?.tooltipCancelButtonTextColor || ''"
-              [style.background-color]="colorTheme?.tooltipCancelButtonBackgroundColor || ''"
-              (click)="close.emit()"
-            >
-              {{ locale['cancel'] }}
-            </button>
-
-            @if (data.seat.passenger) {
-              <button
-                class="jets-btn jets-tooltip--btn jets-select-btn"
-                [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
-                [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
-                (click)="unselect.emit(data.seat)"
-              >
-                {{ locale['unselect'] }}
-              </button>
-            } @else {
-              <button
-                class="jets-btn jets-tooltip--btn jets-select-btn"
-                [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
-                [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
-                [disabled]="isSelectDisabled()"
-                (click)="select.emit(data.seat)"
-              >
-                {{ locale['select'] }}
-              </button>
-            }
-          </div>
-        }
       </div>
-    </div>
     }
   `,
   styleUrls: ['./jets-tooltip.component.scss'],
@@ -239,6 +220,19 @@ export class JetsTooltipComponent {
   }
 
   /** `icon` field already holds a full SVG string — wrap it for `[innerHTML]`. */
+  /**
+   * `ISeatData.price` is loose-typed (`number | string`) because the public
+   * emit payload replaces it with a formatted string. Internally — inside the
+   * built-in tooltip — only the numeric form is meaningful.
+   */
+  hasNumericPrice(): boolean {
+    return typeof this.data?.seat?.price === 'number';
+  }
+  getNumericPrice(): number {
+    const p = this.data?.seat?.price;
+    return typeof p === 'number' ? p : NaN;
+  }
+
   safeSvg(svg: string | undefined): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(svg ?? '');
   }

@@ -260,7 +260,16 @@ export interface ISeatData {
   originalColor?: string;
   rotation?: TSeatRotation;
   passenger?: IPassenger;
-  price?: number;
+  /**
+   * Internally the lib treats `price` as a number. On the public emit payload
+   * (`tooltipRequested.seat`) it is replaced with the formatted string
+   * `${currency} ${priceValue}` (e.g. '$ 29') — see `priceValue` for the
+   * raw number. Typed loose so both internal and emit shapes type-check.
+   */
+  price?: number | string;
+  /** Raw numeric price exposed on the public emit payload. */
+  priceValue?: number;
+  /** Currency symbol or code (e.g. '$', 'EUR'). */
   currency?: string;
   features?: ISeatFeature[];
   measurements?: ISeatFeature[];

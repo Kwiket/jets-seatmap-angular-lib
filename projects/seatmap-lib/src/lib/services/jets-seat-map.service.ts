@@ -18,14 +18,14 @@ import { getAvailableCabins, filterDeckByCabin } from '../utils/cabin-utils';
 export class JetsSeatMapService {
   constructor(
     private apiService: JetsSeatMapApiService,
-    private preparer: JetsSeatMapPreparerService,
+    private preparer: JetsSeatMapPreparerService
   ) {}
 
   async getSeatMapData(
     flight: IFlight,
     availability: TSeatAvailability | undefined,
     passengers: IPassenger[] | undefined,
-    config: IConfig,
+    config: IConfig
   ): Promise<{
     content: IDeckData[];
     media?: IMediaData;
@@ -47,7 +47,7 @@ export class JetsSeatMapService {
         lang: config.lang,
         units: config.units,
       },
-      config,
+      config
     );
 
     let content = this.preparer.prepareContent(apiResponse, config);
@@ -147,15 +147,17 @@ export class JetsSeatMapService {
   selectSeatHandler(
     content: IDeckData[],
     seat: ISeatData,
-    passengers: IPassenger[],
+    passengers: IPassenger[]
   ): { data: IDeckData[]; passengers: IPassenger[] } {
     const nextPassenger = this.getNextPassenger(passengers);
     if (!nextPassenger || !seat.number) return { data: content, passengers };
 
+    // `seat.price` is loose-typed (number on the lib's internal seat record,
+    // string on the emitted payload). The passenger record only ever stores
+    // the numeric form.
+    const numericPrice = typeof seat.price === 'number' ? seat.price : 0;
     const updatedPassengers = passengers.map(p =>
-      p.id === nextPassenger.id
-        ? { ...p, seat: { price: seat.price ?? 0, seatLabel: seat.number! } }
-        : p,
+      p.id === nextPassenger.id ? { ...p, seat: { price: numericPrice, seatLabel: seat.number! } } : p
     );
 
     const data = content.map(deck => ({
@@ -163,9 +165,7 @@ export class JetsSeatMapService {
       rows: deck.rows.map(row => ({
         ...row,
         seats: row.seats.map(s =>
-          s.number === seat.number
-            ? { ...s, status: ENTITY_STATUS_MAP.selected, passenger: { ...nextPassenger } }
-            : s,
+          s.number === seat.number ? { ...s, status: ENTITY_STATUS_MAP.selected, passenger: { ...nextPassenger } } : s
         ),
       })),
     }));
@@ -176,7 +176,7 @@ export class JetsSeatMapService {
   unselectSeatHandler(
     content: IDeckData[],
     seat: ISeatData,
-    passengers: IPassenger[],
+    passengers: IPassenger[]
   ): { data: IDeckData[]; passengers: IPassenger[] } {
     const updatedPassengers = passengers.map(p => {
       if (p.seat?.seatLabel === seat.number) {
@@ -225,7 +225,7 @@ export class JetsSeatMapService {
     seatElement: HTMLElement,
     mapElement: HTMLElement,
     nextPassenger: IPassenger | null,
-    lang: string,
+    lang: string
   ): ITooltipData {
     const seatRect = seatElement.getBoundingClientRect();
     const mapRect = mapElement.getBoundingClientRect();

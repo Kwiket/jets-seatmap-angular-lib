@@ -106,10 +106,13 @@ test.describe('tooltipRequested payload', () => {
       expect(typeof f.uniqId).toBe('string');
     }
 
-    // — top-level seat: React-style fields present, layout-only fields gone
+    // — top-level seat: integrator-contract fields present, layout-only fields gone
     expect(typeof seat.uniqId).toBe('string');
-    expect(typeof seat.label).toBe('string'); // renamed from number
-    expect(typeof seat.classCode).toBe('string');
+    expect(typeof seat.label).toBe('string'); // renamed from `number`
+    expect(typeof seat.classCode).toBe('string'); // single-letter ('E', 'B', …)
+    expect(seat.classCode!.length).toBe(1);
+    expect(typeof seat.classType).toBe('string'); // full word ('Economy', 'Business', …)
+    expect(seat.classType!.length).toBeGreaterThan(1);
     expect(typeof seat.seatType).toBe('string'); // composite 'B-13' / 'E-5' / etc.
     expect(seat.seatType).toMatch(/^[A-Z]-\d+$/);
     // Layout-only fields stripped on emit:
@@ -119,20 +122,30 @@ test.describe('tooltipRequested payload', () => {
     expect(seat.size).toBeUndefined();
   });
 
-  test('negative amenities carry title=null and localized text in value', async ({ page }) => {
+  test('every amenity has string title + string value (negative ones carry localized text)', async ({ page }) => {
     await page.goto('/');
     await applyConfigAndReady(page, {}, { availability: AVAILABILITY });
     await selectSeat(page, TARGET_SEAT);
     await page.locator('.jets-tooltip').first().waitFor({ state: 'visible', timeout: 10_000 });
 
     const { seat } = await captureTooltipRequest(page);
-    const negatives = (seat.features ?? []).filter(f => f.title === null);
-    expect(negatives.length).toBeGreaterThan(0);
+    const features = seat.features ?? [];
+    expect(features.length).toBeGreaterThan(0);
 
-    for (const n of negatives) {
-      expect(typeof n.value).toBe('string');
-      expect((n.value as string).length).toBeGreaterThan(0);
+    // Integrator contract: ISeatFeature.{ title: string, value: string }. Internally
+    // the lib still tracks negative amenities (those omitted from positive lookups);
+    // on emit they flatten so title === value === localized phrase.
+    for (const f of features) {
+      expect(typeof f.title).toBe('string');
+      expect((f.title as string).length).toBeGreaterThan(0);
+      expect(typeof f.value).toBe('string');
+      expect((f.value as string).length).toBeGreaterThan(0);
     }
+
+    // At least one feature is the well-known 'Close to lavatories' negative on 43A.
+    const lavatory = features.find(f => f.key === 'nearLavatory');
+    expect(lavatory).toBeDefined();
+    expect(lavatory!.title).toBe(lavatory!.value);
   });
 
   test('payload screenshot (DevTools-style tree for visual comparison with React reference)', async ({ page }) => {

@@ -25,6 +25,7 @@ import {
   IMediaData,
   IPassenger,
   ISeatData,
+  ISeatFeature,
   ISeatMouseClickData,
   ISeatMouseEnterData,
   ISeatMouseLeaveData,
@@ -34,6 +35,7 @@ import {
   TSeatAvailability,
 } from '../../types';
 import {
+  CLASS_CODE_MAP,
   DEFAULT_COLOR_THEME,
   DEFAULT_LANG,
   DEFAULT_SEAT_MAP_WIDTH,
@@ -213,7 +215,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       for (const row of deck.rows) {
         for (const seat of row.seats) {
           if (seat.type !== 'seat') continue;
-          if (seat.status === 'available' && seat.price != null && !seenPrices.has(seat.price)) {
+          if (seat.status === 'available' && typeof seat.price === 'number' && !seenPrices.has(seat.price)) {
             seenPrices.add(seat.price);
             if (seat.price === 0) {
               const freeColor = seat.color || theme.seatAvailableColor || DEFAULT_COLOR_THEME.seatAvailableColor;
@@ -663,10 +665,20 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
-   * Mirror of React's `prepareSeatDataForEmit`: rename `number → label` and drop
-   * layout-only fields (`topOffset`, `leftOffset`, `size`, `cabinTitle`) plus the
-   * internal grid id from `tooltipRequested.seat`. Integrators that build their
-   * own tooltip get a payload byte-for-byte equivalent to the React lib's.
+   * Build the public `tooltipRequested.seat` payload from the lib's internal
+   * seat record. Mirrors React's `prepareSeatDataForEmit` and is then enriched
+   * to match the documented integrator contract:
+   *
+   *   - `label`     ← `number`
+   *   - `classType` ← `CLASS_CODE_MAP[classCode]` (full word, e.g. 'Business')
+   *   - `priceValue` ← raw numeric price
+   *   - `price`     ← formatted '${currency} ${priceValue}' string
+   *   - `features[].title` and `features[].value` are coerced to strings so
+   *     negative amenities (which carry `title: null` internally) still satisfy
+   *     `ISeatFeature.{ title: string, value: string }` in the public type.
+   *
+   * Stripped: `id`, `topOffset`, `leftOffset`, `size`, `number`, `cabinTitle`
+   * — layout-only or renamed fields not part of the public contract.
    */
   private _prepareSeatForEmit(seat: ISeatData): ISeatData {
     const {
@@ -676,9 +688,42 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       size: _sz,
       id: _id,
       cabinTitle: _ct,
+      classCode,
+      price,
+      currency,
+      features,
+      measurements,
       ...rest
     } = seat as ISeatData & { cabinTitle?: string };
-    return { ...(rest as ISeatData), label: number };
+
+    // `classType` becomes the full word ('Business'), `classCode` stays single-letter.
+    const code = (classCode || rest.classType || 'E').toString();
+    const classTypeFull = CLASS_CODE_MAP[code.toLowerCase()] || CLASS_CODE_MAP[code] || code;
+
+    // Public ISeatFeature requires `title: string` and `value: string`. Internally we
+    // carry `title: null` on negative amenities (with the localized phrase living in
+    // `value`); flatten that to the same string in both slots for the emit shape.
+    const stringifyFeature = (f: ISeatFeature): ISeatFeature => {
+      const value = f.value == null ? '' : String(f.value);
+      return { ...f, title: f.title ?? value, value };
+    };
+
+    const numericPrice = typeof price === 'number' ? price : undefined;
+    const priceStr = numericPrice != null ? `${currency ?? ''}${currency ? ' ' : ''}${numericPrice}` : undefined;
+
+    return {
+      ...(rest as ISeatData),
+      label: number,
+      classCode: code,
+      classType: classTypeFull,
+      currency,
+      // `price` becomes the formatted string; `priceValue` carries the number.
+      price: priceStr as unknown as number,
+      priceValue: numericPrice,
+      features: (features ?? []).map(stringifyFeature),
+      measurements: (measurements ?? []).map(stringifyFeature),
+      additionalProps: ((rest as ISeatData).additionalProps ?? []).map(stringifyFeature),
+    };
   }
 
   onTooltipSelect(seat: ISeatData): void {
