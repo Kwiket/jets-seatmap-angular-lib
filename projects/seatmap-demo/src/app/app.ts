@@ -239,6 +239,19 @@ export class App {
     this.addLog('error', `API Error: ${message}`);
   }
 
+  /**
+   * Exposes the latest `tooltipRequested` payload on `window.__lastTooltipRequest`
+   * so the e2e suite can introspect the data the lib hands to integrators when
+   * they want to render a custom tooltip. The actual demo never builds its own
+   * tooltip — this hook exists solely as a test seam.
+   */
+  onTooltipRequested(payload: unknown): void {
+    if (typeof window !== 'undefined') {
+      (window as Window & { __lastTooltipRequest?: unknown }).__lastTooltipRequest = payload;
+    }
+    this.addLog('control', 'Tooltip requested');
+  }
+
   private addLog(type: string, message: string): void {
     const entry: EventLogEntry = {
       type,

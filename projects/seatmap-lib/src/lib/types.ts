@@ -221,14 +221,23 @@ export type TSeatAvailability = Array<{
 }>;
 
 // ─── Seat feature ─────────────────────────────────────────────────────────────
+/**
+ * Shape mirrors React's prepared feature/measurement item.
+ * - `key`: stable feature identifier matching the API (e.g. 'audioVideo', 'nearGalley', 'pitch').
+ * - `icon`: full inline SVG string (looked up from SEAT_FEATURES_ICONS / SEAT_MEASUREMENTS_ICONS).
+ *   Integrators render it via `innerHTML`. Never just the icon key.
+ * - `title`: short localized label (e.g. 'Audio / Video', 'Pitch'). `null` for negative amenities
+ *   — in that case the localized phrase moves to `value` (matches React's pros/cons convention).
+ * - `value`: for measurements, the formatted dimension (e.g. '198 cm'). For positive amenities,
+ *   the raw API value (true | string). For negative amenities, the localized phrase.
+ * - `uniqId`: per-item identifier; useful as a React/Angular `*ngFor` track key.
+ */
 export interface ISeatFeature {
-  title: string | null;
-  icon?: string;
-  value?: string | number;
-  /** Identifies the feature type (e.g. 'pitch', 'width', 'recline') for display logic */
   key?: string;
-  /** If true, this is a negative/warning amenity (e.g. "Close to galleys") */
-  negative?: boolean;
+  icon?: string;
+  title: string | null;
+  value?: string | number | boolean | null;
+  uniqId?: string;
 }
 
 // ─── Rendered seat ────────────────────────────────────────────────────────────

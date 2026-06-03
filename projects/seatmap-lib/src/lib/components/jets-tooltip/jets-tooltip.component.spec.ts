@@ -162,9 +162,9 @@ describe('JetsTooltipComponent', () => {
     it('should separate amenities from dimensions', () => {
       component.data = makeTooltipData({
         seat: makeSeat({
-          features: [
-            { title: 'Wi-Fi', icon: 'wifi' },
-            { title: 'Seat pitch', value: '32"', key: 'pitch' },
+          features: [{ title: 'Wi-Fi', icon: '<svg></svg>', key: 'wifiEnabled', value: true }],
+          measurements: [
+            { title: 'Pitch', icon: '<svg></svg>', key: 'pitch', value: '32"' },
           ],
         }),
       });
@@ -177,7 +177,8 @@ describe('JetsTooltipComponent', () => {
     it('should mark negative amenities with CSS class', () => {
       component.data = makeTooltipData({
         seat: makeSeat({
-          features: [{ title: 'Close to galleys', icon: 'negative', negative: true }],
+          // React-aligned shape: negative amenities carry title=null and localized text in value.
+          features: [{ key: 'nearGalley', icon: '<svg></svg>', title: null, value: 'Close to galleys' }],
         }),
       });
       fixture.detectChanges();
@@ -201,10 +202,10 @@ describe('JetsTooltipComponent', () => {
     it('should display pitch/width/recline dimensions', () => {
       component.data = makeTooltipData({
         seat: makeSeat({
-          features: [
-            { title: 'Seat pitch', value: '32"', key: 'pitch' },
-            { title: 'Seat width', value: '18"', key: 'width' },
-            { title: 'Seat recline', value: '5"', key: 'recline' },
+          measurements: [
+            { title: 'Pitch', icon: '<svg></svg>', value: '32"', key: 'pitch' },
+            { title: 'Width', icon: '<svg></svg>', value: '18"', key: 'width' },
+            { title: 'Recline', icon: '<svg></svg>', value: '5"', key: 'recline' },
           ],
         }),
       });
@@ -221,15 +222,17 @@ describe('JetsTooltipComponent', () => {
       expect(values).toContain('5"');
     });
 
-    it('should use short label when available', () => {
+    it('should render the short title from the prepared measurement', () => {
       component.data = makeTooltipData({
         seat: makeSeat({
-          features: [{ title: 'Seat pitch', value: '32"', key: 'pitch' }],
+          // Preparer already substitutes the locale short label (e.g. 'Pitch') into `title`.
+          measurements: [{ title: 'Pitch', icon: '<svg></svg>', value: '32"', key: 'pitch' }],
         }),
       });
-      // EN locale has 'pitchShort' = 'Pitch'
-      const label = component.getDimLabel({ title: 'Seat pitch', key: 'pitch', value: '32"' });
-      expect(label).toBe('Pitch');
+      fixture.detectChanges();
+
+      const label = fixture.nativeElement.querySelector('.jets-tooltip--dim-label');
+      expect(label?.textContent?.trim()).toBe('Pitch');
     });
   });
 
