@@ -19,7 +19,7 @@ interface ICabinSection {
   imports: [CommonModule, JetsRowComponent, JetsDeckExitComponent, JetsBulkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="jets-deck" [style.background-color]="floorColor">
+    <div class="jets-deck">
       @if (deck.title && showNumber) {
         <div class="jets-deck__title" [style.color]="titleColor">
           {{ deck.title }}
@@ -221,10 +221,6 @@ export class JetsDeckComponent {
     element: HTMLElement;
     event?: Event;
   }>();
-
-  get floorColor(): string {
-    return this.colorTheme?.floorColor ?? DEFAULT_COLOR_THEME.floorColor;
-  }
 
   get deckLabel(): string {
     return LOCALES_MAP[this.lang]?.['deck'] ?? 'Deck';

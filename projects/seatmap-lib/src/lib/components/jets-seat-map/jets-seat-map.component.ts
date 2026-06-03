@@ -323,7 +323,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   getDeckFloorWidth(deck: IDeckData): string {
     const maxNative = this.maxNativeDeckWidth;
     const deckNative = deck.nativeDeckWidth ?? maxNative;
-    if (deckNative >= maxNative) return '100%';
+    // Never let the floor cover the entire fuselage interior — leave a thin
+    // band on each side so colorTheme.fuselageFillColor is visible as the
+    // hull lining even on single-deck planes where deck width == max.
+    if (deckNative >= maxNative) return 'calc(100% - 16px)';
     const pct = Math.round((deckNative / maxNative) * 100);
     return `${pct}%`;
   }
