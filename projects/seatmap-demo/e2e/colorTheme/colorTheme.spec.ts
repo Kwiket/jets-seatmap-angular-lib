@@ -2,6 +2,8 @@ import { test } from '@playwright/test';
 import {
   applyConfigAndReady,
   clickFirstAvailableSeat,
+  screenshotElement,
+  screenshotRows,
   screenshotSeatMap,
 } from '../helpers/demo';
 
@@ -109,7 +111,7 @@ test.describe('colorTheme', () => {
       },
     });
     await clickFirstAvailableSeat(page);
-    await screenshotSeatMap(page, __dirname, 'colorTheme-tooltip-dark');
+    await screenshotElement(page, __dirname, 'colorTheme-tooltip-dark', '.jets-tooltip', 16);
   });
 });
 
@@ -174,6 +176,19 @@ const BASELINE_THEME: Record<string, unknown> = {
 
 type Precondition = 'plain' | 'tooltip' | 'cabinTitles' | 'multiDeck';
 
+/**
+ * How to capture the screenshot for a per-field test.
+ *
+ * - `full` (default) — the whole `.demo-seatmap-wrapper`; right for
+ *   coarse visual changes (background, floor, fuselage).
+ * - `element` — crop to a CSS selector's bounding box plus padding;
+ *   right for small overlays (open tooltip, deck selector, single bulk).
+ * - `rows` — crop to a contiguous range of `.jets-row`; right for
+ *   fine seat-level details (label, stroke, armrest) that get lost in
+ *   the full-deck downscale.
+ */
+type CloseUp = { kind: 'element'; selector: string; padding?: number } | { kind: 'rows'; from: number; count: number };
+
 interface FieldCase {
   field: string;
   value: unknown;
@@ -185,6 +200,7 @@ interface FieldCase {
   // `fuselageNoseType` is only visible when fuselage is on — which the
   // demo default already provides).
   extraTheme?: Record<string, unknown>;
+  closeUp?: CloseUp;
 }
 
 /**
@@ -192,39 +208,70 @@ interface FieldCase {
  * vivid value designed to make the change easy to spot in the screenshot
  * against the BASELINE_THEME look.
  */
+/* Defaults for the most common close-up patterns. */
+const FEW_ROWS_FROM_TOP: CloseUp = { kind: 'rows', from: 0, count: 4 };
+const TOOLTIP_CLOSEUP: CloseUp = { kind: 'element', selector: '.jets-tooltip', padding: 16 };
+const DECK_SELECTOR_CLOSEUP: CloseUp = {
+  kind: 'element',
+  selector: '.jets-seatmap-header',
+  padding: 20,
+};
+const BULK_CLOSEUP: CloseUp = { kind: 'element', selector: '.jets-bulk', padding: 30 };
+
 const FIELD_CASES: FieldCase[] = [
   // ─── Background / floor / fonts ────────────────────────────────────────
   { field: 'seatMapBackgroundColor', value: '#ffcdd2' },
   { field: 'floorColor', value: '#8e24aa' },
-  { field: 'fontFamily', value: 'Courier New, monospace' },
+  // Font change is most visible in tooltip text; open the tooltip and crop to it.
+  { field: 'fontFamily', value: 'Courier New, monospace', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
 
   // ─── Seat ──────────────────────────────────────────────────────────────
-  { field: 'seatLabelColor', value: '#ff0000' },
-  { field: 'seatStrokeColor', value: '#000000' },
-  { field: 'seatStrokeWidth', value: 4 },
-  { field: 'seatArmrestColor', value: '#ff5722' },
+  // Seat labels / strokes / armrests are sub-pixel at full-deck zoom — crop.
+  { field: 'seatLabelColor', value: '#ff0000', closeUp: FEW_ROWS_FROM_TOP },
+  { field: 'seatStrokeColor', value: '#000000', closeUp: FEW_ROWS_FROM_TOP },
+  { field: 'seatStrokeWidth', value: 4, closeUp: FEW_ROWS_FROM_TOP },
+  { field: 'seatArmrestColor', value: '#ff5722', closeUp: FEW_ROWS_FROM_TOP },
   { field: 'notAvailableSeatsColor', value: '#9c27b0' },
 
   // ─── Bulk (cabin partitions) ──────────────────────────────────────────
-  { field: 'bulkBaseColor', value: '#ff9800' },
-  { field: 'bulkCutColor', value: '#00bcd4' },
-  { field: 'bulkIconColor', value: '#e91e63' },
-  { field: 'bulkFloorIconColor', value: '#ffeb3b' },
+  // Bulk icons are tiny — crop to the first bulk element.
+  { field: 'bulkBaseColor', value: '#ff9800', closeUp: BULK_CLOSEUP },
+  { field: 'bulkCutColor', value: '#00bcd4', closeUp: BULK_CLOSEUP },
+  { field: 'bulkIconColor', value: '#e91e63', closeUp: BULK_CLOSEUP },
+  { field: 'bulkFloorIconColor', value: '#ffeb3b', closeUp: BULK_CLOSEUP },
 
   // ─── Passenger badge ──────────────────────────────────────────────────
+  // Badge only renders on seats that have an assigned passenger; the demo's
+  // default passenger list has no seat. Without seating, no badge → leave
+  // these as full screenshots (and mark them as covered by Task #24).
   { field: 'defaultPassengerBadgeColor', value: '#00e676' },
   { field: 'defaultPassengerBadgeLabelColor', value: '#000000' },
   { field: 'defaultPassengerBadgeBorderColor', value: '#ff1744' },
 
   // ─── Deck ──────────────────────────────────────────────────────────────
-  { field: 'deckLabelTitleColor', value: '#ff0000' },
+  // Deck title text sits at the top of each deck.
+  {
+    field: 'deckLabelTitleColor',
+    value: '#ff0000',
+    closeUp: { kind: 'element', selector: '.jets-deck__title', padding: 30 },
+  },
   { field: 'deckHeightSpacing', value: 200 },
   { field: 'deckSeparation', value: 80, extraConfig: { singleDeckMode: false } },
 
-  // ─── Deck selector (only meaningful when multi-deck) ──────────────────
-  { field: 'deckSelectorStrokeColor', value: '#ff0000', pre: 'multiDeck' },
-  { field: 'deckSelectorFillColor', value: '#ffeb3b', pre: 'multiDeck' },
-  { field: 'deckSelectorSize', value: 50, pre: 'multiDeck' },
+  // ─── Deck selector (renders in .jets-seatmap-header above the map) ────
+  {
+    field: 'deckSelectorStrokeColor',
+    value: '#ff0000',
+    pre: 'multiDeck',
+    closeUp: DECK_SELECTOR_CLOSEUP,
+  },
+  {
+    field: 'deckSelectorFillColor',
+    value: '#ffeb3b',
+    pre: 'multiDeck',
+    closeUp: DECK_SELECTOR_CLOSEUP,
+  },
+  { field: 'deckSelectorSize', value: 50, pre: 'multiDeck', closeUp: DECK_SELECTOR_CLOSEUP },
 
   // ─── Wings ────────────────────────────────────────────────────────────
   { field: 'wingsWidth', value: 150 },
@@ -248,11 +295,9 @@ const FIELD_CASES: FieldCase[] = [
   },
 
   // ─── Cabin titles (need visibleCabinTitles: true) ────────────────────
-  {
-    field: 'cabinTitlesWidth',
-    value: 160,
-    pre: 'cabinTitles',
-  },
+  // Cabin-titles strip sits along the side of the deck — full screenshot lets
+  // the analyser see both sides at once; close-up would crop one out.
+  { field: 'cabinTitlesWidth', value: 160, pre: 'cabinTitles' },
   {
     field: 'cabinTitlesHighlightColors',
     value: { F: '#ff0000', B: '#00ff00', P: '#0000ff', E: '#ffff00' },
@@ -260,18 +305,43 @@ const FIELD_CASES: FieldCase[] = [
   },
   { field: 'cabinTitlesLabelColor', value: '#ff00ff', pre: 'cabinTitles' },
 
-  // ─── Tooltip (click a seat to open it) ────────────────────────────────
-  { field: 'tooltipBackgroundColor', value: '#212121', pre: 'tooltip' },
-  { field: 'tooltipHeaderColor', value: '#ff5252', pre: 'tooltip' },
-  { field: 'tooltipBorderColor', value: '#ffeb3b', pre: 'tooltip' },
-  { field: 'tooltipFontColor', value: '#ff5722', pre: 'tooltip' },
-  { field: 'tooltipIconColor', value: '#00e676', pre: 'tooltip' },
-  { field: 'tooltipIconBorderColor', value: '#ff1744', pre: 'tooltip' },
-  { field: 'tooltipIconBackgroundColor', value: '#ffeb3b', pre: 'tooltip' },
-  { field: 'tooltipSelectButtonTextColor', value: '#000000', pre: 'tooltip' },
-  { field: 'tooltipSelectButtonBackgroundColor', value: '#ffeb3b', pre: 'tooltip' },
-  { field: 'tooltipCancelButtonTextColor', value: '#000000', pre: 'tooltip' },
-  { field: 'tooltipCancelButtonBackgroundColor', value: '#ffeb3b', pre: 'tooltip' },
+  // ─── Tooltip (click a seat to open it; crop to the tooltip) ──────────
+  { field: 'tooltipBackgroundColor', value: '#212121', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
+  { field: 'tooltipHeaderColor', value: '#ff5252', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
+  { field: 'tooltipBorderColor', value: '#ffeb3b', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
+  { field: 'tooltipFontColor', value: '#ff5722', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
+  { field: 'tooltipIconColor', value: '#00e676', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
+  { field: 'tooltipIconBorderColor', value: '#ff1744', pre: 'tooltip', closeUp: TOOLTIP_CLOSEUP },
+  {
+    field: 'tooltipIconBackgroundColor',
+    value: '#ffeb3b',
+    pre: 'tooltip',
+    closeUp: TOOLTIP_CLOSEUP,
+  },
+  {
+    field: 'tooltipSelectButtonTextColor',
+    value: '#000000',
+    pre: 'tooltip',
+    closeUp: TOOLTIP_CLOSEUP,
+  },
+  {
+    field: 'tooltipSelectButtonBackgroundColor',
+    value: '#ffeb3b',
+    pre: 'tooltip',
+    closeUp: TOOLTIP_CLOSEUP,
+  },
+  {
+    field: 'tooltipCancelButtonTextColor',
+    value: '#000000',
+    pre: 'tooltip',
+    closeUp: TOOLTIP_CLOSEUP,
+  },
+  {
+    field: 'tooltipCancelButtonBackgroundColor',
+    value: '#ffeb3b',
+    pre: 'tooltip',
+    closeUp: TOOLTIP_CLOSEUP,
+  },
 
   // ─── Score-based custom seat colors ──────────────────────────────────
   {
@@ -281,6 +351,7 @@ const FIELD_CASES: FieldCase[] = [
       { color: '#ffea00', range: [4, 7.99] },
       { color: '#00e676', range: [8, 10] },
     ],
+    closeUp: FEW_ROWS_FROM_TOP,
   },
 ];
 
@@ -297,16 +368,21 @@ test.describe('colorTheme · per-field matrix', () => {
       const config: Record<string, unknown> = {
         colorTheme: theme,
         ...(c.pre === 'cabinTitles' ? { visibleCabinTitles: true } : {}),
-        ...(c.pre === 'multiDeck'
-          ? { singleDeckMode: true, builtInDeckSelector: true }
-          : {}),
+        ...(c.pre === 'multiDeck' ? { singleDeckMode: true, builtInDeckSelector: true } : {}),
         ...(c.extraConfig ?? {}),
       };
       await applyConfigAndReady(page, config);
       if (c.pre === 'tooltip') {
         await clickFirstAvailableSeat(page);
       }
-      await screenshotSeatMap(page, __dirname, `colorTheme-field-${c.field}`);
+      const name = `colorTheme-field-${c.field}`;
+      if (!c.closeUp) {
+        await screenshotSeatMap(page, __dirname, name);
+      } else if (c.closeUp.kind === 'element') {
+        await screenshotElement(page, __dirname, name, c.closeUp.selector, c.closeUp.padding);
+      } else {
+        await screenshotRows(page, __dirname, name, c.closeUp.from, c.closeUp.count);
+      }
     });
   }
 });
