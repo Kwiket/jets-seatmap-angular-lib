@@ -71,6 +71,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
           <div
             class="jets-seat__passenger"
             [style.background-color]="passengerBadgeColor"
+            [style.color]="passengerBadgeLabelColor"
             [style.width.px]="badgeSize"
             [style.height.px]="badgeSize"
             [style.font-size.px]="badgeFontSize"
@@ -256,8 +257,13 @@ export class JetsSeatComponent implements OnChanges {
     return Math.round(this.badgeSize * 0.28);
   }
 
+  get passengerBadgeLabelColor(): string {
+    return this.colorTheme?.defaultPassengerBadgeLabelColor ?? DEFAULT_COLOR_THEME.defaultPassengerBadgeLabelColor;
+  }
+
   get badgeBorder(): string {
-    return 'none';
+    const c = this.colorTheme?.defaultPassengerBadgeBorderColor;
+    return c ? `1px solid ${c}` : 'none';
   }
 
   get seatClasses(): string {
