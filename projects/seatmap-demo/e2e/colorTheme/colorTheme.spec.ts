@@ -209,7 +209,9 @@ interface FieldCase {
  * against the BASELINE_THEME look.
  */
 /* Defaults for the most common close-up patterns. */
-const FEW_ROWS_FROM_TOP: CloseUp = { kind: 'rows', from: 0, count: 4 };
+// 2 rows keeps each seat at ~2x its analyzer-thumbnail size — enough to
+// distinguish a 4px outline from a 1px one and to read seat-label glyphs.
+const FEW_ROWS_FROM_TOP: CloseUp = { kind: 'rows', from: 0, count: 2 };
 const TOOLTIP_CLOSEUP: CloseUp = { kind: 'element', selector: '.jets-tooltip', padding: 16 };
 const DECK_SELECTOR_CLOSEUP: CloseUp = {
   kind: 'element',
