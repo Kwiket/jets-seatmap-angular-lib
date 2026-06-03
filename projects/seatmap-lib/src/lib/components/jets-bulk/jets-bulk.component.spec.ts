@@ -27,9 +27,7 @@ describe('JetsBulkComponent', () => {
   });
 
   it('should accept a populated bulks array', () => {
-    component.bulks = [
-      { id: 'b1', type: 1, width: 50, height: 50, topOffset: 0, align: 'left' },
-    ];
+    component.bulks = [{ id: 'b1', type: 1, width: 50, height: 50, topOffset: 0, align: 'left' }];
     fixture.detectChanges();
     expect(component.bulks).toHaveLength(1);
   });

@@ -16,7 +16,7 @@ const CLASS_LIGHTNESS_DELTA: Record<TCabinClass, number> = {
 export function tintSeatColorForClass(
   baseColor: string,
   classType: string,
-  themeOverrides?: Partial<Record<TCabinClass, string>>,
+  themeOverrides?: Partial<Record<TCabinClass, string>>
 ): string {
   const cls = (classType?.toUpperCase() ?? 'E') as TCabinClass;
   const override = themeOverrides?.[cls];
@@ -79,18 +79,27 @@ function parseRgb(color: string): { r: number; g: number; b: number } | null {
 }
 
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const rn = r / 255,
+    gn = g / 255,
+    bn = b / 255;
   const max = Math.max(rn, gn, bn);
   const min = Math.min(rn, gn, bn);
   const l = (max + min) / 2;
-  let h = 0, s = 0;
+  let h = 0,
+    s = 0;
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
     switch (max) {
-      case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
-      case gn: h = (bn - rn) / d + 2; break;
-      case bn: h = (rn - gn) / d + 4; break;
+      case rn:
+        h = (gn - bn) / d + (gn < bn ? 6 : 0);
+        break;
+      case gn:
+        h = (bn - rn) / d + 2;
+        break;
+      case bn:
+        h = (rn - gn) / d + 4;
+        break;
     }
     h *= 60;
   }
@@ -98,11 +107,14 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
 }
 
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-  const sn = s / 100, ln = l / 100;
+  const sn = s / 100,
+    ln = l / 100;
   const c = (1 - Math.abs(2 * ln - 1)) * sn;
   const hp = h / 60;
   const x = c * (1 - Math.abs((hp % 2) - 1));
-  let r = 0, g = 0, b = 0;
+  let r = 0,
+    g = 0,
+    b = 0;
   if (hp >= 0 && hp < 1) [r, g, b] = [c, x, 0];
   else if (hp < 2) [r, g, b] = [x, c, 0];
   else if (hp < 3) [r, g, b] = [0, c, x];
@@ -110,11 +122,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   else if (hp < 5) [r, g, b] = [x, 0, c];
   else [r, g, b] = [c, 0, x];
   const m = ln - c / 2;
-  return [
-    Math.round((r + m) * 255),
-    Math.round((g + m) * 255),
-    Math.round((b + m) * 255),
-  ];
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
 }
 
 function rgbToHex(r: number, g: number, b: number): string {

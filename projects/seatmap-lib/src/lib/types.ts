@@ -24,13 +24,7 @@ export type TUnits = 'metric' | 'imperials';
 
 // ─── Seat types ───────────────────────────────────────────────────────────────
 export type TSeatType = 'seat' | 'aisle' | 'empty' | 'index';
-export type TSeatStatus =
-  | 'available'
-  | 'unavailable'
-  | 'selected'
-  | 'preferred'
-  | 'extra'
-  | 'disabled';
+export type TSeatStatus = 'available' | 'unavailable' | 'selected' | 'preferred' | 'extra' | 'disabled';
 export type TSeatRotation = 'nw' | 'nw45' | 'ne' | 'ne45' | 's' | 'se' | 'sw' | '';
 
 // ─── Flight ───────────────────────────────────────────────────────────────────

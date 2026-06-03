@@ -9,13 +9,10 @@ import { SeatmapAuthService } from './seatmap-auth.service';
 export class JetsSeatMapApiService {
   constructor(
     private http: HttpClient,
-    private authService: SeatmapAuthService,
+    private authService: SeatmapAuthService
   ) {}
 
-  async getSeatmapData(
-    flightData: IApiFlightRequest,
-    config: IConfig,
-  ): Promise<IApiSeatmapResponse> {
+  async getSeatmapData(flightData: IApiFlightRequest, config: IConfig): Promise<IApiSeatmapResponse> {
     const resolvedKey = typeof config.apiKey === 'function' ? config.apiKey() : config.apiKey;
     const token = await this.authService.getToken(config.apiUrl, config.apiAppId, resolvedKey);
     const scheme = config.apiAuthorizationScheme ?? DEFAULT_AUTHORIZATION_SCHEME;
@@ -44,11 +41,7 @@ export class JetsSeatMapApiService {
       if (err?.status === 401) {
         console.warn('[SeatmapAPI] 401 — clearing cached token and retrying');
         this.authService.clearToken(config.apiUrl, config.apiAppId);
-        const newToken = await this.authService.getToken(
-          config.apiUrl,
-          config.apiAppId,
-          resolvedKey,
-        );
+        const newToken = await this.authService.getToken(config.apiUrl, config.apiAppId, resolvedKey);
         const retryHeaders = new HttpHeaders({
           'Content-Type': 'application/json',
           Authorization: `${scheme} ${newToken}`,
@@ -64,14 +57,12 @@ export class JetsSeatMapApiService {
   private async _postSeatmap(
     apiUrl: string,
     body: Record<string, unknown>,
-    headers: HttpHeaders,
+    headers: HttpHeaders
   ): Promise<IApiSeatmapResponse> {
     const rawResponse = await firstValueFrom(
-      this.http.post<IApiSeatmapResponse | IApiSeatmapResponse[]>(
-        `${apiUrl}/flight/features/plane/seatmap`,
-        body,
-        { headers },
-      ),
+      this.http.post<IApiSeatmapResponse | IApiSeatmapResponse[]>(`${apiUrl}/flight/features/plane/seatmap`, body, {
+        headers,
+      })
     );
 
     let response: IApiSeatmapResponse;
@@ -79,8 +70,7 @@ export class JetsSeatMapApiService {
     if (Array.isArray(rawResponse)) {
       // API returns array: first element has seatDetails/decks, remaining have per-cabin-class data
       // (entertainment, wifi, power, cabin measurements keyed by id suffix like ":F", ":B", ":E", ":P")
-      response =
-        rawResponse.find(r => r.seatDetails?.decks?.length || r.decks?.length) ?? rawResponse[0];
+      response = rawResponse.find(r => r.seatDetails?.decks?.length || r.decks?.length) ?? rawResponse[0];
 
       const cabinsByClass: Record<string, any> = {};
       for (const item of rawResponse) {
@@ -94,8 +84,7 @@ export class JetsSeatMapApiService {
         // truthy, since some classes carry placeholder `{exists: null}` (e.g. First class
         // on a route where only Business/Premium/Economy have power) that would otherwise
         // shadow the real availability from a later class.
-        if (!response.entertainment?.exists && item.entertainment?.exists)
-          response.entertainment = item.entertainment;
+        if (!response.entertainment?.exists && item.entertainment?.exists) response.entertainment = item.entertainment;
         if (!response.wifi?.exists && item.wifi?.exists) response.wifi = item.wifi;
         if (!response.power?.exists && item.power?.exists) response.power = item.power;
 
@@ -128,16 +117,11 @@ export class JetsSeatMapApiService {
 
   /** Remove undefined/empty-string fields so they don't cause API validation errors */
   private _cleanObject(obj: Record<string, unknown>): Record<string, unknown> {
-    return Object.fromEntries(
-      Object.entries(obj).filter(([, v]) => v !== undefined && v !== '' && v !== null),
-    );
+    return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== '' && v !== null));
   }
 
   /** @deprecated Use getSeatmapData */
-  async getPlaneFeatures(
-    flightData: IApiFlightRequest,
-    config: IConfig,
-  ): Promise<IApiSeatmapResponse> {
+  async getPlaneFeatures(flightData: IApiFlightRequest, config: IConfig): Promise<IApiSeatmapResponse> {
     return this.getSeatmapData(flightData, config);
   }
 }

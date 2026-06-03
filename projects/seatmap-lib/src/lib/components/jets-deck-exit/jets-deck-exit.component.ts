@@ -32,10 +32,7 @@ const RIGHT_ARROW_SVG = `<svg version="1.0" xmlns="http://www.w3.org/2000/svg" w
             draggable="false"
           />
         } @else {
-          <span
-            class="jets-exit__icon"
-            [innerHTML]="exit.type === 'left' ? leftArrowHtml : rightArrowHtml"
-          ></span>
+          <span class="jets-exit__icon" [innerHTML]="exit.type === 'left' ? leftArrowHtml : rightArrowHtml"></span>
         }
       </div>
     }
@@ -105,8 +102,7 @@ export class JetsDeckExitComponent {
    * the bundled arrow.
    */
   exitIconUrlFor(type: 'left' | 'right'): string | null {
-    const url =
-      type === 'left' ? this.colorTheme?.exitIconUrlLeft : this.colorTheme?.exitIconUrlRight;
+    const url = type === 'left' ? this.colorTheme?.exitIconUrlLeft : this.colorTheme?.exitIconUrlRight;
     return url && url.trim().length > 0 ? url : null;
   }
 }

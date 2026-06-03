@@ -1,10 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { JetsSeatMapApiService } from './jets-seat-map-api.service';
 import { SeatmapAuthService } from './seatmap-auth.service';
 import { IApiFlightRequest, IConfig } from '../types';
@@ -20,9 +17,7 @@ function makeConfig(overrides: Partial<IConfig> = {}): IConfig {
   };
 }
 
-function makeFlightRequest(
-  overrides: Partial<IApiFlightRequest> = {},
-): IApiFlightRequest {
+function makeFlightRequest(overrides: Partial<IApiFlightRequest> = {}): IApiFlightRequest {
   return {
     id: 'flt-1',
     airlineCode: 'AA',
@@ -99,10 +94,7 @@ describe('JetsSeatMapApiService', () => {
   });
 
   it('should honour a custom apiAuthorizationScheme', async () => {
-    const pending = service.getSeatmapData(
-      makeFlightRequest(),
-      makeConfig({ apiAuthorizationScheme: 'Token' }),
-    );
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig({ apiAuthorizationScheme: 'Token' }));
     await Promise.resolve();
     await Promise.resolve();
     const req = httpMock.expectOne(URL);
@@ -114,7 +106,7 @@ describe('JetsSeatMapApiService', () => {
   it('should merge apiMetadata into the request body at the top level', async () => {
     const pending = service.getSeatmapData(
       makeFlightRequest(),
-      makeConfig({ apiMetadata: { traceId: 'X', segment: 'test' } }),
+      makeConfig({ apiMetadata: { traceId: 'X', segment: 'test' } })
     );
     await Promise.resolve();
     await Promise.resolve();
@@ -128,28 +120,19 @@ describe('JetsSeatMapApiService', () => {
 
   it('should resolve apiKey from a function on each request', async () => {
     const keyFn = vi.fn(() => 'dynamic-key');
-    const pending = service.getSeatmapData(
-      makeFlightRequest(),
-      makeConfig({ apiKey: keyFn }),
-    );
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig({ apiKey: keyFn }));
     await Promise.resolve();
     await Promise.resolve();
     const req = httpMock.expectOne(URL);
 
     expect(keyFn).toHaveBeenCalledTimes(1);
-    expect(authMock.getToken).toHaveBeenCalledWith(
-      'https://api.example.test',
-      'app',
-      'dynamic-key',
-    );
+    expect(authMock.getToken).toHaveBeenCalledWith('https://api.example.test', 'app', 'dynamic-key');
     req.flush({});
     await pending;
   });
 
   it('should clear the cached token and retry once after a 401', async () => {
-    authMock.getToken
-      .mockResolvedValueOnce('TKN1')
-      .mockResolvedValueOnce('TKN2');
+    authMock.getToken.mockResolvedValueOnce('TKN1').mockResolvedValueOnce('TKN2');
 
     const pending = service.getSeatmapData(makeFlightRequest(), makeConfig());
     await Promise.resolve();
@@ -251,4 +234,3 @@ describe('JetsSeatMapApiService', () => {
     await pending;
   });
 });
-

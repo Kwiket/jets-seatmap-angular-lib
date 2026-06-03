@@ -80,10 +80,7 @@ const BULK_BASE_RATIO: Record<string, number> = {
         <div class="jets-bulk__icon" [innerHTML]="item.html"></div>
         @if (item.stickerHtml) {
           <div class="jets-bulk__sticker-wrap" [style.height]="item.stickerWrapperHeight">
-            <div
-              [class]="'jets-bulk__sticker ' + item.stickerClass"
-              [innerHTML]="item.stickerHtml"
-            ></div>
+            <div [class]="'jets-bulk__sticker ' + item.stickerClass" [innerHTML]="item.stickerHtml"></div>
           </div>
         }
       </div>
@@ -165,9 +162,7 @@ export class JetsBulkComponent implements OnChanges {
 
   ngOnChanges(): void {
     const bulkStyle = this._resolveBulkStyle();
-    this.views = this.bulks
-      .map(bulk => this._buildView(bulk, bulkStyle))
-      .filter((v): v is IBulkView => v !== null);
+    this.views = this.bulks.map(bulk => this._buildView(bulk, bulkStyle)).filter((v): v is IBulkView => v !== null);
   }
 
   private _buildView(bulk: IBulkData, bulkStyle: IBulkStyle): IBulkView | null {
@@ -179,10 +174,7 @@ export class JetsBulkComponent implements OnChanges {
     // Sticker overlay
     let stickerHtml: SafeHtml | null = null;
     if (bulk.stickerType) {
-      const stickerSvg = bulkTemplateService.getStickerIcon(
-        bulk.stickerType,
-        bulkStyle.stickerColor,
-      );
+      const stickerSvg = bulkTemplateService.getStickerIcon(bulk.stickerType, bulkStyle.stickerColor);
       if (stickerSvg) {
         stickerHtml = this.sanitizer.bypassSecurityTrustHtml(stickerSvg);
       }

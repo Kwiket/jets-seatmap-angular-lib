@@ -96,9 +96,7 @@ describe('JetsTooltipComponent', () => {
       component.isSelectAvailable = false;
       fixture.detectChanges();
 
-      const selectBtn = fixture.nativeElement.querySelector(
-        '.jets-select-btn',
-      ) as HTMLButtonElement;
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
       expect(selectBtn?.disabled).toBe(true);
     });
 
@@ -213,9 +211,7 @@ describe('JetsTooltipComponent', () => {
       const dims = fixture.nativeElement.querySelectorAll('.jets-tooltip--dimension');
       expect(dims.length).toBe(3);
 
-      const values = Array.from(dims).map((d: any) =>
-        d.querySelector('.jets-tooltip--dim-value')?.textContent?.trim(),
-      );
+      const values = Array.from(dims).map((d: any) => d.querySelector('.jets-tooltip--dim-value')?.textContent?.trim());
       expect(values).toContain('32"');
       expect(values).toContain('18"');
       expect(values).toContain('5"');
