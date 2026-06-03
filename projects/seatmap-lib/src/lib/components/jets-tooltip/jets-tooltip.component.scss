@@ -169,12 +169,18 @@
   font-weight: 400;
   color: #4f6f8f;
   margin-bottom: 10px;
+  // Parent's `align-items: center` shrinks the box to the widest wrapped
+  // line; stretch + text-align centers each line within the column instead.
+  align-self: stretch;
+  text-align: center;
 }
 
 .jets-tooltip--dim-value {
   font-size: 12px;
   font-weight: 400;
   color: #4f6f8f;
+  align-self: stretch;
+  text-align: center;
 }
 
 // ─── Action buttons ──────────────────────────────────────────────────────────
