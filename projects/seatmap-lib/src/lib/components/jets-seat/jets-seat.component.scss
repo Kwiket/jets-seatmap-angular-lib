@@ -191,3 +191,30 @@
 
 /* Rotation is applied via inline style (seatTransform) to avoid conflicts
    with translate offsets. Counter-rotation for labels/badges is also inline. */
+
+/* Windows High Contrast / forced-colors mode.
+   Under forced-colors the browser overrides the parameterised SVG fill /
+   stroke colors with system defaults, which can erase the seat outline.
+   Force a CanvasText outline so each interactable / unavailable seat
+   remains visually identifiable. Decorative cross + passenger badge
+   already use currentColor or are aria-hidden, so we only restate
+   `color: CanvasText` to keep the cross legible. */
+@media (forced-colors: active) {
+  .jets-seat--seat,
+  .jets-seat--unavailable {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+
+  .jets-seat__cross {
+    color: CanvasText;
+    opacity: 1;
+  }
+
+  .jets-seat__passenger {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+    border: 1px solid HighlightText;
+  }
+}

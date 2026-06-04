@@ -46,6 +46,25 @@ const BUTTON_SVG = (stroke: string) => `
         cursor: pointer;
         left: 0;
       }
+
+      /* Windows High Contrast / forced-colors mode.
+         The inline SVG icon uses a parameterised fill that the browser
+         strips under forced-colors, leaving an invisible clickable area.
+         Render the selector as a ButtonFace/ButtonText box so users can
+         still see and operate it. Commit 12 will give it real button
+         semantics; until then this keeps it visually actionable. */
+      @media (forced-colors: active) {
+        .jets-deck-selector {
+          forced-color-adjust: none;
+          background: ButtonFace !important;
+          color: ButtonText;
+          border: 1px solid ButtonText;
+        }
+
+        .jets-deck-selector :is(svg, path) {
+          fill: ButtonText;
+        }
+      }
     `,
   ],
 })

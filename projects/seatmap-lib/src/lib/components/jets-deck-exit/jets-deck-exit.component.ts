@@ -70,6 +70,16 @@ const RIGHT_ARROW_SVG = `<svg version="1.0" xmlns="http://www.w3.org/2000/svg" w
       img.jets-exit__icon {
         object-fit: contain;
       }
+
+      /* Windows High Contrast / forced-colors mode.
+         The inline arrow SVG uses fill="currentColor", so forcing the
+         icon's color to CanvasText keeps the exit indicator visible
+         once the browser strips theme colors. */
+      @media (forced-colors: active) {
+        .jets-exit__icon {
+          color: CanvasText;
+        }
+      }
     `,
   ],
 })
