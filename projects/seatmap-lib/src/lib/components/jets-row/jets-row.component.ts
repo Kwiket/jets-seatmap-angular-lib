@@ -23,6 +23,12 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
                   currencyOverride: currencyOverride,
                   colorfulSeatsByClass: colorfulSeatsByClass,
                   scale: scale,
+                  ariaLabel: ariaLabel,
+                  ariaSelected: ariaSelected,
+                  ariaDisabled: ariaDisabled,
+                  rovingTabindex: rovingTabindex,
+                  colIndex: colIndex,
+                  rowIndex: rowIndex,
                 }
               "
             />
@@ -34,6 +40,12 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
               [currencyOverride]="currencyOverride"
               [colorfulSeatsByClass]="colorfulSeatsByClass"
               [scale]="scale"
+              [ariaLabel]="ariaLabel"
+              [ariaSelected]="ariaSelected"
+              [ariaDisabled]="ariaDisabled"
+              [rovingTabindex]="rovingTabindex"
+              [colIndex]="colIndex"
+              [rowIndex]="rowIndex"
               (seatClick)="seatClick.emit($event)"
               (seatMouseEnter)="seatMouseEnter.emit($event)"
               (seatMouseLeave)="seatMouseLeave.emit($event)"
@@ -73,6 +85,17 @@ export class JetsRowComponent {
   @Input() scale = 1;
   /** Override component for the seat, propagated from componentOverrides.JetsSeat. */
   @Input() seatOverride?: Type<unknown> | null;
+
+  // ─── A11y pass-throughs (WCAG commit 5) ─────────────────────────────
+  // Plumbing for the grid scaffold (commit 6) and roving tabindex (commit 7).
+  // The parent map (`jets-seat-map`) wires real values in commit 6; here we
+  // simply forward whatever it provides down to the seat.
+  @Input() ariaLabel?: string;
+  @Input() ariaSelected?: boolean | null;
+  @Input() ariaDisabled?: boolean;
+  @Input() rovingTabindex?: number;
+  @Input() colIndex?: number;
+  @Input() rowIndex?: number;
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
     element: HTMLElement;

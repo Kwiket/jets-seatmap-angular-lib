@@ -4,6 +4,22 @@
 }
 
 .jets-seat {
+  /* Narrow native-button reset (commit 5).
+     The 'seat' branch renders a real <button>, so we strip browser-default
+     button chrome (background, border, padding, font, appearance) but keep
+     full control over layout, cursor, color inheritance, and user-select
+     below. Using a narrow reset rather than `all: unset` avoids nuking
+     useful inherits (font, color) and keeps the visual output identical
+     to the previous <div> render. */
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  -webkit-tap-highlight-color: transparent;
+
   box-sizing: border-box;
   display: inline-flex;
   justify-content: center;
@@ -15,6 +31,16 @@
   flex-shrink: 0;
   z-index: 10;
   overflow: visible;
+}
+
+/* Keyboard focus ring (commit 5).
+   currentColor works because the default theme (commit 4) keeps the seat
+   label dark on a light fill — AA contrast. Forced-colors block below
+   swaps the colour for Highlight so Windows High Contrast users still see
+   a focus ring even when the SVG fills are flattened. */
+.jets-seat:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .jets-seat__svg {
@@ -218,6 +244,14 @@
   .jets-seat--unavailable {
     outline: 1px solid CanvasText;
     outline-offset: -1px;
+  }
+
+  /* Focus ring (commit 5) must remain visible under forced-colors. Highlight
+     is the system token reserved for selection/focus surfaces; -offset 2px
+     keeps it clear of the seat outline above. */
+  .jets-seat:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
   }
 
   .jets-seat__cross {
