@@ -4,6 +4,29 @@ import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
 import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICONS } from '../../constants';
 
+/**
+ * Structured "why is Select disabled" payload, surfaced to AT (3.3.1 Error
+ * Identification, 3.3.3 Error Suggestion) and to host code that wants to
+ * react programmatically (e.g. analytics on blocked attempts).
+ *
+ * - `disabled: false` — Select is actionable. `reason` and `message` are absent.
+ * - `disabled: true, reason: 'noPassengerLeft'` — host has no `nextPassenger`
+ *   to assign (or `isSelectAvailable` is false for the broader "nothing to
+ *   put here" cases).
+ * - `disabled: true, reason: 'passengerTypeRestricted'` — `seat.passengerTypes`
+ *   excludes `nextPassenger.passengerType` (e.g. infant on an exit row).
+ * - `disabled: true, reason: 'other'` — disabled for an unclassified reason.
+ */
+export interface ISelectDisabledReason {
+  disabled: boolean;
+  reason?: 'noPassengerLeft' | 'passengerTypeRestricted' | 'other';
+  /** Localised, ready-to-display human-readable explanation. */
+  message?: string;
+}
+
+/** Counter for per-instance unique DOM ids — avoids `Math.random()` so it's SSR-deterministic. */
+let _selectReasonUid = 0;
+
 @Component({
   selector: 'sm-jets-tooltip',
   standalone: true,
@@ -140,17 +163,30 @@ import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICO
                   {{ locale['unselect'] }}
                 </button>
               } @else {
+                @let _reason = getSelectDisabledReason();
                 <button
                   class="jets-btn jets-tooltip--btn jets-select-btn"
+                  [class.jets-select-btn--aria-disabled]="_reason.disabled"
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
                   [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
-                  [disabled]="isSelectDisabled()"
-                  (click)="select.emit(data.seat)"
+                  [attr.aria-disabled]="_reason.disabled ? 'true' : null"
+                  [attr.aria-describedby]="_reason.disabled && _reason.message ? selectReasonId : null"
+                  (click)="onSelectClick(_reason)"
                 >
                   {{ locale['select'] }}
                 </button>
               }
             </div>
+            @let _bottomReason = data.seat.passenger ? null : getSelectDisabledReason();
+            @if (_bottomReason && _bottomReason.disabled && _bottomReason.message) {
+              <p
+                class="jets-tooltip--select-reason"
+                [id]="selectReasonId"
+                [style.direction]="textDirection"
+              >
+                {{ _bottomReason.message }}
+              </p>
+            }
           }
         </div>
       </div>
@@ -207,6 +243,21 @@ export class JetsTooltipComponent {
   @Output() select = new EventEmitter<ISeatData>();
   @Output() unselect = new EventEmitter<ISeatData>();
   @Output() close = new EventEmitter<void>();
+  /**
+   * Fired when the user clicks the Select button while it is disabled (the
+   * disabled state is rendered via `aria-disabled` so the click event still
+   * reaches us — native `disabled` would swallow it). Host code (the seat
+   * map's LiveAnnouncer, commit 9) consumes this to announce the reason via
+   * a polite live-region so AT users hear *why* nothing happened.
+   */
+  @Output() selectAttemptBlocked = new EventEmitter<{
+    seat: ISeatData;
+    reason: NonNullable<ISelectDisabledReason['reason']>;
+    message: string;
+  }>();
+
+  /** Stable per-instance id so multiple tooltips on a page don't collide. */
+  readonly selectReasonId = `jets-tooltip-select-reason-${++_selectReasonUid}`;
 
   get locale(): Record<string, string> {
     return LOCALES_MAP[this.data?.lang] || LOCALES_MAP['EN'];
@@ -263,17 +314,111 @@ export class JetsTooltipComponent {
     return dim.title ?? '';
   }
 
+  /**
+   * Boolean facade preserved for backwards compatibility: existing templates
+   * and `componentOverrides.JetsTooltip` consumers may still call this from
+   * their overrides as `[disabled]="isSelectDisabled()"`. New code (and our
+   * own template) reads `getSelectDisabledReason()` for the structured shape.
+   */
   isSelectDisabled(): boolean {
-    if (!this.isSelectAvailable) return true;
-    const nextPassenger = this.data.nextPassenger;
-    const seat = this.data.seat;
+    return this.getSelectDisabledReason().disabled;
+  }
+
+  /**
+   * Structured "why disabled" — see {@link ISelectDisabledReason}. Used by
+   * the template to render a visible reason under the Select button and to
+   * tie it via `aria-describedby` (WCAG 3.3.1 / 3.3.3).
+   */
+  getSelectDisabledReason(): ISelectDisabledReason {
+    const seat = this.data?.seat;
+    const nextPassenger = this.data?.nextPassenger;
+
+    // Passenger-type restriction takes priority: even if isSelectAvailable
+    // happens to be false alongside, the actionable explanation for the user
+    // is "wrong passenger type", not "queue empty".
     if (
       nextPassenger?.passengerType &&
-      seat.passengerTypes?.length &&
+      seat?.passengerTypes?.length &&
       !seat.passengerTypes.includes(nextPassenger.passengerType)
     ) {
-      return true;
+      return {
+        disabled: true,
+        reason: 'passengerTypeRestricted',
+        message: this.buildRestrictedPassengerTypeMessage(nextPassenger),
+      };
     }
-    return false;
+
+    if (!this.isSelectAvailable) {
+      return {
+        disabled: true,
+        reason: 'noPassengerLeft',
+        message: this.buildNoPassengerLeftMessage(),
+      };
+    }
+
+    return { disabled: false };
+  }
+
+  /**
+   * Click handler for the Select button. Because the button is rendered with
+   * `aria-disabled` (not native `disabled`) so AT can still focus it and the
+   * click event still fires, we gate the actual `select.emit()` here and, on
+   * a blocked click, emit `selectAttemptBlocked` for the host's LiveAnnouncer.
+   */
+  onSelectClick(reason: ISelectDisabledReason): void {
+    if (reason.disabled) {
+      if (reason.reason && reason.message) {
+        this.selectAttemptBlocked.emit({
+          seat: this.data.seat,
+          reason: reason.reason,
+          message: reason.message,
+        });
+      }
+      return;
+    }
+    this.select.emit(this.data.seat);
+  }
+
+  /**
+   * Builds the localised "not available for {passengerType}" sentence.
+   *
+   * TODO(commit 17 docs): add 'tooltipSelectRestrictedPassengerType' key
+   * across all locales so the message body is fully localisable as one
+   * unit (currently we glue locale fragments + English fallback).
+   */
+  private buildRestrictedPassengerTypeMessage(nextPassenger: IPassenger): string {
+    const loc = this.locale;
+    // Prefer the human label the host provided (e.g. "Infant"), then the
+    // localised passenger-type abbreviation (loc['INF']), then the raw code.
+    const passengerLabel =
+      nextPassenger.passengerLabel?.trim() ||
+      (nextPassenger.passengerType ? loc[nextPassenger.passengerType] : '') ||
+      nextPassenger.passengerType ||
+      'this passenger';
+    // `seatRestrictedFor` is present in every locale (commit 3). English
+    // fallback is structurally identical so we never produce broken text.
+    const prefix = loc['seatRestrictedFor'] || 'not available for';
+    // Sentence case + period: "Not available for infant passengers."
+    const sentence = `${prefix} ${passengerLabel}`;
+    return this.capitaliseFirst(sentence) + '.';
+  }
+
+  /**
+   * Builds the localised "no passenger left to seat" sentence. There is no
+   * existing locale key for this — leave a TODO so commit 17/docs can add a
+   * dedicated key across all locales. For now use an English fallback so the
+   * AT user still gets a meaningful explanation.
+   *
+   * TODO(commit 17 docs): add 'tooltipSelectNoPassengerLeft' key across all
+   * locales (constants.ts is owned by commit 4 in parallel — do not touch).
+   */
+  private buildNoPassengerLeftMessage(): string {
+    // English fallback only — no locale key yet. Document the gap above.
+    return 'No passenger available to assign to this seat.';
+  }
+
+  private capitaliseFirst(s: string): string {
+    if (!s) return s;
+    return s.charAt(0).toUpperCase() + s.slice(1);
   }
 }

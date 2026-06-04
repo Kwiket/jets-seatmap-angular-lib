@@ -91,13 +91,17 @@ describe('JetsTooltipComponent', () => {
       expect(selectBtn?.textContent?.trim()).toBe('Unselect');
     });
 
-    it('should disable Select when isSelectAvailable is false', () => {
+    it('should mark Select as aria-disabled when isSelectAvailable is false', () => {
+      // Commit 10 switched the disabled-Select rendering from the native
+      // `disabled` attribute to `aria-disabled` so the click event still
+      // reaches the component and selectAttemptBlocked can fire (WCAG 3.3.1).
       component.data = makeTooltipData();
       component.isSelectAvailable = false;
       fixture.detectChanges();
 
       const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
-      expect(selectBtn?.disabled).toBe(true);
+      expect(selectBtn?.getAttribute('aria-disabled')).toBe('true');
+      expect(selectBtn?.disabled).toBe(false);
     });
 
     it('renders seat.currency in header price by default (multi-char: space-separated)', () => {
@@ -337,6 +341,152 @@ describe('JetsTooltipComponent', () => {
       component.isSelectAvailable = true;
 
       expect(component.isSelectDisabled()).toBe(false);
+    });
+  });
+
+  // ─── Disabled-Select reasoning (WCAG 3.3.1 / 3.3.3) ────────────────────
+
+  describe('getSelectDisabledReason() — structured reasoning', () => {
+    it('returns disabled:false when select is available and passenger type matches', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'ADT', passengerLabel: 'Adult' },
+      });
+      component.isSelectAvailable = true;
+
+      const r = component.getSelectDisabledReason();
+      expect(r.disabled).toBe(false);
+      expect(r.reason).toBeUndefined();
+      expect(r.message).toBeUndefined();
+    });
+
+    it('returns passengerTypeRestricted with a non-empty message when seat excludes passenger type', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
+      });
+      component.isSelectAvailable = true;
+
+      const r = component.getSelectDisabledReason();
+      expect(r.disabled).toBe(true);
+      expect(r.reason).toBe('passengerTypeRestricted');
+      expect(r.message).toBeTruthy();
+      expect(r.message!.length).toBeGreaterThan(0);
+      // English (default locale) — must mention "not available for" and the passenger label.
+      expect(r.message).toMatch(/not available for/i);
+      expect(r.message).toContain('Infant');
+    });
+
+    it('returns noPassengerLeft when isSelectAvailable is false and no type mismatch', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: undefined }),
+        nextPassenger: undefined,
+      });
+      component.isSelectAvailable = false;
+
+      const r = component.getSelectDisabledReason();
+      expect(r.disabled).toBe(true);
+      expect(r.reason).toBe('noPassengerLeft');
+      expect(r.message).toBeTruthy();
+    });
+
+    it('isSelectDisabled() facade returns the same boolean as getSelectDisabledReason().disabled', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
+      });
+      component.isSelectAvailable = true;
+
+      expect(component.isSelectDisabled()).toBe(component.getSelectDisabledReason().disabled);
+      expect(component.isSelectDisabled()).toBe(true);
+    });
+  });
+
+  describe('Disabled-Select reason in template', () => {
+    it('renders the reason text under the Select button with aria-describedby tying them', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
+      });
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      const reasonEl = fixture.nativeElement.querySelector('.jets-tooltip--select-reason') as HTMLElement;
+
+      expect(reasonEl).toBeTruthy();
+      expect(reasonEl.textContent?.trim().length).toBeGreaterThan(0);
+      expect(reasonEl.textContent).toMatch(/Infant/);
+
+      // aria-describedby on the button points at the reason element's id.
+      const describedBy = selectBtn.getAttribute('aria-describedby');
+      expect(describedBy).toBeTruthy();
+      expect(describedBy).toBe(reasonEl.id);
+
+      // Disabled is exposed via aria, not the native attribute, so the click
+      // event can still fire and we can emit selectAttemptBlocked.
+      expect(selectBtn.getAttribute('aria-disabled')).toBe('true');
+      expect(selectBtn.disabled).toBe(false);
+    });
+
+    it('does NOT render the reason element when Select is enabled', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'ADT', passengerLabel: 'Adult' },
+      });
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const reasonEl = fixture.nativeElement.querySelector('.jets-tooltip--select-reason');
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      expect(reasonEl).toBeNull();
+      expect(selectBtn.getAttribute('aria-describedby')).toBeNull();
+      expect(selectBtn.getAttribute('aria-disabled')).toBeNull();
+    });
+
+    it('clicking the disabled Select button emits selectAttemptBlocked but NOT select', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ number: '12A', passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
+      });
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const blockedSpy = vi.fn();
+      const selectSpy = vi.fn();
+      component.selectAttemptBlocked.subscribe(blockedSpy);
+      component.select.subscribe(selectSpy);
+
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      selectBtn.click();
+
+      expect(selectSpy).not.toHaveBeenCalled();
+      expect(blockedSpy).toHaveBeenCalledTimes(1);
+      const payload = blockedSpy.mock.calls[0][0];
+      expect(payload.seat.number).toBe('12A');
+      expect(payload.reason).toBe('passengerTypeRestricted');
+      expect(payload.message).toBeTruthy();
+      expect(payload.message).toMatch(/Infant/);
+    });
+
+    it('clicking the enabled Select button still emits select and NOT selectAttemptBlocked', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ number: '12A', passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'ADT', passengerLabel: 'Adult' },
+      });
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const blockedSpy = vi.fn();
+      const selectSpy = vi.fn();
+      component.selectAttemptBlocked.subscribe(blockedSpy);
+      component.select.subscribe(selectSpy);
+
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      selectBtn.click();
+
+      expect(selectSpy).toHaveBeenCalledTimes(1);
+      expect(blockedSpy).not.toHaveBeenCalled();
     });
   });
 
