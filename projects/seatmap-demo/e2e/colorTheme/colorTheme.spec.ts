@@ -256,11 +256,27 @@ const FIELD_CASES: FieldCase[] = [
     pre: 'tooltip',
     closeUp: TOOLTIP_CLOSEUP,
     verify: async page => {
-      const family = await page
-        .locator('.jets-tooltip')
-        .first()
-        .evaluate(el => getComputedStyle(el).fontFamily);
-      expect(family).toContain('Courier New');
+      // Verify the override reaches every text-bearing descendant, not just
+      // the tooltip root. An earlier iteration bound font-family only on the
+      // root and the headings/amenity/dimension text still rendered in the
+      // browser default sans-serif, so we assert computed font-family on a
+      // representative set of children (header title, amenity text,
+      // dimension label/value, action buttons).
+      const targets = [
+        '.jets-tooltip',
+        '.jets-tooltip--header-title',
+        '.jets-tooltip--amenity-text',
+        '.jets-tooltip--dim-label',
+        '.jets-tooltip--dim-value',
+        '.jets-btn',
+      ];
+      for (const sel of targets) {
+        const family = await page
+          .locator(sel)
+          .first()
+          .evaluate(el => getComputedStyle(el).fontFamily);
+        expect(family, sel).toContain('Courier New');
+      }
     },
   },
 
@@ -498,10 +514,40 @@ const FIELD_CASES: FieldCase[] = [
     closeUp: TOOLTIP_CLOSEUP,
   },
   {
+    // In the `pre: 'tooltip'` path no passengers are seated, so the Select
+    // button mounts in the `[disabled]="isSelectDisabled()"` branch.
+    // Chromium's UA stylesheet on disabled form controls applies an internal
+    // `-internal-disabled-color` that shadows an authored inline `color`,
+    // making the override visually disappear even though the binding lands.
+    // Pin the resolved colour at the DOM level so the regression cannot
+    // sneak back in.
     field: 'tooltipSelectButtonTextColor',
     value: '#000000',
     pre: 'tooltip',
     closeUp: TOOLTIP_CLOSEUP,
+    verify: async page => {
+      // Check both `color` AND `-webkit-text-fill-color`: Chromium's UA
+      // stylesheet paints disabled <button> text with an internal
+      // `-internal-disabled-color` that shadows the authored `color` at
+      // paint time. `-webkit-text-fill-color` is what the engine actually
+      // rasterises and is the only computed property that reflects the
+      // override surviving the disabled-state shadow. Reading just
+      // `color` would have passed even when the rendered pixels were
+      // white-on-blue.
+      await expect
+        .poll(
+          () =>
+            page
+              .locator('.jets-tooltip .jets-select-btn')
+              .first()
+              .evaluate(el => {
+                const cs = getComputedStyle(el);
+                return { color: cs.color, fill: cs.webkitTextFillColor };
+              }),
+          { timeout: 5_000 }
+        )
+        .toEqual({ color: 'rgb(0, 0, 0)', fill: 'rgb(0, 0, 0)' });
+    },
   },
   {
     field: 'tooltipSelectButtonBackgroundColor',

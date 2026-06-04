@@ -59,6 +59,9 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--tooltip-header, #4f6f8f);
+  // Defensive (see .jets-btn): keep colorTheme.fontFamily reaching the title
+  // even if a host app introduces a child-targeted selector that re-pins it.
+  font-family: inherit;
 }
 
 .jets-tooltip--close-btn {
@@ -84,6 +87,8 @@
   font-size: 16px;
   font-weight: 700;
   white-space: nowrap;
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 .jets-tooltip--header-passenger {
@@ -106,6 +111,8 @@
   padding: 3px 0;
   font-size: 13px;
   color: var(--tooltip-font, #4f6f8f);
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 .jets-tooltip--amenity-icon {
@@ -130,6 +137,8 @@
 
 .jets-tooltip--amenity-text {
   line-height: 1.3;
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 .jets-tooltip--amenity-negative {
@@ -183,6 +192,8 @@
   // line; stretch + text-align centers each line within the column instead.
   align-self: stretch;
   text-align: center;
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 .jets-tooltip--dim-value {
@@ -191,6 +202,8 @@
   color: var(--tooltip-font, #4f6f8f);
   align-self: stretch;
   text-align: center;
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 // ─── Action buttons ──────────────────────────────────────────────────────────
