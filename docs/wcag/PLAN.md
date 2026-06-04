@@ -12,11 +12,14 @@
 
 ## Status
 
-- **Last updated:** 2026-06-04 — Wave A интегрирована: commits 14 (`prefers-reduced-motion`, SHA `8fbc5a3`) и 15 (`forced-colors`, SHA `22494ce`) сделаны параллельно суб-агентами.
-- **Orchestration mode active:** Claude теперь работает как orchestrator — раздаёт независимые задачи параллельным суб-агентам в их worktree'ах, сам обновляет PLAN.md одним коммитом после волны. См. `project_wcag_orchestration` в Claude memory.
-- **Current wave (Wave B, стартует):** commit 4 (`default colors` — пользователь дал явное «ок» на snapshot-регенерацию 2026-06-04), commit 9 (`LiveAnnouncer`), commit 10 (`restriction reasoning`) — три параллельных агента.
-- **Next after Wave B:** commit 5 (seat → button, DOM-breaking) + commit 13 (alternative list view).
-- **Blockers:** ⚠ baseline при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — init-testbed setup инжектируется только через `ng test`. Тесты гонять командой `npm test -- --watch=false` / `ng test seatmap-lib --watch=false`, **не** `vitest run` напрямую.
+- **Last updated:** 2026-06-04 — Wave B интегрирована: commits 4 (`default colors`, SHA `d49e100`), 9 (`LiveAnnouncer`, SHA `d85a86a`), 10 (`restriction reasoning`, SHA `eb4d17f`) сделаны параллельно суб-агентами.
+- **Orchestration mode active:** Claude как orchestrator. Подробности — Claude memory `project_wcag_orchestration` и `project_wcag_sub_agent_constraints`.
+- **Current wave (Wave C, готовится):** commit 5 (seat → button, DOM-breaking — отметить в CHANGELOG) и commit 12 (landmarks + skip-link + deck-selector semantics).
+- **Next after Wave C:** commit 13 (alternative list view), затем commit 6 (grid scaffolding) — оба зависят от commit 5.
+- **Blockers:**
+  - ⚠ Baseline при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — init-testbed setup инжектируется только через `ng test`. Тесты гонять командой `npm test -- --watch=false` / `ng test seatmap-lib --watch=false`, **не** `vitest run` напрямую.
+  - ⚠ Sub-агенты не могут `git push origin HEAD:WCAG` — harness блокирует push в shared-branch от не-orchestrator-сессии. Orchestrator интегрирует их коммиты сам (fetch+rebase+push из worktree).
+  - ⚠ E2E (Playwright) требует `.env.local` в корне worktree с реальными API-ключами sandbox'а. Без этого `prestart → generate:env` пишет пустой `__env`, и все тесты валятся с `HTTP 200: parsing /auth`. Orchestrator должен либо симлинковать `.env.local` из main checkout при создании worktree, либо передать содержимое в prompt sub-агента.
 
 ## Context
 
@@ -311,13 +314,13 @@ Position рассчитывается по индексу в `row.seats` (пер
 | 1 | `chore(a11y): add @angular/cdk@^21.2.0 peer dep` | [x] | `7d0b368` | 2026-06-04 | lib peerDep + root devDep; build OK |
 | 2 | `feat(a11y): hide decorative graphics from AT` | [x] | `21c0eba` | 2026-06-04 | deck-selector отложен на commit 12 (его SVG = единственный visible-content интерактивной кнопки) |
 | 3 | `feat(a11y): accessible-name builder + locale keys` | [x] | `7a70627` | 2026-06-04 | utils/a11y.ts + 18 locales × 22 keys; 317 unit tests green |
-| 4 | `feat(a11y): default color tokens meet WCAG AA contrast` | [ ] | — | — | **visual breaking** — согласовать перед мержем |
+| 4 | `feat(a11y): default color tokens meet WCAG AA contrast` | [x] | `d49e100` | 2026-06-04 | sub-agent Wave B; user-approved snapshot regen, 99 PNG перегенерированы; visual breaking зафиксирован в CHANGELOG |
 | 5 | `feat(a11y): seat is a button with ARIA semantics` | [ ] | — | — | |
 | 6 | `feat(a11y): grid scaffolding (role=grid/row/gridcell)` | [ ] | — | — | |
 | 7 | `feat(a11y): roving tabindex + 2D keyboard navigation` | [ ] | — | — | |
 | 8 | `fix(a11y): 1.4.13 hover-tooltip focus-aware + dismissable` | [ ] | — | — | |
-| 9 | `feat(a11y): LiveAnnouncer for selection/jump/restrictions` | [ ] | — | — | |
-| 10 | `feat(a11y): expose seat-restriction reasoning (3.3.1/3.3.3)` | [ ] | — | — | |
+| 9 | `feat(a11y): LiveAnnouncer for selection/jump/restrictions` | [x] | `d85a86a` | 2026-06-04 | sub-agent Wave B; polite announcements на select/unselect/jump; restriction-reason wiring оставлен TODO до интеграции commit 10's `selectAttemptBlocked` output |
+| 10 | `feat(a11y): expose seat-restriction reasoning (3.3.1/3.3.3)` | [x] | `eb4d17f` | 2026-06-04 | sub-agent Wave B; `getSelectDisabledReason()` + visible text + `aria-describedby` + `selectAttemptBlocked` Output; `isSelectDisabled()` boolean-facade сохранён |
 | 11 | `feat(a11y): tooltip is a non-modal dialog` | [ ] | — | — | |
 | 12 | `feat(a11y): landmarks + skip link + deck-selector semantics` | [ ] | — | — | |
 | 13 | `feat(a11y): alternative list view + config.alternativeView` | [ ] | — | — | |
