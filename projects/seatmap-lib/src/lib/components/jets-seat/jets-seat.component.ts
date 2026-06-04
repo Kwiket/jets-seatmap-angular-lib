@@ -52,10 +52,16 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
             {{ seatLabel }}
           </div>
         }
-        <div class="jets-seat__svg" [style.transform]="svgScaleTransform" [innerHTML]="svgContent"></div>
+        <div
+          class="jets-seat__svg"
+          aria-hidden="true"
+          [style.transform]="svgScaleTransform"
+          [innerHTML]="svgContent"
+        ></div>
         @if (showUnavailableCross) {
           <div
             class="jets-seat__cross"
+            aria-hidden="true"
             [class]="'jets-seat__cross ST-' + (data.seatIconType ?? 0)"
             [style.color]="unavailableCrossColor"
             [style.font-size.px]="labelFontSize"
@@ -70,6 +76,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
         @if (data.passenger && !useSelectedStrokeMode) {
           <div
             class="jets-seat__passenger"
+            aria-hidden="true"
             [style.background-color]="passengerBadgeColor"
             [style.color]="passengerBadgeLabelColor"
             [style.width.px]="badgeSize"
@@ -84,6 +91,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
         @if (showPriceLabel) {
           <div
             class="jets-seat__price"
+            aria-hidden="true"
             [title]="priceTooltip"
             [style.--seat-scale]="scale"
             [style.max-width.px]="seatWidth"

@@ -9,7 +9,13 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="jets-wings" [style.top.px]="scaledTop" [style.width.px]="containerWidth" [style.height.px]="wingHeight">
+    <div
+      class="jets-wings"
+      aria-hidden="true"
+      [style.top.px]="scaledTop"
+      [style.width.px]="containerWidth"
+      [style.height.px]="wingHeight"
+    >
       <!-- Left wing: rectangle body -->
       <svg
         class="jets-wing jets-wing--left"

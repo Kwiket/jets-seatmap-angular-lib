@@ -13,6 +13,7 @@ const RIGHT_ARROW_SVG = `<svg version="1.0" xmlns="http://www.w3.org/2000/svg" w
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { 'aria-hidden': 'true' },
   template: `
     @for (exit of exits; track $index) {
       <div

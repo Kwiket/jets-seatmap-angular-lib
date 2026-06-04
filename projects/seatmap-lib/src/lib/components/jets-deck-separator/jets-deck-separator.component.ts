@@ -9,7 +9,12 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="jets-deck-separator" [style.background]="fillColor" [style.height.px]="separationHeight"></div>
+    <div
+      class="jets-deck-separator"
+      aria-hidden="true"
+      [style.background]="fillColor"
+      [style.height.px]="separationHeight"
+    ></div>
   `,
   styles: [
     `

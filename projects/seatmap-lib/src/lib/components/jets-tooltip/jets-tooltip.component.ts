@@ -58,7 +58,7 @@ import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICO
                 }
                 @if (!sidePanel) {
                   <button class="jets-tooltip--close-btn" (click)="close.emit()" aria-label="Close">
-                    <svg width="12" height="12" viewBox="0 0 12 12">
+                    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
                       <line
                         x1="1"
                         y1="1"
@@ -93,7 +93,11 @@ import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICO
               <div class="jets-tooltip--amenities" [style.direction]="textDirection">
                 @for (amenity of amenities; track amenity.title) {
                   <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.negative">
-                    <span class="jets-tooltip--amenity-icon" [innerHTML]="getAmenityIcon(amenity)"></span>
+                    <span
+                      class="jets-tooltip--amenity-icon"
+                      aria-hidden="true"
+                      [innerHTML]="getAmenityIcon(amenity)"
+                    ></span>
                     <span class="jets-tooltip--amenity-text">{{ amenity.title }}</span>
                   </div>
                 }
@@ -105,7 +109,7 @@ import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICO
               <div class="jets-tooltip--dimensions">
                 @for (dim of dimensions; track dim.title) {
                   <div class="jets-tooltip--dimension">
-                    <div class="jets-tooltip--dim-icon" [innerHTML]="getDimIcon(dim)"></div>
+                    <div class="jets-tooltip--dim-icon" aria-hidden="true" [innerHTML]="getDimIcon(dim)"></div>
                     <div class="jets-tooltip--dim-label">{{ getDimLabel(dim) }}</div>
                     <div class="jets-tooltip--dim-value">{{ dim.value }}</div>
                   </div>

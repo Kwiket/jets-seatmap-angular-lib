@@ -13,7 +13,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: ` <div class="jets-tail" [style.width.px]="width" [innerHTML]="svgContent"></div> `,
+  template: ` <div class="jets-tail" aria-hidden="true" [style.width.px]="width" [innerHTML]="svgContent"></div> `,
   styles: [
     `
       .jets-tail {
