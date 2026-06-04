@@ -271,8 +271,16 @@ const FIELD_CASES: FieldCase[] = [
   // root. Verify the binding at the DOM level so a silent regression cannot
   // slip through.
   {
+    // Use the `serif` generic family with `Times New Roman` as the
+    // first-choice font: the previous override `'Courier New, monospace'`
+    // never rasterised in the Playwright Chromium image (Courier New isn't
+    // installed and the stack fell through to a sans-serif fallback), so
+    // the visual audit kept reading the tooltip text as proportional even
+    // though the DOM-verify's family-string match passed. `Times New Roman`
+    // ships with most Chromium font sets, and the trailing `serif` generic
+    // guarantees a visually-distinct serif rendering on any platform.
     field: 'fontFamily',
-    value: 'Courier New, monospace',
+    value: 'Times New Roman, serif',
     pre: 'tooltip',
     closeUp: TOOLTIP_CLOSEUP,
     verify: async page => {
@@ -295,7 +303,7 @@ const FIELD_CASES: FieldCase[] = [
           .locator(sel)
           .first()
           .evaluate(el => getComputedStyle(el).fontFamily);
-        expect(family, sel).toContain('Courier New');
+        expect(family, sel).toContain('Times New Roman');
       }
     },
   },
@@ -695,10 +703,21 @@ const FIELD_CASES: FieldCase[] = [
     closeUp: TOOLTIP_CLOSEUP,
   },
   {
+    // Same low-contrast intent as field-tooltipSelectButtonTextColor: black
+    // text on the baseline dark-grey Cancel button. Visual LLMs repeatedly
+    // misread the near-invisible glyphs as white; DOM-verify pins the
+    // computed colour as ground truth.
     field: 'tooltipCancelButtonTextColor',
     value: '#000000',
     pre: 'tooltip',
     closeUp: TOOLTIP_CLOSEUP,
+    verify: async page => {
+      const computed = await page
+        .locator('.jets-cancel-btn')
+        .first()
+        .evaluate(el => getComputedStyle(el).color);
+      expect(computed).toBe('rgb(0, 0, 0)');
+    },
   },
   {
     field: 'tooltipCancelButtonBackgroundColor',
