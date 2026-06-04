@@ -14,6 +14,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import {
   IConfig,
   IDeckData,
@@ -126,7 +127,8 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   constructor(
     private seatmapService: JetsSeatMapService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private liveAnnouncer: LiveAnnouncer
   ) {}
 
   get resolvedConfig(): IConfig {
@@ -519,6 +521,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
                   block: 'center',
                 });
                 this.onSeatClick({ seat, element: el });
+                this._announceMovedToSeat(seat);
+              } else {
+                this._announceSeatNotFound(seatLabel);
               }
             }, 150);
             return;
@@ -526,6 +531,8 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
         }
       }
     }
+    // No seat matched the label in any deck.
+    this._announceSeatNotFound(seatLabel);
   }
 
   ngOnDestroy(): void {
@@ -696,6 +703,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onTooltipSelect(seat: ISeatData): void {
+    // TODO(commit 10): announce restriction reason when select is blocked
+    // (commit 10 owns the tooltip restriction-reasoning flow and will expose
+    //  a hook here so we can route the reason through LiveAnnouncer).
+    const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
     const { data, passengers } = this.seatmapService.selectSeatHandler(this.content, seat, this.passengersList);
     this.content = data;
     this.passengersList = passengers;
@@ -704,6 +715,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.activeTooltipChanged.emit(null);
     this.passengersChanged.emit(passengers);
     this.legendReady.emit(this.legendItems);
+    this._announceSeatSelected(seat, nextPassenger);
     this.cdr.markForCheck();
   }
 
@@ -716,6 +728,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.activeTooltipChanged.emit(null);
     this.passengersChanged.emit(passengers);
     this.legendReady.emit(this.legendItems);
+    this._announceSeatCleared(seat);
     this.cdr.markForCheck();
   }
 
@@ -753,5 +766,74 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.activeTooltip = null;
     this.deckChanged.emit(index);
     this.cdr.markForCheck();
+  }
+
+  // ─── A11y live announcements ────────────────────────────────────────────
+  //
+  // All announcements use `polite` politeness — the seat-map is not an
+  // emergency UI, so assertive would over-interrupt the screen reader user.
+  // Strings are pulled from LOCALES_MAP via _a11yLocale() with an English
+  // fallback so missing keys never silently swallow announcements.
+
+  private _a11yLocale(): Record<string, string> {
+    return LOCALES_MAP[this.lang] || LOCALES_MAP['EN'] || {};
+  }
+
+  private _announce(message: string): void {
+    // LiveAnnouncer manipulates a live-region DOM node; if the host page
+    // tore that down (or we fire from a stray timer after teardown) we
+    // don't want the announcement failure to surface as a hard error.
+    try {
+      this.liveAnnouncer.announce(message, 'polite');
+    } catch {
+      /* no-op: announcement is best-effort */
+    }
+  }
+
+  private _passengerLabel(passenger: IPassenger | null | undefined): string {
+    if (!passenger) return 'passenger';
+    return passenger.passengerLabel || passenger.abbr || 'passenger';
+  }
+
+  private _announceSeatSelected(seat: ISeatData, passenger: IPassenger | null | undefined): void {
+    const locale = this._a11yLocale();
+    const seatWord = locale['seat'] || 'Seat';
+    const selectedFor = locale['seatSelectedFor'] || 'selected for';
+    const number = seat.number ?? '';
+    const passengerLabel = this._passengerLabel(passenger);
+    const currency = seat.currency ?? '';
+    const price = seat.price;
+    const pricePart = price != null ? `, ${currency}${price}` : '';
+    const message = `${seatWord} ${number} ${selectedFor} ${passengerLabel}${pricePart}`.trim();
+    this._announce(message);
+  }
+
+  private _announceSeatCleared(seat: ISeatData): void {
+    const locale = this._a11yLocale();
+    const seatWord = locale['seat'] || 'Seat';
+    // No dedicated `seatCleared` key in LOCALES_MAP — fall back to English
+    // wording. Localised key can be added later without changing call sites.
+    const clearedWord = locale['seatCleared'] || 'cleared';
+    const number = seat.number ?? '';
+    const message = `${seatWord} ${number} ${clearedWord}`.trim();
+    this._announce(message);
+  }
+
+  private _announceMovedToSeat(seat: ISeatData): void {
+    const locale = this._a11yLocale();
+    // `moveToSeat` is the imperative ("Move to seat") — reuse it as the
+    // base phrase; switch to a dedicated `movedToSeat` key once localised.
+    const movedTo = locale['movedToSeat'] || locale['moveToSeat'] || 'Moved to seat';
+    const number = seat.number ?? '';
+    const message = `${movedTo} ${number}`.trim();
+    this._announce(message);
+  }
+
+  private _announceSeatNotFound(label: string): void {
+    const locale = this._a11yLocale();
+    const seatWord = locale['seat'] || 'Seat';
+    const notFound = locale['seatNotFound'] || 'not found';
+    const message = `${seatWord} ${label} ${notFound}`.trim();
+    this._announce(message);
   }
 }

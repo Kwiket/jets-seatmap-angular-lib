@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { JetsSeatMapComponent } from './jets-seat-map.component';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
 import { resetCachedEnvironmentInfo } from '../../services/environment.service';
@@ -1262,6 +1263,141 @@ describe('JetsSeatMapComponent', () => {
       component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
       expect(tooltipSpy).toHaveBeenCalledTimes(1);
       expect(component.activeTooltip).toBeTruthy();
+    });
+  });
+
+  // ─── LiveAnnouncer (WCAG 4.1.3 status messages, commit 9) ─────────────
+  //
+  // Verifies that the polite live region fires the expected English string
+  // for each of the three a11y events: select, unselect, jump. Restriction
+  // announcements are intentionally NOT covered here — commit 10 owns the
+  // restriction-reasoning hook in the tooltip and will route through this
+  // same LiveAnnouncer once the hook exists.
+  describe('LiveAnnouncer (a11y)', () => {
+    let announceSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+      announceSpy = vi.fn().mockResolvedValue(undefined);
+
+      // Replace CDK's root LiveAnnouncer with a mock so we don't depend on
+      // jsdom DOM-region behaviour and can assert exact message strings.
+      // Build a fresh TestBed for this describe block — the outer beforeEach
+      // already configured one without the LiveAnnouncer override.
+      TestBed.resetTestingModule();
+      await TestBed.configureTestingModule({
+        imports: [JetsSeatMapComponent, HttpClientTestingModule],
+        providers: [
+          { provide: JetsSeatMapService, useValue: mockService },
+          { provide: LiveAnnouncer, useValue: { announce: announceSpy, clear: vi.fn() } },
+        ],
+      }).compileComponents();
+
+      fixture = TestBed.createComponent(JetsSeatMapComponent);
+      component = fixture.componentInstance;
+      component.flight = makeFlight();
+      component.config = makeConfig();
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    });
+
+    it('announces select with passenger label and price (polite)', () => {
+      const passenger: IPassenger = { id: 'p1', passengerLabel: 'John Doe' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [passenger],
+      });
+
+      component.onTooltipSelect(
+        makeSeat({ number: '14C', price: 12, currency: '€' })
+      );
+
+      expect(announceSpy).toHaveBeenCalledWith(
+        'Seat 14C selected for John Doe, €12',
+        'polite'
+      );
+    });
+
+    it('falls back to passenger.abbr when passengerLabel is missing', () => {
+      const passenger: IPassenger = { id: 'p1', abbr: 'JD' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [passenger],
+      });
+
+      component.onTooltipSelect(
+        makeSeat({ number: '14C', price: 12, currency: '€' })
+      );
+
+      expect(announceSpy).toHaveBeenCalledWith(
+        'Seat 14C selected for JD, €12',
+        'polite'
+      );
+    });
+
+    it('falls back to "passenger" when neither label nor abbr is set', () => {
+      mockService.getNextPassenger.mockReturnValue(null);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [],
+      });
+
+      component.onTooltipSelect(
+        makeSeat({ number: '14C', price: 12, currency: '€' })
+      );
+
+      expect(announceSpy).toHaveBeenCalledWith(
+        'Seat 14C selected for passenger, €12',
+        'polite'
+      );
+    });
+
+    it('announces unselect with the seat number (polite)', () => {
+      mockService.unselectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [],
+      });
+
+      component.onTooltipUnselect(makeSeat({ number: '14C' }));
+
+      expect(announceSpy).toHaveBeenCalledWith('Seat 14C cleared', 'polite');
+    });
+
+    it('announces jump-to-seat once the seat is located in the DOM', async () => {
+      // The seat 1A is in the default mock deck data.
+      const triggerEl = document.createElement('div');
+      triggerEl.setAttribute('data-seat-number', '1A');
+      // Stub mapContainer.querySelector to find our element regardless of
+      // whether the deck rendered in jsdom layout.
+      Object.defineProperty(component, 'mapContainer', {
+        value: {
+          nativeElement: {
+            querySelector: (sel: string) =>
+              sel.includes('1A') ? triggerEl : null,
+          },
+        },
+        configurable: true,
+      });
+
+      vi.useFakeTimers();
+      try {
+        (component as any)._jumpToSeat('1A');
+        // _jumpToSeat schedules a 150ms timeout before locating the element
+        // and emitting the announcement.
+        vi.advanceTimersByTime(160);
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(announceSpy).toHaveBeenCalledWith('Move to seat 1A', 'polite');
+    });
+
+    it('announces "not found" when the seat label has no match', () => {
+      (component as any)._jumpToSeat('99Z');
+      expect(announceSpy).toHaveBeenCalledWith('Seat 99Z not found', 'polite');
     });
   });
 });
