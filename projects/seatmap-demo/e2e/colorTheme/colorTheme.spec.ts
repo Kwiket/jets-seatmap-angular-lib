@@ -352,7 +352,18 @@ const FIELD_CASES: FieldCase[] = [
 
   // ─── Bulk (cabin partitions) ──────────────────────────────────────────
   // Bulk icons are tiny — crop to the first bulk element.
-  { field: 'bulkBaseColor', value: '#ff9800', closeUp: BULK_CLOSEUP },
+  // `bulkBaseColor` paints `path.bulk-base` inside the primary bulk SVG.
+  // The sticker-overlay close-up partly hides that path; use a plain
+  // (non-sticker) bulk where the base shape is fully visible.
+  {
+    field: 'bulkBaseColor',
+    value: '#ff9800',
+    closeUp: { kind: 'element', selector: '.jets-bulk:not(:has(.jets-bulk__sticker-wrap))', padding: 20 },
+    verify: async page => {
+      const fill = await page.locator('.jets-bulk path.bulk-base').first().getAttribute('fill');
+      expect(fill).toBe('#ff9800');
+    },
+  },
   { field: 'bulkCutColor', value: '#00bcd4', closeUp: BULK_CLOSEUP },
   { field: 'bulkIconColor', value: '#e91e63', closeUp: BULK_CLOSEUP },
   {
@@ -515,10 +526,40 @@ const FIELD_CASES: FieldCase[] = [
   },
 
   // ─── Wings ────────────────────────────────────────────────────────────
-  { field: 'wingsWidth', value: 150 },
+  // Wings collapse to ~12 px at the full-deck downscale (baseline 50 × the
+  // demo's ~0.247 scale). Crop to one wing element so the visual diff and
+  // any future regression are obvious; DOM-verify pins the rendered SVG
+  // `width` attribute since the override scales with deck scale.
+  {
+    field: 'wingsWidth',
+    value: 150,
+    closeUp: { kind: 'element', selector: '.jets-wing--left', padding: 12 },
+    verify: async page => {
+      const width = await page
+        .locator('.jets-wing--left')
+        .first()
+        .evaluate(el => Number(el.getAttribute('width') ?? '0'));
+      // 150 native × ~0.247 deck scale ≈ 37 px; baseline 50 × 0.247 ≈ 12 px.
+      expect(width).toBeGreaterThanOrEqual(30);
+    },
+  },
 
   // ─── Fuselage ─────────────────────────────────────────────────────────
-  { field: 'fuselageStrokeWidth', value: 18 },
+  // fuselageStrokeWidth renders as the CSS `border-left/right-width` of
+  // `.jets-plane-body__fuselage`. The visual delta (16→18) is sub-pixel at
+  // the per-field zoom; pin the binding at the DOM level.
+  {
+    field: 'fuselageStrokeWidth',
+    value: 18,
+    verify: async page => {
+      const width = await page
+        .locator('.jets-plane-body__fuselage')
+        .first()
+        .evaluate(el => parseFloat(getComputedStyle(el).borderLeftWidth));
+      // Override 18 should exceed baseline 16 once scaling is honoured.
+      expect(width).toBeGreaterThan(16);
+    },
+  },
   {
     // `fuselageFillColor` is intentionally scoped to a thin (~16 px) hull
     // lining band along the sides of `.jets-plane-body__fuselage` — the
@@ -531,6 +572,7 @@ const FIELD_CASES: FieldCase[] = [
     // element's `background-color`.
     field: 'fuselageFillColor',
     value: '#e1bee7',
+    closeUp: { kind: 'element', selector: '.jets-plane-body__fuselage', padding: 0 },
     verify: async page => {
       const bg = await page
         .locator('.jets-plane-body__fuselage')
@@ -542,16 +584,48 @@ const FIELD_CASES: FieldCase[] = [
   { field: 'fuselageStrokeColor', value: '#ff1744' },
   { field: 'fuselageWindowsColor', value: '#00e5ff' },
   { field: 'fuselageWingsColor', value: 'rgba(255, 0, 0, 0.8)' },
-  { field: 'fuselageNoseType', value: 'default' },
+  // NOTE: fuselageNoseType is documented as accepting an aircraft key (e.g.
+  // 'A320', 'B747', 'TU204') or the special 'default' / 'by-type'. In the
+  // current lib, `nose-template.service.ts:getNoseImage` looks up the
+  // noseType verbatim in `noseMap` and falls back to `noseMap.default` for
+  // any miss — and `'by-type'` is not a key in noseMap, so both the
+  // baseline 'by-type' AND the override 'default' resolve to the same
+  // generic SVG. The screenshot here therefore documents that the override
+  // resolves at all (close-up renders the default nose silhouette); the
+  // verify pins the rendered viewBox to the default template's 214 height,
+  // which doubles as a regression guard if the lookup gains a 'by-type' →
+  // aircraft mapping later.
+  {
+    field: 'fuselageNoseType',
+    value: 'default',
+    closeUp: { kind: 'element', selector: '.jets-nose', padding: 8 },
+    verify: async page => {
+      const viewBox = await page.locator('.jets-nose svg').first().getAttribute('viewBox');
+      expect(viewBox).toBe('0 0 200 214');
+    },
+  },
 
   // ─── Exit icons ───────────────────────────────────────────────────────
+  // Exit icons render as <img src=...> inside `.jets-exit--left/--right`.
+  // The full-deck downscale renders each icon at ~10×10 px; crop to a
+  // single exit and pin the `<img src>` so a silent override drop fails.
   {
     field: 'exitIconUrlLeft',
     value: 'https://panorama.quicket.io/icons/exit_icon_red.svg',
+    closeUp: { kind: 'element', selector: '.jets-exit--left', padding: 12 },
+    verify: async page => {
+      const src = await page.locator('.jets-exit--left .jets-exit__icon').first().getAttribute('src');
+      expect(src).toBe('https://panorama.quicket.io/icons/exit_icon_red.svg');
+    },
   },
   {
     field: 'exitIconUrlRight',
     value: 'https://panorama.quicket.io/icons/exit_icon_red.svg',
+    closeUp: { kind: 'element', selector: '.jets-exit--right', padding: 12 },
+    verify: async page => {
+      const src = await page.locator('.jets-exit--right .jets-exit__icon').first().getAttribute('src');
+      expect(src).toBe('https://panorama.quicket.io/icons/exit_icon_red.svg');
+    },
   },
 
   // ─── Cabin titles (need visibleCabinTitles: true) ────────────────────
