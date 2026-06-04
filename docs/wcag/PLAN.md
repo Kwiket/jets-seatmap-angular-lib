@@ -12,9 +12,10 @@
 
 ## Status
 
-- **Last updated:** 2026-06-04 — commit 3 (`accessible-name builder + locale keys`) сделан, SHA `7a70627`.
-- **Current step:** commit 4 — `feat(a11y): default color tokens meet WCAG AA contrast` — **visual breaking change**, требует согласования и перегенерации `colorTheme/screenshots/*.png` перед мержем. Не стартовать без явного «ок».
-- **Next after commit 4:** commit 5 — `feat(a11y): seat is a button with ARIA semantics` (DOM-breaking, отметить в CHANGELOG).
+- **Last updated:** 2026-06-04 — Wave A интегрирована: commits 14 (`prefers-reduced-motion`, SHA `8fbc5a3`) и 15 (`forced-colors`, SHA `22494ce`) сделаны параллельно суб-агентами.
+- **Orchestration mode active:** Claude теперь работает как orchestrator — раздаёт независимые задачи параллельным суб-агентам в их worktree'ах, сам обновляет PLAN.md одним коммитом после волны. См. `project_wcag_orchestration` в Claude memory.
+- **Current wave (Wave B, стартует):** commit 4 (`default colors` — пользователь дал явное «ок» на snapshot-регенерацию 2026-06-04), commit 9 (`LiveAnnouncer`), commit 10 (`restriction reasoning`) — три параллельных агента.
+- **Next after Wave B:** commit 5 (seat → button, DOM-breaking) + commit 13 (alternative list view).
 - **Blockers:** ⚠ baseline при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — init-testbed setup инжектируется только через `ng test`. Тесты гонять командой `npm test -- --watch=false` / `ng test seatmap-lib --watch=false`, **не** `vitest run` напрямую.
 
 ## Context
@@ -320,8 +321,8 @@ Position рассчитывается по индексу в `row.seats` (пер
 | 11 | `feat(a11y): tooltip is a non-modal dialog` | [ ] | — | — | |
 | 12 | `feat(a11y): landmarks + skip link + deck-selector semantics` | [ ] | — | — | |
 | 13 | `feat(a11y): alternative list view + config.alternativeView` | [ ] | — | — | |
-| 14 | `feat(a11y): prefers-reduced-motion` | [ ] | — | — | |
-| 15 | `feat(a11y): forced-colors / Windows High Contrast support` | [ ] | — | — | |
+| 14 | `feat(a11y): prefers-reduced-motion` | [x] | `8fbc5a3` | 2026-06-04 | sub-agent Wave A; scrollIntoView SSR-safe, hover wrapped в `prefers-reduced-motion: no-preference` |
+| 15 | `feat(a11y): forced-colors / Windows High Contrast support` | [x] | `22494ce` | 2026-06-04 | sub-agent Wave A; forced-colors SCSS на seat/exit/deck-selector/deck-separator; декоративный chrome оставлен браузеру |
 | 16 | `test(a11y): jest-axe unit + @axe-core/playwright e2e` | [ ] | — | — | |
 | 17 | `docs(a11y): README + ACR + override responsibility` | [ ] | — | — | |
 
@@ -351,6 +352,8 @@ git push origin HEAD:WCAG
 - **2026-06-04 — Reflow vs target-size:** list view мотивируется через **2.5.8 (target size)**, а не через 1.4.10 (карта попадает под исключение «2D layout required for meaning»). В ACR это разные строки.
 - **2026-06-04 — Default colors:** обновление `DEFAULT_COLOR_THEME` — **visual breaking change**. Перед мержем коммита 4 согласовать с пользователем перегенерацию snapshot-ов `colorTheme/screenshots/*.png`.
 - **2026-06-04 — DOM tag change:** seat `div` → `button` — DOM-breaking для consumers, опиравшихся на `div.jets-seat`. CSS-класс `.jets-seat` и `data-seat-number` атрибут сохраняются. Отмечено в CHANGELOG коммита 5.
+- **2026-06-04 — Orchestration mode:** пользователь явно попросил оркестрационную модель работы. Claude как orchestrator анализирует DAG зависимостей, готовит worktree'ы, диспатчит параллельные суб-агенты (`Agent` tool, `general-purpose`), сам делает PLAN.md updates после волны. Суб-агенты PLAN.md **не трогают** — иначе merge-конфликты на одной строке. Подробности в Claude memory `project_wcag_orchestration`.
+- **2026-06-04 — Commit 4 approval:** пользователь явно дал «ок» на default-colors visual breaking change и регенерацию `colorTheme/screenshots/*.png` через `playwright test --update-snapshots`. Можно дисpatch'ить суб-агенту.
 
 ---
 
