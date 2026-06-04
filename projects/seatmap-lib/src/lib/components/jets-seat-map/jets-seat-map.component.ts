@@ -54,6 +54,14 @@ import { JetsDeckSelectorComponent } from '../jets-deck-selector/jets-deck-selec
 import { JetsDeckSeparatorComponent } from '../jets-deck-separator/jets-deck-separator.component';
 import { JetsWingComponent } from '../jets-wing/jets-wing.component';
 
+// Module-scope counter for stable per-instance IDs used by ARIA wiring
+// (region heading, skip-link target, deck panel/tab id pairs). Restarting
+// the counter on each app load is fine — IDs only need to be unique within
+// the current document, not across reloads.
+let _jetsSeatMapInstanceUid = 0;
+const nextSeatMapInstanceId = (): string =>
+  `jets-seatmap-${++_jetsSeatMapInstanceUid}`;
+
 @Component({
   selector: 'sm-jets-seat-map',
   standalone: true,
@@ -124,6 +132,15 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   private _prevLang: string | null = null;
   private _prevUnits: string | null = null;
   private _prevSeatJumpToLabel: string | null = null;
+
+  // ─── Per-instance ARIA identifiers ──────────────────────────────────────
+  // Generated lazily via a module-level counter so multiple seat maps on the
+  // same page get distinct ids for region heading, skip-link target, and
+  // tab/tabpanel wiring.
+  readonly instanceId: string = nextSeatMapInstanceId();
+  readonly mapHeadingId: string = `${this.instanceId}-heading`;
+  readonly afterId: string = `after-${this.instanceId}`;
+  readonly deckPanelIdBase: string = `${this.instanceId}-deck-panel`;
 
   constructor(
     private seatmapService: JetsSeatMapService,
@@ -275,6 +292,48 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   get noseType(): string {
     return this.content[0]?.extras?.noseType ?? 'default';
+  }
+
+  // ─── A11y landmark / skip-link helpers ──────────────────────────────────
+  /**
+   * Visually-hidden <h2> text that names the region landmark. Combines a
+   * localised "seat map" label with the active deck's title when present so
+   * AT users hear something concrete instead of a generic "Seat map".
+   * TODO(commit 17 docs): add a dedicated 'seatMap' locale key — until then
+   * we synthesise the label from 'gridLabel' (added in commit 3) or fall
+   * back to English.
+   */
+  get mapHeadingText(): string {
+    const locale = LOCALES_MAP[this.lang] || LOCALES_MAP['EN'] || {};
+    const base = locale['gridLabel'] || 'Seat map';
+    const cabin = this.content[this.activeDeckIndex]?.title || this.content[0]?.title || '';
+    return cabin ? `${base} — ${cabin}` : base;
+  }
+
+  /**
+   * Label for the visually-hidden-until-focus skip link. Honours the
+   * 'skipSeatmap' locale key when present; English fallback otherwise.
+   * TODO(commit 17 docs): add 'skipSeatmap' to all locales.
+   */
+  get skipLinkLabel(): string {
+    const locale = LOCALES_MAP[this.lang] || LOCALES_MAP['EN'] || {};
+    return locale['skipSeatmap'] || 'Skip seat map';
+  }
+
+  /** id placed on the deck panel for aria-controls wiring from the tablist. */
+  get deckPanelId(): string {
+    return `${this.deckPanelIdBase}-${this.activeDeckIndex}`;
+  }
+
+  /**
+   * Used by the deck panel's aria-labelledby — only meaningful in tablist
+   * (N>=3) mode where the deck-selector renders real <button role="tab">
+   * elements with these ids. For N<3 it points at a non-existent id which
+   * AT treats as no labelledby; the section heading still names the region.
+   * Kept on the panel unconditionally to keep the template simple.
+   */
+  get activeDeckTabId(): string {
+    return `${this.deckPanelIdBase}-${this.activeDeckIndex}-tab`;
   }
 
   // ─── Component overrides (React-parity API) ──────────────────────────────
@@ -766,6 +825,36 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.activeTooltip = null;
     this.deckChanged.emit(index);
     this.cdr.markForCheck();
+    // Move keyboard focus to the first interactive seat in the newly active
+    // deck so keyboard users don't lose context after the deck swap.
+    // Commit 7 will refine this via the roving-tabindex manager; for now a
+    // simple post-render lookup is sufficient. Wrapped in try/catch because
+    // it's purely a UX nicety — never fail the deck switch over a focus glitch.
+    setTimeout(() => {
+      try {
+        const el = this.mapContainer?.nativeElement?.querySelector(
+          '[data-seat-number]'
+        ) as HTMLElement | null;
+        el?.focus({ preventScroll: false });
+      } catch {
+        /* no-op: best-effort focus restoration */
+      }
+    }, 0);
+  }
+
+  /**
+   * Skip-link click handler. Default <a href="#id"> behaviour would jump
+   * but most ids on this page belong to non-focusable elements; we want the
+   * after-region <span tabindex="-1"> to actually take focus so the next
+   * Tab continues into the page rather than back into the seat map.
+   */
+  onSkipLinkClick(event: Event): void {
+    event.preventDefault();
+    const target = document.getElementById(this.afterId);
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    // Bring the target into view so sighted keyboard users see they jumped.
+    target.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }
 
   // ─── A11y live announcements ────────────────────────────────────────────

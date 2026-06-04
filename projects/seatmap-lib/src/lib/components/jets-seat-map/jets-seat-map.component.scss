@@ -30,3 +30,62 @@
   margin: 0 auto;
 }
 
+// ─── A11y region wrapper + skip link (commit 12) ─────────────────────────
+// .jets-seat-map__region is a transparent landmark wrapper. It must not
+// introduce its own padding/layout so existing visual snapshots stay pixel-
+// identical; only AT semantics change.
+.jets-seat-map__region {
+  display: block;
+  position: relative;
+}
+
+// Visually-hidden landmark heading. Uses the well-known clip-rect technique
+// so screen readers still announce the region name. (cdk-visually-hidden
+// from @angular/cdk/a11y is equivalent; we inline it to keep this component
+// self-contained.)
+.jets-seat-map__heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Skip link: visually hidden until focused, then appears top-left of the
+// region with a contrasting background so sighted keyboard users can see
+// where they are.
+.jets-seat-map__skip-link {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  z-index: 2000;
+  padding: 6px 12px;
+  background: #ffffff;
+  color: #0277bd;
+  border: 2px solid #0277bd;
+  border-radius: 4px;
+  font-size: 14px;
+  text-decoration: none;
+  transition: top 0.15s ease-in-out;
+
+  &:focus,
+  &:focus-visible {
+    top: 8px;
+    outline: 2px solid #0277bd;
+    outline-offset: 2px;
+  }
+}
+
+// Skip-link target. Not visually rendered but needs to be in the flow so
+// scrollIntoView lands somewhere sensible.
+.jets-seat-map__after {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
