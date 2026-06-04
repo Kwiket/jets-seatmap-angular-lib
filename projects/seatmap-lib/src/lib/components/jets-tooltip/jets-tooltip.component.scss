@@ -227,7 +227,8 @@
   cursor: pointer;
   transition: background 0.15s;
 
-  &:disabled {
+  &:disabled,
+  &[aria-disabled='true'] {
     cursor: not-allowed;
     // Colour-preserving dim instead of opacity: an opacity sweep washes any
     // theme-driven inline color/background into the disabled-grey, making
@@ -236,6 +237,24 @@
     // recognisable while still reading as "disabled".
     filter: grayscale(0.25) brightness(0.85);
   }
+}
+
+// ─── Disabled-Select reason (3.3.1 / 3.3.3) ─────────────────────────────────
+//
+// Rendered under the aria-disabled Select button and tied to it via
+// aria-describedby. Sighted users read the reason inline; AT users hear it
+// when focus lands on the button. Plain typography on purpose — colour token
+// is the muted tooltip-font so contrast meets 4.5:1 against tooltip-bg in the
+// default theme (after commit 4 lands).
+.jets-tooltip--select-reason {
+  margin: 0 6px 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  font-family: inherit;
+  color: var(--tooltip-font, #4f6f8f);
+  background: transparent;
+  border-left: 3px solid var(--tooltip-border, #c62828);
 }
 
 .jets-cancel-btn {
