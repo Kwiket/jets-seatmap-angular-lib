@@ -50,17 +50,17 @@ test.describe('customSeatColorRanges', () => {
     await applyConfigAndReady(
       page,
       { colorTheme: { customSeatColorRanges: RANGES } },
-      { availability: WILDCARD_AVAILABILITY },
+      { availability: WILDCARD_AVAILABILITY }
     );
 
     const hits = await countCustomFills(
       page,
-      RANGES.map(r => r.color),
+      RANGES.map(r => r.color)
     );
     const total = Object.values(hits).reduce((a, b) => a + b, 0);
     expect(
       total,
-      `expected ≥1 seat to render one of ${RANGES.map(r => r.color).join(', ')}, got ${JSON.stringify(hits)}`,
+      `expected ≥1 seat to render one of ${RANGES.map(r => r.color).join(', ')}, got ${JSON.stringify(hits)}`
     ).toBeGreaterThan(0);
 
     // Sanity-check the INIT SEAT MAP textarea actually carries the ranges JSON
@@ -113,18 +113,17 @@ test.describe('customSeatColorRanges', () => {
         colorfulSeatsByScore: false,
         colorTheme: { customSeatColorRanges: SENTINELS },
       },
-      { availability: WILDCARD_AVAILABILITY },
+      { availability: WILDCARD_AVAILABILITY }
     );
 
     const hits = await countCustomFills(
       page,
-      SENTINELS.map(r => r.color),
+      SENTINELS.map(r => r.color)
     );
     const total = Object.values(hits).reduce((a, b) => a + b, 0);
-    expect(
-      total,
-      `colorfulSeatsByScore:false must suppress sentinel range colours, got ${JSON.stringify(hits)}`,
-    ).toBe(0);
+    expect(total, `colorfulSeatsByScore:false must suppress sentinel range colours, got ${JSON.stringify(hits)}`).toBe(
+      0
+    );
 
     await screenshotSeatMap(page, __dirname, 'customSeatColorRanges-disabled');
   });

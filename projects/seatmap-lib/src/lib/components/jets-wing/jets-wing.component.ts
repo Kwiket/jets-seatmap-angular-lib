@@ -118,6 +118,13 @@ export class JetsWingComponent {
   }
 
   get wingWidth(): number {
+    // colorTheme.wingsWidth (native px, scaled by deck scale) wins when set;
+    // otherwise fall back to a 6%-of-body heuristic so existing consumers
+    // without the theme key keep their current rendering.
+    const themed = this.colorTheme?.wingsWidth;
+    if (typeof themed === 'number' && themed > 0) {
+      return Math.max(10, Math.round(themed * this.scale));
+    }
     return Math.max(10, Math.round(this.bodyWidth * 0.06) - 2);
   }
 

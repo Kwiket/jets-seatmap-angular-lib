@@ -71,6 +71,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
           <div
             class="jets-seat__passenger"
             [style.background-color]="passengerBadgeColor"
+            [style.color]="passengerBadgeLabelColor"
             [style.width.px]="badgeSize"
             [style.height.px]="badgeSize"
             [style.font-size.px]="badgeFontSize"
@@ -256,8 +257,13 @@ export class JetsSeatComponent implements OnChanges {
     return Math.round(this.badgeSize * 0.28);
   }
 
+  get passengerBadgeLabelColor(): string {
+    return this.colorTheme?.defaultPassengerBadgeLabelColor ?? DEFAULT_COLOR_THEME.defaultPassengerBadgeLabelColor;
+  }
+
   get badgeBorder(): string {
-    return 'none';
+    const c = this.colorTheme?.defaultPassengerBadgeBorderColor;
+    return c ? `1px solid ${c}` : 'none';
   }
 
   get seatClasses(): string {
@@ -417,14 +423,21 @@ export class JetsSeatComponent implements OnChanges {
     const theme = this.colorTheme ?? {};
     const def = DEFAULT_COLOR_THEME;
 
+    // Explicit theme.seatAvailableColor / seatSelectedColor outrank
+    // API/score-injected per-seat colours, matching the precedence already
+    // applied to the unavailable branch. The legacy `forceThemeSeatColors`
+    // flag remains supported as a belt-and-braces alias.
     const force = theme.forceThemeSeatColors === true;
+    const availOverride = theme.seatAvailableColor != null;
+    const selOverride = theme.seatSelectedColor != null;
 
     let fillColor: string;
     switch (this.data.status) {
       case 'available': {
-        let base = force
-          ? (theme.seatAvailableColor ?? def.seatAvailableColor)
-          : (this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor);
+        let base =
+          force || availOverride
+            ? (theme.seatAvailableColor ?? def.seatAvailableColor)
+            : (this.data.color ?? def.seatAvailableColor);
         if (this.colorfulSeatsByClass) {
           base = tintSeatColorForClass(base, classType, theme.seatClassTints);
         }
@@ -433,10 +446,10 @@ export class JetsSeatComponent implements OnChanges {
       }
       case 'selected':
         fillColor = theme.seatSelectedStrokeColor
-          ? force
+          ? force || availOverride
             ? (theme.seatAvailableColor ?? def.seatAvailableColor)
             : (this.data.originalColor ?? this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor)
-          : force
+          : force || selOverride
             ? (theme.seatSelectedColor ?? def.seatSelectedColor)
             : (this.data.originalColor ?? this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor);
         break;
@@ -447,7 +460,10 @@ export class JetsSeatComponent implements OnChanges {
         fillColor = theme.seatExtraColor ?? def.seatExtraColor;
         break;
       default:
-        fillColor = theme.seatUnavailableColor ?? def.seatUnavailableColor;
+        // notAvailableSeatsColor is the documented public alias (README + demo
+        // both use it). Honour it first; seatUnavailableColor stays as the
+        // legacy fallback so existing consumers don't regress.
+        fillColor = theme.notAvailableSeatsColor ?? theme.seatUnavailableColor ?? def.seatUnavailableColor;
     }
 
     const uniformUnavailable = this.data.status === 'unavailable' && !!theme.seatUnavailableCrossColor;
