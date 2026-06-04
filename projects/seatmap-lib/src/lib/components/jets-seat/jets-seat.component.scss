@@ -162,8 +162,10 @@
   cursor: pointer;
 }
 
-.jets-seat--seat:hover .jets-seat__svg ::ng-deep svg {
-  filter: brightness(1.08);
+@media (prefers-reduced-motion: no-preference) {
+  .jets-seat--seat:hover .jets-seat__svg ::ng-deep svg {
+    filter: brightness(1.08);
+  }
 }
 
 .jets-seat--unavailable {

@@ -510,7 +510,14 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
                 `[data-seat-number="${seat.number}"]`
               ) as HTMLElement;
               if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const prefersReducedMotion =
+                  typeof window !== 'undefined' &&
+                  window.matchMedia?.('(prefers-reduced-motion: reduce)')
+                    .matches;
+                el.scrollIntoView({
+                  behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                  block: 'center',
+                });
                 this.onSeatClick({ seat, element: el });
               }
             }, 150);
