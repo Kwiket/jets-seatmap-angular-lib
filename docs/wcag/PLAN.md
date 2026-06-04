@@ -12,10 +12,10 @@
 
 ## Status
 
-- **Last updated:** 2026-06-04 — commit 2 (`hide decorative graphics from AT`) сделан, SHA `21c0eba`.
-- **Current step:** commit 3 — `feat(a11y): accessible-name builder + locale keys` — ожидает старта.
-- **Next after commit 3:** commit 4 — `feat(a11y): default color tokens meet WCAG AA contrast` (visual breaking, согласовать перед мержем).
-- **Blockers:** ⚠ baseline (commit 1) при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — это вызвано отсутствием init-testbed setup, который инжектируется только через `ng test`. Тесты нужно гонять командой `npm test` / `ng test seatmap-lib`, **не** `vitest run` напрямую. Зафиксировано после диагностики на commit 2.
+- **Last updated:** 2026-06-04 — commit 3 (`accessible-name builder + locale keys`) сделан, SHA `7a70627`.
+- **Current step:** commit 4 — `feat(a11y): default color tokens meet WCAG AA contrast` — **visual breaking change**, требует согласования и перегенерации `colorTheme/screenshots/*.png` перед мержем. Не стартовать без явного «ок».
+- **Next after commit 4:** commit 5 — `feat(a11y): seat is a button with ARIA semantics` (DOM-breaking, отметить в CHANGELOG).
+- **Blockers:** ⚠ baseline при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — init-testbed setup инжектируется только через `ng test`. Тесты гонять командой `npm test -- --watch=false` / `ng test seatmap-lib --watch=false`, **не** `vitest run` напрямую.
 
 ## Context
 
@@ -309,7 +309,7 @@ Position рассчитывается по индексу в `row.seats` (пер
 | 0 | Копия плана в репо `docs/wcag/PLAN.md` | [x] | (этот коммит) | 2026-06-04 | план виден другим агентам/сессиям |
 | 1 | `chore(a11y): add @angular/cdk@^21.2.0 peer dep` | [x] | `7d0b368` | 2026-06-04 | lib peerDep + root devDep; build OK |
 | 2 | `feat(a11y): hide decorative graphics from AT` | [x] | `21c0eba` | 2026-06-04 | deck-selector отложен на commit 12 (его SVG = единственный visible-content интерактивной кнопки) |
-| 3 | `feat(a11y): accessible-name builder + locale keys` | [ ] | — | — | |
+| 3 | `feat(a11y): accessible-name builder + locale keys` | [x] | `7a70627` | 2026-06-04 | utils/a11y.ts + 18 locales × 22 keys; 317 unit tests green |
 | 4 | `feat(a11y): default color tokens meet WCAG AA contrast` | [ ] | — | — | **visual breaking** — согласовать перед мержем |
 | 5 | `feat(a11y): seat is a button with ARIA semantics` | [ ] | — | — | |
 | 6 | `feat(a11y): grid scaffolding (role=grid/row/gridcell)` | [ ] | — | — | |
@@ -368,7 +368,7 @@ git push origin HEAD:WCAG
 
 | Коммит | Worktree / сессия | Claimed at |
 |---|---|---|
-| 3 | `worktree-glimmering-bouncing-snail` (main repo, ветка `WCAG`) | 2026-06-04 |
+| — | (никто) | — |
 
 ---
 
