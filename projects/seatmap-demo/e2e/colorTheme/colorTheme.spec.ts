@@ -212,6 +212,13 @@ interface FieldCase {
   // changes the screenshot can't reliably verify (1-4 px stroke widths,
   // computed colours of tiny elements, structural dimensions).
   verify?: (page: Page) => Promise<void>;
+  // Optional API-response mutator, installed via `page.route` BEFORE the
+  // seatmap fetch fires. Use when the override under test paints into a
+  // bulk/sticker template that none of the demo flights' live-API
+  // responses happen to carry (e.g. `bulkFloorIconColor` needs a bulk of
+  // type 26/27/28). The callback receives the parsed API JSON and may
+  // mutate it in-place; the framework re-serialises and fulfils the route.
+  mockApi?: (json: unknown) => void;
 }
 
 /**
@@ -231,12 +238,25 @@ const DECK_SELECTOR_CLOSEUP: CloseUp = {
 };
 // Pick a bulk that actually carries a sticker overlay — the first .jets-bulk
 // match in the demo data is a plain partition (galley) that exercises only
-// base/cut, so bulkIconColor (the sticker tint) and bulkFloorIconColor (the
-// floor-icon sub-type) appear "broken" when in fact the selector misses
-// their visual targets.
+// base/cut, so bulkIconColor (the sticker tint) appears "broken" when in
+// fact the selector misses its visual target.
 const BULK_CLOSEUP: CloseUp = {
   kind: 'element',
   selector: '.jets-bulk:has(.jets-bulk__sticker-wrap)',
+  padding: 30,
+};
+
+// `bulkFloorIconColor` paints `$stickerColor` only inside bulk templates
+// 26/27/28 (food/toilet/floor-icon pictograms — see `bulk-template.service.ts`
+// lines 147,151,155 where `path.icon.bulk` carries the substituted fill).
+// Templates 26-28 do NOT appear in any of the demo flights' live-API
+// responses, so the sticker-overlay close-up above (which works for
+// bulkBaseColor/bulkCutColor/bulkIconColor) would silently pass without ever
+// painting a `bulkFloorIconColor` pixel. The test mocks the API response to
+// inject a type-26 bulk and crops to that specific element.
+const FLOOR_ICON_BULK_CLOSEUP: CloseUp = {
+  kind: 'element',
+  selector: '.jets-bulk:has(svg#bulk-26)',
   padding: 30,
 };
 
@@ -335,7 +355,52 @@ const FIELD_CASES: FieldCase[] = [
   { field: 'bulkBaseColor', value: '#ff9800', closeUp: BULK_CLOSEUP },
   { field: 'bulkCutColor', value: '#00bcd4', closeUp: BULK_CLOSEUP },
   { field: 'bulkIconColor', value: '#e91e63', closeUp: BULK_CLOSEUP },
-  { field: 'bulkFloorIconColor', value: '#ffeb3b', closeUp: BULK_CLOSEUP },
+  {
+    // `bulkFloorIconColor` substitutes `$stickerColor` in bulk SVG templates
+    // 26/27/28 only (see `projects/seatmap-lib/src/lib/services/bulk-template.service.ts`).
+    // None of the demo flights' live-API responses include a bulk of type
+    // 26-28, so this test mocks the seatmap API to inject one. The close-up
+    // crops to the injected bulk and the verify callback pins the `fill`
+    // attribute on its `path.icon.bulk` (the only DOM node the
+    // `bulkFloorIconColor` token paints).
+    field: 'bulkFloorIconColor',
+    value: '#ffeb3b',
+    closeUp: FLOOR_ICON_BULK_CLOSEUP,
+    mockApi: json => {
+      const arr = Array.isArray(json) ? json : [json];
+      for (const item of arr as Array<Record<string, any>>) {
+        const decks = item?.['seatDetails']?.['decks'] ?? item?.['decks'];
+        if (!Array.isArray(decks) || decks.length === 0) continue;
+        const deck = decks[0];
+        deck.bulks = deck.bulks ?? [];
+        // bulk.id "26" → bulk-26 SVG template (floor-icon pictogram).
+        // Width/height chosen large enough for the close-up to land a few
+        // pixels of the substituted fill, position chosen to sit clear of
+        // the cabin so it doesn't overlap real seats in the screenshot.
+        deck.bulks.push({
+          id: '26',
+          type: 'left',
+          width: 200,
+          height: 200,
+          xOffset: 50,
+          topOffset: 50,
+          align: 'left',
+        });
+        break;
+      }
+    },
+    verify: async page => {
+      // The `bulkFloorIconColor` token threads through to the `fill`
+      // attribute of every `path.icon.bulk` inside the bulk-26 SVG.
+      // Reading the first match is sufficient — all four paths in
+      // bulk-26's template carry the same `$stickerColor` substitution.
+      const fill = await page
+        .locator('.jets-bulk:has(svg#bulk-26) .jets-bulk__icon svg path.icon.bulk')
+        .first()
+        .getAttribute('fill');
+      expect(fill).toBe('#ffeb3b');
+    },
+  },
 
   // ─── Passenger badge ──────────────────────────────────────────────────
   // Badge only renders on seats that have an assigned passenger. The
@@ -616,6 +681,21 @@ const FIELD_CASES: FieldCase[] = [
 test.describe('colorTheme · per-field matrix', () => {
   for (const c of FIELD_CASES) {
     test(`field-${c.field}`, async ({ page }) => {
+      // Install the API-response mutator BEFORE navigation so the first
+      // seatmap fetch picks it up. The route is scoped to this page only,
+      // so it does not bleed into adjacent tests.
+      if (c.mockApi) {
+        const mutate = c.mockApi;
+        await page.route('**/flight/features/plane/seatmap', async route => {
+          const response = await route.fetch();
+          const json = await response.json();
+          mutate(json);
+          await route.fulfill({
+            response,
+            body: JSON.stringify(json),
+          });
+        });
+      }
       await page.goto('/');
 
       const baseline = { ...BASELINE_THEME };
