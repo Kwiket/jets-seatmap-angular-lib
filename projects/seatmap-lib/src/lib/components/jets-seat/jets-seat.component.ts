@@ -27,19 +27,26 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div
-      #seatEl
-      [class]="seatClasses"
-      [attr.data-seat-number]="data.number || null"
-      [style.width.px]="seatWidth"
-      [style.height.px]="seatHeight"
-      [style.flex-shrink]="0"
-      [style.transform]="seatTransform"
-      (click)="onClick($event)"
-      (mouseenter)="onMouseEnter($event)"
-      (mouseleave)="onMouseLeave($event)"
-    >
-      @if (data.type === 'seat') {
+    @if (data.type === 'seat') {
+      <button
+        #seatEl
+        type="button"
+        [class]="seatClasses"
+        [attr.data-seat-number]="data.number || null"
+        [attr.aria-label]="ariaLabel || null"
+        [attr.aria-selected]="ariaSelected === null || ariaSelected === undefined ? null : ariaSelected"
+        [attr.aria-disabled]="ariaDisabled ? 'true' : null"
+        [attr.aria-colindex]="colIndex ?? null"
+        [attr.aria-rowindex]="rowIndex ?? null"
+        [attr.tabindex]="rovingTabindex ?? 0"
+        [style.width.px]="seatWidth"
+        [style.height.px]="seatHeight"
+        [style.flex-shrink]="0"
+        [style.transform]="seatTransform"
+        (click)="onClick($event)"
+        (mouseenter)="onMouseEnter($event)"
+        (mouseleave)="onMouseLeave($event)"
+      >
         @if (!showUnavailableCross) {
           <div
             class="jets-seat__number"
@@ -101,9 +108,23 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
             <span class="priceValue">{{ data.price }}</span>
           </div>
         }
-      }
-      <!-- aisle/empty: no content -->
-    </div>
+      </button>
+    } @else {
+      <div
+        #seatEl
+        [class]="seatClasses"
+        [attr.data-seat-number]="data.number || null"
+        [style.width.px]="seatWidth"
+        [style.height.px]="seatHeight"
+        [style.flex-shrink]="0"
+        [style.transform]="seatTransform"
+        (click)="onClick($event)"
+        (mouseenter)="onMouseEnter($event)"
+        (mouseleave)="onMouseLeave($event)"
+      >
+        <!-- aisle/empty/index: no interactive content -->
+      </div>
+    }
   `,
   styleUrls: ['./jets-seat.component.scss'],
 })
@@ -128,6 +149,29 @@ export class JetsSeatComponent implements OnChanges {
    */
   @Input() colorfulSeatsByClass = false;
   @Input() scale = 1;
+
+  // ─── A11y plumbing (WCAG commit 5) ──────────────────────────────────
+  // Optional inputs the parent grid wires up in commit 6/7. Defaults are
+  // chosen so they don't add attributes when unset, keeping the rendered
+  // DOM noise-free for the common case.
+  /** Accessible name announced by screen readers (e.g. "Seat 12C, Economy, $42"). */
+  @Input() ariaLabel?: string;
+  /** Tri-state aria-selected. `null`/`undefined` → attribute omitted. */
+  @Input() ariaSelected?: boolean | null = null;
+  /**
+   * When true, renders `aria-disabled="true"` and suppresses click/mouse
+   * emissions. We deliberately do NOT use the native `disabled` attribute
+   * because it removes focusability, which would break the roving-tabindex
+   * grid pattern landing in commits 6/7.
+   */
+  @Input() ariaDisabled?: boolean;
+  /** Roving tabindex managed by the grid in commit 7. Defaults to 0 so a standalone seat stays focusable. */
+  @Input() rovingTabindex?: number;
+  /** aria-colindex (1-based). Plumbed here; the row/grid wires the real value in commit 6. */
+  @Input() colIndex?: number;
+  /** aria-rowindex (1-based). Same as above. */
+  @Input() rowIndex?: number;
+
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
     element: HTMLElement;
@@ -370,16 +414,21 @@ export class JetsSeatComponent implements OnChanges {
   }
 
   onClick(event: Event): void {
+    // aria-disabled gates the click because we deliberately render a native
+    // <button> without the `disabled` attribute (see ariaDisabled docs above).
+    if (this.ariaDisabled === true) return;
     if (!this._isInteractive()) return;
     this.seatClick.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
 
   onMouseEnter(event: Event): void {
+    if (this.ariaDisabled === true) return;
     if (!this._isInteractive()) return;
     this.seatMouseEnter.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
 
   onMouseLeave(event: Event): void {
+    if (this.ariaDisabled === true) return;
     if (!this._isInteractive()) return;
     this.seatMouseLeave.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
