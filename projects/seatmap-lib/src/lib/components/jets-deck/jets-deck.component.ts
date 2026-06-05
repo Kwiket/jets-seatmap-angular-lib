@@ -1,22 +1,10 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
-  Input,
-  Output,
-  Type,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Type } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IDeckData, ISeatData, IRowData, IColorTheme } from '../../types';
 import { JetsRowComponent } from '../jets-row/jets-row.component';
 import { JetsDeckExitComponent } from '../jets-deck-exit/jets-deck-exit.component';
 import { JetsBulkComponent } from '../jets-bulk/jets-bulk.component';
-import {
-  DEFAULT_COLOR_THEME,
-  LOCALES_MAP,
-  SEAT_SIZE_BY_TYPE,
-  DEFAULT_SEAT_TYPE,
-} from '../../constants';
+import { DEFAULT_COLOR_THEME, LOCALES_MAP, SEAT_SIZE_BY_TYPE, DEFAULT_SEAT_TYPE } from '../../constants';
 
 interface ICabinSection {
   title: string;
@@ -31,15 +19,13 @@ interface ICabinSection {
   imports: [CommonModule, JetsRowComponent, JetsDeckExitComponent, JetsBulkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="jets-deck" [style.background-color]="floorColor">
+    <div class="jets-deck" [style.padding-top.px]="deckHeightSpacingPx" [style.padding-bottom.px]="deckHeightSpacingPx">
       @if (deck.title && showNumber) {
         <div class="jets-deck__title" [style.color]="titleColor">
           {{ deck.title }}
         </div>
       } @else if (showNumber && deck.number != null) {
-        <div class="jets-deck__title" [style.color]="titleColor">
-          {{ deckLabel }}: {{ deck.number }}
-        </div>
+        <div class="jets-deck__title" [style.color]="titleColor">{{ deckLabel }}: {{ deck.number }}</div>
       }
 
       <div
@@ -80,11 +66,9 @@ interface ICabinSection {
               [style.height.px]="section.height"
               [style.border-color]="section.color"
             >
-              <span
-                class="jets-cabin-label__text jets-cabin-label__text--left"
-                [style.color]="labelColor"
-                >{{ section.title }}</span
-              >
+              <span class="jets-cabin-label__text jets-cabin-label__text--left" [style.color]="labelColor">{{
+                section.title
+              }}</span>
             </div>
             <div
               class="jets-cabin-label jets-cabin-label--right"
@@ -92,9 +76,7 @@ interface ICabinSection {
               [style.height.px]="section.height"
               [style.border-color]="section.color"
             >
-              <span class="jets-cabin-label__text" [style.color]="labelColor">{{
-                section.title
-              }}</span>
+              <span class="jets-cabin-label__text" [style.color]="labelColor">{{ section.title }}</span>
             </div>
           }
         }
@@ -240,10 +222,6 @@ export class JetsDeckComponent {
     event?: Event;
   }>();
 
-  get floorColor(): string {
-    return this.colorTheme?.floorColor ?? DEFAULT_COLOR_THEME.floorColor;
-  }
-
   get deckLabel(): string {
     return LOCALES_MAP[this.lang]?.['deck'] ?? 'Deck';
   }
@@ -261,11 +239,30 @@ export class JetsDeckComponent {
   }
 
   get titleColor(): string {
-    return this.colorTheme?.deckTitleColor ?? this.colorTheme?.seatmapFontColor ?? '#333';
+    // deckLabelTitleColor is the documented public alias (README + demo +
+    // DEFAULT_COLOR_THEME); deckTitleColor stays as a legacy fallback so
+    // existing consumers don't regress.
+    return (
+      this.colorTheme?.deckLabelTitleColor ??
+      this.colorTheme?.deckTitleColor ??
+      this.colorTheme?.seatmapFontColor ??
+      '#333'
+    );
   }
 
   get scale(): number {
     return this.deck.scale ?? 1;
+  }
+
+  // Opt-in: return null when unset so Angular skips the inline style and the
+  // component CSS padding (4px 0) wins for consumers that don't theme the
+  // value. Mirrors the wingsWidth precedent.
+  get deckHeightSpacingPx(): number | null {
+    const themed = this.colorTheme?.deckHeightSpacing;
+    if (typeof themed === 'number' && themed > 0) {
+      return Math.round(themed * this.scale);
+    }
+    return null;
   }
 
   /**
@@ -402,17 +399,14 @@ export class JetsDeckComponent {
       const lastRowOffset = lastCabinRow.topOffset ?? startOffset;
       const lastRowNativeHeight = this._getNativeRowHeight(lastCabinRow);
       const rawHeight =
-        lastCabinRow === row
-          ? lastRowNativeHeight
-          : lastRowOffset - startOffset + lastRowNativeHeight / 2;
+        lastCabinRow === row ? lastRowNativeHeight : lastRowOffset - startOffset + lastRowNativeHeight / 2;
 
       const height = Math.max(20, Math.round(rawHeight * sc));
       const top = Math.round(startOffset * sc);
 
       const cabinCode = row.cabinClassCode ?? this._cabinCodeFromTitle(row.cabinTitle);
       const highlightColors =
-        this.colorTheme?.cabinTitlesHighlightColors ??
-        DEFAULT_COLOR_THEME.cabinTitlesHighlightColors;
+        this.colorTheme?.cabinTitlesHighlightColors ?? DEFAULT_COLOR_THEME.cabinTitlesHighlightColors;
       const color = highlightColors[cabinCode] ?? '#9e9e9e';
 
       sections.push({ title: row.cabinTitle, top, height, color });

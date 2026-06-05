@@ -249,10 +249,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       }
     }
 
-    // Unavailable
+    // Unavailable — notAvailableSeatsColor is the documented alias.
     items.push({
       label: locale['unavailable'],
-      color: theme.seatUnavailableColor || DEFAULT_COLOR_THEME.seatUnavailableColor,
+      color: theme.notAvailableSeatsColor || theme.seatUnavailableColor || DEFAULT_COLOR_THEME.seatUnavailableColor,
       icon: 'cross',
     });
 
@@ -325,7 +325,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   getDeckFloorWidth(deck: IDeckData): string {
     const maxNative = this.maxNativeDeckWidth;
     const deckNative = deck.nativeDeckWidth ?? maxNative;
-    if (deckNative >= maxNative) return '100%';
+    // Never let the floor cover the entire fuselage interior — leave a thin
+    // band on each side so colorTheme.fuselageFillColor is visible as the
+    // hull lining even on single-deck planes where deck width == max.
+    if (deckNative >= maxNative) return 'calc(100% - 16px)';
     const pct = Math.round((deckNative / maxNative) * 100);
     return `${pct}%`;
   }
@@ -456,6 +459,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       this.activeTooltipChanged.emit(null);
       this.legendReady.emit(this.legendItems);
       this.hasAvailabilityChanged.emit(this.hasAvailability);
+      this._emitAvailabilityApplied(this.availability);
       this.cdr.markForCheck();
     }
 
@@ -585,6 +589,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       this.passengersChanged.emit(this.passengersList);
       this.currencyDetected.emit(this.currencySign);
       this.hasAvailabilityChanged.emit(this.hasAvailability);
+      if (this.availability?.length) {
+        this._emitAvailabilityApplied(this.availability);
+      }
     } catch (err: any) {
       if (this._flightId !== flightId) return;
       const httpBody = err?.error ? JSON.stringify(err.error) : '';
@@ -609,6 +616,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     };
   }
 
+  private _emitAvailabilityApplied(availability: TSeatAvailability): void {
+    const labels = availability.map(item => item.label).filter(label => label !== '*');
+    const info = this.seatmapService.compareWithDecksSeatsInfo(labels, this.content);
+    this.availabilityApplied.emit(info);
+  }
+
   private _applyPassengers(): void {
     this.passengersList = this.seatmapService.addAbbrToPassengers(this.passengers);
     this.content = this.seatmapService.setPassengersHandler(this.content, this.passengersList);
@@ -619,9 +632,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   onSeatMouseEnter(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
     this.seatMouseEnter.emit(payload);
 
-    // tooltipOnHover: show tooltip on hover (non-touch devices only)
+    // tooltipOnHover: show tooltip on hover (non-touch devices only).
+    // Mirrors React's JetsSeat.js, where mouseEnter goes straight through
+    // `showTooltip` and never through the click-handler — so hover does NOT
+    // emit `seatMouseClick` even in external+hover mode.
     if (this.resolvedConfig.tooltipOnHover && !getEnvironmentInfo().isTouchDevice) {
-      this.onSeatClick(payload);
+      this._showTooltip(payload);
     }
   }
 
@@ -638,13 +654,23 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   onSeatClick(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
     const { seat, element, event } = payload;
 
-    // External management + hover tooltip: emit seatMouseClick instead of showing
-    // built-in tooltip. Matches React's onSeatMouseClick contract.
+    // React parity (SeatMap.js:300-309): in hover-tooltip mode on a non-touch
+    // device, an actual click in external-passenger-management mode emits
+    // `seatMouseClick` instead of opening the tooltip — regardless of
+    // `builtInTooltip`. The earlier `!builtInTooltip` guard was a misread of
+    // the React source (the equivalent line is commented out there).
     const cfg = this.resolvedConfig;
-    if (cfg.externalPassengerManagement && cfg.tooltipOnHover && !cfg.builtInTooltip) {
+    const shouldSelectOnClick = !!cfg.tooltipOnHover && !getEnvironmentInfo().isTouchDevice;
+    if (shouldSelectOnClick && cfg.externalPassengerManagement) {
       this.seatMouseClick.emit({ seat, element, event });
       return;
     }
+
+    this._showTooltip(payload);
+  }
+
+  private _showTooltip(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
+    const { seat, element, event } = payload;
 
     const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
     this.isSelectAvailable = !!nextPassenger;

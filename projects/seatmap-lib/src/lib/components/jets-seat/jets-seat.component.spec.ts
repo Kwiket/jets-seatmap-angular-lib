@@ -502,15 +502,14 @@ describe('JetsSeatComponent', () => {
 
     function styleFor(
       classType: string,
-      status: ISeatData['status'] = ENTITY_STATUS_MAP.available,
+      status: ISeatData['status'] = ENTITY_STATUS_MAP.available
     ): { fillColor: string } {
       component.colorTheme = THEME;
       component.data = makeSeat({ status, color: undefined, classType });
       // Access the private method to assert the colour decision directly,
       // without depending on which SVG template the seat-template-service
       // happens to pick for a given (class, iconType) pair.
-      return (component as unknown as { _resolveStyle(c: string): { fillColor: string } })
-        ._resolveStyle(classType);
+      return (component as unknown as { _resolveStyle(c: string): { fillColor: string } })._resolveStyle(classType);
     }
 
     it('default (off) — economy and first share the same fill', () => {
@@ -536,8 +535,7 @@ describe('JetsSeatComponent', () => {
         color: undefined,
         classType: 'B',
       });
-      const style = (component as unknown as { _resolveStyle(c: string): { fillColor: string } })
-        ._resolveStyle('B');
+      const style = (component as unknown as { _resolveStyle(c: string): { fillColor: string } })._resolveStyle('B');
       expect(style.fillColor).toBe('#ff0000');
     });
 
@@ -549,8 +547,7 @@ describe('JetsSeatComponent', () => {
         color: undefined,
         classType: 'F',
       });
-      const style = (component as unknown as { _resolveStyle(c: string): { fillColor: string } })
-        ._resolveStyle('F');
+      const style = (component as unknown as { _resolveStyle(c: string): { fillColor: string } })._resolveStyle('F');
       expect(style.fillColor).toBe('#cccccc');
     });
   });

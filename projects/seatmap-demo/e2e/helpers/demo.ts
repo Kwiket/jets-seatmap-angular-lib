@@ -79,9 +79,7 @@ async function clickControl(page: Page, key: ControlKey): Promise<void> {
   // "subtree intercepts pointer events" when, e.g. in horizontal mode the
   // rotated seatmap visually overlaps the demo control bar. The button is
   // still located and the click event is dispatched normally.
-  await page
-    .getByRole('button', { name: CONTROL_LABELS[key], exact: true })
-    .click({ force: true });
+  await page.getByRole('button', { name: CONTROL_LABELS[key], exact: true }).click({ force: true });
 }
 
 /**
@@ -146,10 +144,7 @@ export async function clickButton(page: Page, label: string): Promise<void> {
  * (Angular dev-server warm-up, vite prebundle, first auth round-trip).
  */
 export async function waitForSeatMapReady(page: Page, timeoutMs = 25_000): Promise<void> {
-  const inited = page
-    .locator('.demo-log-entry.log-inited')
-    .first()
-    .waitFor({ state: 'visible', timeout: timeoutMs });
+  const inited = page.locator('.demo-log-entry.log-inited').first().waitFor({ state: 'visible', timeout: timeoutMs });
   const firstSeat = page
     .locator('.jets-seat[data-seat-number]')
     .first()
@@ -176,11 +171,7 @@ export async function waitForSeatMapReady(page: Page, timeoutMs = 25_000): Promi
  * Take a screenshot of the seatmap area and save it under <specDir>/screenshots/<fileName>.png.
  * `specDir` is typically `path.dirname(__filename)` from the calling .spec.ts via `import.meta`.
  */
-export async function screenshotSeatMap(
-  page: Page,
-  specDir: string,
-  fileName: string,
-): Promise<string> {
+export async function screenshotSeatMap(page: Page, specDir: string, fileName: string): Promise<string> {
   const safe = fileName.replace(/[^\w.\-]+/g, '_');
   const outPath = path.join(specDir, 'screenshots', `${safe}.png`);
   const map = page.locator('.demo-seatmap-wrapper').first();
@@ -200,7 +191,7 @@ export async function screenshotRows(
   fileName: string,
   fromIndex: number,
   count: number,
-  opts: { pad?: number } = {},
+  opts: { pad?: number } = {}
 ): Promise<string> {
   const safe = fileName.replace(/[^\w.\-]+/g, '_');
   const outPath = path.join(specDir, 'screenshots', `${safe}.png`);
@@ -228,14 +219,55 @@ export async function screenshotRows(
 }
 
 /**
+ * Crop the page screenshot to the bounding box of an arbitrary DOM element
+ * plus optional padding. Use when the override under test paints into a small
+ * region (deck selector, open tooltip, single seat) that gets lost when a
+ * full-deck screenshot is downscaled.
+ *
+ * Throws if the selector doesn't match or the element has zero size.
+ */
+export async function screenshotElement(
+  page: Page,
+  specDir: string,
+  fileName: string,
+  selector: string,
+  padding = 12
+): Promise<string> {
+  const safe = fileName.replace(/[^\w.\-]+/g, '_');
+  const outPath = path.join(specDir, 'screenshots', `${safe}.png`);
+  const target = page.locator(selector).first();
+  await expect(target).toBeVisible();
+  // Tooltips and other absolutely-positioned overlays can sit outside the
+  // initial viewport — `transform: translateY(-100%)` on .jets-tooltip puts
+  // its top edge above the document scroll position. Scroll the element
+  // into view so its viewport-relative bounding box is non-negative, then
+  // take a viewport (not full-page) screenshot.
+  await target.scrollIntoViewIfNeeded();
+  const box = await target.boundingBox();
+  if (!box || box.width === 0 || box.height === 0) {
+    throw new Error(`screenshotElement: '${selector}' has no bounding box`);
+  }
+  const viewport = page.viewportSize();
+  const maxW = viewport?.width ?? box.width + padding * 2;
+  const maxH = viewport?.height ?? box.height + padding * 2;
+  const x = Math.max(0, box.x - padding);
+  const y = Math.max(0, box.y - padding);
+  const clip = {
+    x,
+    y,
+    width: Math.min(box.width + padding * 2, maxW - x),
+    height: Math.min(box.height + padding * 2, maxH - y),
+  };
+  await page.screenshot({ path: outPath, clip });
+  return outPath;
+}
+
+/**
  * Click a seat by its visible number (e.g. "20A"). Used by tooltip-related tests.
  * Times out after 5s to fail fast instead of locking up the test.
  */
 export async function selectSeat(page: Page, seatNumber: string): Promise<void> {
-  await page
-    .locator(`[data-seat-number="${seatNumber}"]`)
-    .first()
-    .click({ timeout: 5_000 });
+  await page.locator(`[data-seat-number="${seatNumber}"]`).first().click({ timeout: 5_000 });
 }
 
 const INTERACTIVE_SEAT_SELECTOR =
@@ -292,7 +324,7 @@ export async function clickFirstAvailableSeat(page: Page): Promise<void> {
       };
     });
     console.error(
-      `[clickFirstAvailableSeat] no interactive seat found. Seat status distribution: ${JSON.stringify(dist)}`,
+      `[clickFirstAvailableSeat] no interactive seat found. Seat status distribution: ${JSON.stringify(dist)}`
     );
     throw err;
   }
@@ -322,7 +354,7 @@ export async function hoverFirstAvailableSeat(page: Page): Promise<void> {
 export async function applyConfigAndReady(
   page: Page,
   overrides: ConfigOverrides,
-  opts: { availability?: unknown[] } = {},
+  opts: { availability?: unknown[] } = {}
 ): Promise<void> {
   await setConfig(page, overrides);
   await setFlight(page);

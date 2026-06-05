@@ -6,7 +6,8 @@
   // Move tooltip up by its own height so bottom edge aligns with `top` value
   transform: translateY(-100%);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  background: #fff;
+  background: var(--tooltip-bg, #fff);
+  border: 2px solid var(--tooltip-border, transparent);
   font-family: inherit;
 
   // Downward arrow pointing to the seat (default: tooltip above seat)
@@ -20,7 +21,7 @@
     height: 0;
     border-left: 9px solid transparent;
     border-right: 9px solid transparent;
-    border-top: 9px solid #fff;
+    border-top: 9px solid var(--tooltip-bg, #fff);
   }
 
   // Tooltip opens below the seat
@@ -31,7 +32,7 @@
       bottom: auto;
       top: -8px;
       border-top: none;
-      border-bottom: 9px solid #fff;
+      border-bottom: 9px solid var(--tooltip-bg, #fff);
     }
   }
 }
@@ -57,12 +58,19 @@
   align-items: baseline;
   font-size: 16px;
   font-weight: 700;
-  color: #4f6f8f;
+  color: var(--tooltip-header, #4f6f8f);
+  // Defensive (see .jets-btn): keep colorTheme.fontFamily reaching the title
+  // even if a host app introduces a child-targeted selector that re-pins it.
+  font-family: inherit;
 }
 
 .jets-tooltip--close-btn {
   background: none;
   border: none;
+  // UA stylesheet sets `button { font-family: ... }`, breaking the cascade
+  // from .jets-tooltip / .jets-seat-map. Re-establish inheritance so
+  // colorTheme.fontFamily reaches the close button glyph.
+  font-family: inherit;
   cursor: pointer;
   padding: 2px;
   margin-left: 8px;
@@ -79,12 +87,14 @@
   font-size: 16px;
   font-weight: 700;
   white-space: nowrap;
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 .jets-tooltip--header-passenger {
   font-size: 15px;
   font-weight: 700;
-  color: #4f6f8f;
+  color: var(--tooltip-header, #4f6f8f);
   margin-top: 2px;
 }
 
@@ -100,7 +110,9 @@
   gap: 10px;
   padding: 3px 0;
   font-size: 13px;
-  color: #4f6f8f;
+  color: var(--tooltip-font, #4f6f8f);
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 .jets-tooltip--amenity-icon {
@@ -112,6 +124,9 @@
   min-width: 20px;
   min-height: 20px;
   flex-shrink: 0;
+  background: var(--tooltip-icon-bg, transparent);
+  border: 1px solid var(--tooltip-icon-border, transparent);
+  color: var(--tooltip-icon, inherit);
 
   svg {
     display: block;
@@ -122,6 +137,8 @@
 
 .jets-tooltip--amenity-text {
   line-height: 1.3;
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 .jets-tooltip--amenity-negative {
@@ -144,9 +161,9 @@
   flex-direction: column;
   align-items: center;
   padding: 14px 8px 12px;
-  border: 1px solid #4f6f8f;
+  border: 1px solid var(--tooltip-font, #4f6f8f);
   border-radius: 8px;
-  background: #fff;
+  background: var(--tooltip-bg, #fff);
 }
 
 .jets-tooltip--dim-icon {
@@ -154,27 +171,39 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 6px;
+  background: var(--tooltip-icon-bg, transparent);
+  border: 1px solid var(--tooltip-icon-border, transparent);
 
   // ::ng-deep needed because SVG is inserted via [innerHTML] and lacks scoping attributes
   ::ng-deep svg {
     display: block;
     height: 36px;
     width: auto;
-    fill: #4f6f8f;
+    fill: var(--tooltip-icon, #4f6f8f);
   }
 }
 
 .jets-tooltip--dim-label {
   font-size: 13px;
   font-weight: 400;
-  color: #4f6f8f;
+  color: var(--tooltip-font, #4f6f8f);
   margin-bottom: 10px;
+  // Parent's `align-items: center` shrinks the box to the widest wrapped
+  // line; stretch + text-align centers each line within the column instead.
+  align-self: stretch;
+  text-align: center;
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 .jets-tooltip--dim-value {
   font-size: 12px;
   font-weight: 400;
-  color: #4f6f8f;
+  color: var(--tooltip-font, #4f6f8f);
+  align-self: stretch;
+  text-align: center;
+  // Defensive (see .jets-tooltip--header-title).
+  font-family: inherit;
 }
 
 // ─── Action buttons ──────────────────────────────────────────────────────────
@@ -189,14 +218,23 @@
   flex: 1;
   padding: 14px 16px;
   border: none;
+  // Inherit colorTheme.fontFamily through the .jets-seat-map root; the UA
+  // `button { font-family: ... }` rule would otherwise pin Cancel/Select
+  // to the browser default.
+  font-family: inherit;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
 
   &:disabled {
-    opacity: 0.45;
     cursor: not-allowed;
+    // Colour-preserving dim instead of opacity: an opacity sweep washes any
+    // theme-driven inline color/background into the disabled-grey, making
+    // consumer overrides like tooltipSelectButtonTextColor look as if they
+    // were silently dropped. grayscale + brightness keeps the override
+    // recognisable while still reading as "disabled".
+    filter: grayscale(0.25) brightness(0.85);
   }
 }
 

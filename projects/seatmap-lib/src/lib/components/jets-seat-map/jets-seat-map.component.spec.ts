@@ -115,6 +115,10 @@ function createMockJetsSeatMapService(content: IDeckData[] = [makeDeckData()]) {
       lang: 'EN',
     }),
     getDeckIndexBySeatLabel: vi.fn().mockReturnValue(0),
+    compareWithDecksSeatsInfo: vi.fn().mockImplementation((labels: string[]) => ({
+      existingSeatLabels: labels?.map(l => l.toUpperCase()) ?? [],
+      nonExistingSeatLabels: [],
+    })),
   };
 }
 
@@ -636,7 +640,113 @@ describe('JetsSeatMapComponent', () => {
 
   // ─── React-parity API ─────────────────────────────────────────────────
 
+  describe('availabilityApplied (React parity)', () => {
+    async function ready() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    it('should emit availabilityApplied when availability changes via ngOnChanges', async () => {
+      await ready();
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+
+      component.availability = [
+        { label: '1A', price: 10, currency: 'USD' },
+        { label: '1B', price: 10, currency: 'USD' },
+      ];
+      mockService.compareWithDecksSeatsInfo.mockReturnValueOnce({
+        existingSeatLabels: ['1A', '1B'],
+        nonExistingSeatLabels: [],
+      });
+      component.ngOnChanges({
+        availability: {
+          currentValue: component.availability,
+          previousValue: undefined,
+          firstChange: false,
+          isFirstChange: () => false,
+        } as any,
+      });
+
+      expect(spy).toHaveBeenCalledWith({
+        existingSeatLabels: ['1A', '1B'],
+        nonExistingSeatLabels: [],
+      });
+    });
+
+    it('should exclude wildcard entries from compared labels', async () => {
+      await ready();
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+
+      component.availability = [
+        { label: '*', price: 5, currency: 'USD' },
+        { label: '1A', price: 10, currency: 'USD' },
+      ];
+      component.ngOnChanges({
+        availability: {
+          currentValue: component.availability,
+          previousValue: undefined,
+          firstChange: false,
+          isFirstChange: () => false,
+        } as any,
+      });
+
+      expect(mockService.compareWithDecksSeatsInfo).toHaveBeenLastCalledWith(['1A'], component.content);
+    });
+
+    it('should NOT emit availabilityApplied when availability is cleared', async () => {
+      component.availability = [{ label: '1A', price: 10, currency: 'USD' }];
+      await ready();
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+
+      component.availability = undefined;
+      component.ngOnChanges({
+        availability: {
+          currentValue: undefined,
+          previousValue: [{ label: '1A', price: 10, currency: 'USD' }],
+          firstChange: false,
+          isFirstChange: () => false,
+        } as any,
+      });
+      await fixture.whenStable();
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('seatMouseClick (external management + hover tooltip mode)', () => {
+    // jsdom's HTMLElement prototype has `ontouchstart`, so the default
+    // environment reads as touch. The contract here is non-touch-only, so we
+    // force the env and reset the cached signal before each test.
+    let savedDescriptor: PropertyDescriptor | undefined;
+    let hadOntouchstart = false;
+
+    beforeEach(() => {
+      resetCachedEnvironmentInfo();
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      hadOntouchstart = Object.prototype.hasOwnProperty.call(proto, 'ontouchstart');
+      if (hadOntouchstart) {
+        savedDescriptor = Object.getOwnPropertyDescriptor(proto, 'ontouchstart');
+        delete proto['ontouchstart'];
+      }
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        configurable: true,
+        get: () => 0,
+      });
+    });
+
+    afterEach(() => {
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      if (hadOntouchstart && savedDescriptor) {
+        Object.defineProperty(proto, 'ontouchstart', savedDescriptor);
+      }
+      resetCachedEnvironmentInfo();
+    });
+
     async function ready() {
       fixture.detectChanges();
       await fixture.whenStable();
@@ -680,6 +790,59 @@ describe('JetsSeatMapComponent', () => {
 
       expect(clickSpy).not.toHaveBeenCalled();
       expect(tooltipSpy).toHaveBeenCalled();
+    });
+
+    it('should emit seatMouseClick even when builtInTooltip is left at its default (true)', async () => {
+      // Regression: React's onSeatMouseClick branch does NOT check builtInTooltip
+      // (SeatMap.js:303-308 has the equivalent guard commented out). Earlier the
+      // Angular port mistakenly required `builtInTooltip === false`, so consumers
+      // who flipped only externalPassengerManagement + tooltipOnHover saw two
+      // tooltipRequested events instead of seatMouseClick.
+      component.config = makeConfig({
+        externalPassengerManagement: true,
+        tooltipOnHover: true,
+        // builtInTooltip left undefined → resolves to true
+      });
+      await ready();
+
+      const clickSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatMouseClick.subscribe(clickSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatClick({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+        event: new MouseEvent('click'),
+      });
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+    });
+
+    it('should emit tooltipRequested (not seatMouseClick) on hover in external+hover mode', async () => {
+      // Hovering goes through `_showTooltip` directly — mirroring React's
+      // JetsSeat.js, where mouseEnter calls `showTooltip`, not `onSeatClick`.
+      component.config = makeConfig({
+        externalPassengerManagement: true,
+        tooltipOnHover: true,
+      });
+      await ready();
+
+      const clickSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatMouseClick.subscribe(clickSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+        event: new MouseEvent('mouseenter'),
+      });
+
+      expect(clickSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -922,6 +1085,34 @@ describe('JetsSeatMapComponent', () => {
       component.availability = [{ label: '1A', price: 10, currency: 'USD' }];
       await load();
       expect(spy).toHaveBeenCalledWith(true);
+    });
+
+    it('should emit availabilityApplied after initial load when availability is provided', async () => {
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+      component.availability = [
+        { label: '1A', price: 10, currency: 'USD' },
+        { label: '99Z', price: 10, currency: 'USD' },
+      ];
+      mockService.compareWithDecksSeatsInfo.mockReturnValueOnce({
+        existingSeatLabels: ['1A'],
+        nonExistingSeatLabels: ['99Z'],
+      });
+      await load();
+      expect(spy).toHaveBeenCalledWith({
+        existingSeatLabels: ['1A'],
+        nonExistingSeatLabels: ['99Z'],
+      });
+      // Wildcard must be filtered out before passing labels to the comparator.
+      expect(mockService.compareWithDecksSeatsInfo).toHaveBeenCalledWith(['1A', '99Z'], component.content);
+    });
+
+    it('should NOT emit availabilityApplied after initial load when availability is empty', async () => {
+      const spy = vi.fn();
+      component.availabilityApplied.subscribe(spy);
+      component.availability = undefined;
+      await load();
+      expect(spy).not.toHaveBeenCalled();
     });
 
     it('should emit selectAvailableChanged on seat click', async () => {

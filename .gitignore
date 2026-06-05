@@ -46,8 +46,12 @@ __screenshots__/
 .DS_Store
 Thumbs.db
 
-# Claude Code
-/.claude
+# Claude Code — ignore everything under .claude/ except shared skills.
+/.claude/*
+!/.claude/skills/
+
+# Screenshot-verification skill artefacts
+projects/seatmap-demo/e2e/**/_verification-report.md
 
 # Visual Studio
 /.vs

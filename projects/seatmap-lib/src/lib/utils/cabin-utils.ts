@@ -5,10 +5,7 @@ import { SEAT_SIZE_BY_TYPE, DEFAULT_SEAT_TYPE, LOCALES_MAP, CLASS_CODE_MAP } fro
  * Collect unique cabin classes from deck content.
  * Returns an array of { code, title } in order of appearance.
  */
-export function getAvailableCabins(
-  content: IDeckData[],
-  lang: string,
-): { code: string; title: string }[] {
+export function getAvailableCabins(content: IDeckData[], lang: string): { code: string; title: string }[] {
   const seen = new Map<string, string>();
   for (const deck of content) {
     for (const row of deck.rows) {
@@ -45,9 +42,7 @@ export function getNativeRowHeight(row: IRowData): number {
  * Each sub-deck is self-contained: its rows start at topOffset ≈ 0,
  * and exits/bulkheads are filtered and rebased to match.
  */
-export function getCabinSubDecks(
-  deck: IDeckData,
-): { title: string; cabinCode: string; subDeck: IDeckData }[] {
+export function getCabinSubDecks(deck: IDeckData): { title: string; cabinCode: string; subDeck: IDeckData }[] {
   const rows = deck.rows;
   if (!rows.length) return [];
 

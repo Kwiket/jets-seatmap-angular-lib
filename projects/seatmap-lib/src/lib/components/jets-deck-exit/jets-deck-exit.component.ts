@@ -23,8 +23,18 @@ const RIGHT_ARROW_SVG = `<svg version="1.0" xmlns="http://www.w3.org/2000/svg" w
         [style.width.px]="exitSizePx"
         [style.height.px]="exitSizePx"
         [style.color]="exitColor"
-        [innerHTML]="exit.type === 'left' ? leftArrowHtml : rightArrowHtml"
-      ></div>
+      >
+        @if (exitIconUrlFor(exit.type); as iconUrl) {
+          <img
+            class="jets-exit__icon"
+            [src]="iconUrl"
+            [attr.alt]="exit.type === 'left' ? 'Left exit' : 'Right exit'"
+            draggable="false"
+          />
+        } @else {
+          <span class="jets-exit__icon" [innerHTML]="exit.type === 'left' ? leftArrowHtml : rightArrowHtml"></span>
+        }
+      </div>
     }
   `,
   styles: [
@@ -47,6 +57,17 @@ const RIGHT_ARROW_SVG = `<svg version="1.0" xmlns="http://www.w3.org/2000/svg" w
 
       .jets-exit--right {
         right: 0;
+      }
+
+      .jets-exit__icon {
+        display: block;
+        width: 100%;
+        height: 100%;
+        user-select: none;
+      }
+
+      img.jets-exit__icon {
+        object-fit: contain;
       }
     `,
   ],
@@ -73,5 +94,15 @@ export class JetsDeckExitComponent {
 
   get exitColor(): string {
     return this.colorTheme?.exitColor ?? DEFAULT_COLOR_THEME.exitColor;
+  }
+
+  /**
+   * Resolve the override icon URL for a given side from `colorTheme`.
+   * Empty strings count as "not provided" so a blank config doesn't blank out
+   * the bundled arrow.
+   */
+  exitIconUrlFor(type: 'left' | 'right'): string | null {
+    const url = type === 'left' ? this.colorTheme?.exitIconUrlLeft : this.colorTheme?.exitIconUrlRight;
+    return url && url.trim().length > 0 ? url : null;
   }
 }

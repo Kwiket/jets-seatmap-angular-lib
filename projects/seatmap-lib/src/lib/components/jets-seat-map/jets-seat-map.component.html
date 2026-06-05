@@ -25,8 +25,8 @@
               showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
               colorTheme: resolvedConfig.colorTheme,
               rightToLeft: resolvedConfig.rightToLeft ?? false,
+              hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
               currencyOverride: resolvedConfig.currencySign || '',
-              hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? []
             }
           "
         />
@@ -36,9 +36,10 @@
           [isSelectAvailable]="isSelectAvailable"
           [showActions]="hasAvailability"
           [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
+          [colorTheme]="resolvedConfig.colorTheme"
           [rightToLeft]="resolvedConfig.rightToLeft ?? false"
-          [currencyOverride]="resolvedConfig.currencySign || ''"
           [hiddenSeatFeatures]="resolvedConfig.hiddenSeatFeatures ?? []"
+          [currencyOverride]="resolvedConfig.currencySign || ''"
           [viewOverride]="tooltipViewOverride"
           (select)="onTooltipSelect($event)"
           (unselect)="onTooltipUnselect($event)"
@@ -64,13 +65,7 @@
           }
           <div
             class="deck-wrapper"
-            style="
-              position: relative;
-              width: 100%;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-            "
+            style="position: relative; width: 100%; display: flex; flex-direction: column; align-items: center"
           >
             <div
               class="deck-floor"

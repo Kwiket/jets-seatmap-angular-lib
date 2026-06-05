@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import {
   IConfig,
   IDeckData,
+  IExistingSeatsLabelsInfo,
   IFlight,
   IMediaData,
   IPassenger,
@@ -112,7 +113,13 @@ export class JetsSeatMapService {
             // pre-computed colour whenever the availability entry omitted one,
             // which both broke the integrator contract (`color: string`) and
             // forced the renderer back to the theme default.
-            color: source.color ?? seat.color,
+            //
+            // React parity (service.js:108) — availability `color` overrides
+            // the prepared score/API colour, but when the availability entry
+            // doesn't carry a colour (e.g. a `{ label: '*', price }` wildcard)
+            // we fall back to the seat's originalColor so customSeatColorRanges
+            // and per-seat API colours survive the availability merge.
+            color: source.color ?? seat.originalColor ?? seat.color,
             passengerTypes: seat.passengerTypes?.length
               ? seat.passengerTypes
               : source.onlyForPassengerType
@@ -296,5 +303,37 @@ export class JetsSeatMapService {
       }
     }
     return 0;
+  }
+
+  /**
+   * Split the availability-provided labels into seats that actually exist in
+   * the rendered decks and seats that do not. Mirrors React's
+   * `compareWithDecksSeatsInfo` and powers the `availabilityApplied` event.
+   */
+  compareWithDecksSeatsInfo(seatLabels: string[], decks: IDeckData[]): IExistingSeatsLabelsInfo {
+    const result: IExistingSeatsLabelsInfo = { existingSeatLabels: [], nonExistingSeatLabels: [] };
+    if (!seatLabels?.length || !decks?.length) return result;
+
+    const knownLabels = new Set<string>();
+    for (const deck of decks) {
+      for (const row of deck.rows ?? []) {
+        for (const seat of row.seats ?? []) {
+          if (seat.type === ENTITY_TYPE_MAP.seat && seat.number) {
+            knownLabels.add(seat.number.toUpperCase());
+          }
+        }
+      }
+    }
+
+    for (const raw of seatLabels) {
+      const label = String(raw).toUpperCase();
+      if (knownLabels.has(label)) {
+        result.existingSeatLabels.push(label);
+      } else {
+        result.nonExistingSeatLabels.push(label);
+      }
+    }
+
+    return result;
   }
 }

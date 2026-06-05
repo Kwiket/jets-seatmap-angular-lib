@@ -732,25 +732,91 @@ interface IPassenger {
 Fired when the cursor leaves the seat boundaries. Payload — `ISeatMouseLeaveData`, structurally identical to
 [ tooltipRequested](#-tooltiprequested).
 
+```typescript
+interface ISeatMouseLeaveData {
+  seat: ISeatData;
+  element: HTMLElement;
+  event?: Event;
+}
+```
+
+```html
+<sm-jets-seat-map
+  [flight]="flight"
+  [config]="config"
+  (seatMouseLeave)="onSeatMouseLeave($event)">
+</sm-jets-seat-map>
+```
+
+```typescript
+onSeatMouseLeave(data: ISeatMouseLeaveData): void {
+  console.log('Seat mouse leave: ', data);
+}
+```
+
 &nbsp;
 
 ### <a name="seatmouseclick"></a> seatMouseClick
 
-Triggered when a seat is clicked, **only** when `externalPassengerManagement === true && tooltipOnHover === true &&
-builtInTooltip === false`. Payload — `ISeatMouseClickData`, structurally identical to
+Triggered when a seat is clicked while `externalPassengerManagement === true && tooltipOnHover === true` on a non-touch
+device. The `builtInTooltip` setting is intentionally not part of the contract — when external passenger management
+takes over, clicks become a routing signal to your code rather than to the internal tooltip. Hovering still emits
+[ tooltipRequested](#-tooltiprequested) (so you can render your own hover affordance), and the built-in tooltip stays
+hidden when `builtInTooltip === false`. Payload — `ISeatMouseClickData`, structurally identical to
 [ tooltipRequested](#-tooltiprequested).
+
+```typescript
+interface ISeatMouseClickData {
+  seat: ISeatData;
+  element: HTMLElement;
+  event?: Event;
+}
+```
+
+```html
+<sm-jets-seat-map
+  [flight]="flight"
+  [config]="config"
+  (seatMouseClick)="onSeatMouseClick($event)">
+</sm-jets-seat-map>
+```
+
+```typescript
+onSeatMouseClick(data: ISeatMouseClickData): void {
+  console.log('Seat mouse click: ', data);
+}
+```
 
 &nbsp;
 
 ### <a name="availabilityapplied"></a> availabilityApplied
 
-Triggered when the [Availability](#-availability) input is applied. Provides the lists of existing and non-existing
-seat labels.
+Triggered after the [Availability](#-availability) input is applied to the rendered decks — both on the initial load
+(when `availability` is passed alongside `flight`) and on every subsequent change of the `availability` input. The
+payload splits the provided seat labels into the ones that actually exist in the rendered seatmap and the ones that
+don't, which is useful for validating that the availability source is in sync with the plane data.
 
 ```typescript
 interface IExistingSeatsLabelsInfo {
   existingSeatLabels: string[];
   nonExistingSeatLabels: string[];
+}
+```
+
+The wildcard `'*'` entry (if present) is excluded from both lists.
+
+```html
+<sm-jets-seat-map
+  [flight]="flight"
+  [config]="config"
+  [availability]="availability"
+  (availabilityApplied)="onAvailabilityApplied($event)">
+</sm-jets-seat-map>
+```
+
+```typescript
+onAvailabilityApplied(data: IExistingSeatsLabelsInfo): void {
+  console.log('Availability applied: ', data);
 }
 ```
 

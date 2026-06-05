@@ -58,9 +58,7 @@ describe('tintSeatColorForClass', () => {
   });
 
   it('lets themeOverrides win over algorithmic tint', () => {
-    expect(
-      tintSeatColorForClass(BASE, 'B', { B: '#ff0000' }),
-    ).toBe('#ff0000');
+    expect(tintSeatColorForClass(BASE, 'B', { B: '#ff0000' })).toBe('#ff0000');
   });
 
   it('falls back to algorithm when override key is missing for the class', () => {

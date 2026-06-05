@@ -52,11 +52,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
             {{ seatLabel }}
           </div>
         }
-        <div
-          class="jets-seat__svg"
-          [style.transform]="svgScaleTransform"
-          [innerHTML]="svgContent"
-        ></div>
+        <div class="jets-seat__svg" [style.transform]="svgScaleTransform" [innerHTML]="svgContent"></div>
         @if (showUnavailableCross) {
           <div
             class="jets-seat__cross"
@@ -66,24 +62,8 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
             [style.transform]="counterRotation"
           >
             <svg viewBox="0 0 100 100" width="1.6em" height="1.6em">
-              <line
-                x1="22"
-                y1="22"
-                x2="78"
-                y2="78"
-                stroke="currentColor"
-                stroke-width="9"
-                stroke-linecap="round"
-              />
-              <line
-                x1="78"
-                y1="22"
-                x2="22"
-                y2="78"
-                stroke="currentColor"
-                stroke-width="9"
-                stroke-linecap="round"
-              />
+              <line x1="22" y1="22" x2="78" y2="78" stroke="currentColor" stroke-width="9" stroke-linecap="round" />
+              <line x1="78" y1="22" x2="22" y2="78" stroke="currentColor" stroke-width="9" stroke-linecap="round" />
             </svg>
           </div>
         }
@@ -91,6 +71,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
           <div
             class="jets-seat__passenger"
             [style.background-color]="passengerBadgeColor"
+            [style.color]="passengerBadgeLabelColor"
             [style.width.px]="badgeSize"
             [style.height.px]="badgeSize"
             [style.font-size.px]="badgeFontSize"
@@ -203,11 +184,7 @@ export class JetsSeatComponent implements OnChanges {
 
   /** Whether the per-seat price pill should render — matches React: any seat with a price when the flag is on. */
   get showPriceLabel(): boolean {
-    return (
-      this.showPrice &&
-      this.data?.type === ENTITY_TYPE_MAP.seat &&
-      this.data.price != null
-    );
+    return this.showPrice && this.data?.type === ENTITY_TYPE_MAP.seat && this.data.price != null;
   }
 
   /** First-character currency symbol (e.g. '€', '$'). Falls back to '*' like the React reference. */
@@ -280,16 +257,19 @@ export class JetsSeatComponent implements OnChanges {
     return Math.round(this.badgeSize * 0.28);
   }
 
+  get passengerBadgeLabelColor(): string {
+    return this.colorTheme?.defaultPassengerBadgeLabelColor ?? DEFAULT_COLOR_THEME.defaultPassengerBadgeLabelColor;
+  }
+
   get badgeBorder(): string {
-    return 'none';
+    const c = this.colorTheme?.defaultPassengerBadgeBorderColor;
+    return c ? `1px solid ${c}` : 'none';
   }
 
   get seatClasses(): string {
     // Rotation is applied via seatTransform (inline style) to avoid conflicts
     // with translate. CSS class rotation would be overridden by inline transform.
-    return ['jets-seat', `jets-seat--${this.data.type}`, `jets-seat--${this.data.status}`]
-      .filter(Boolean)
-      .join(' ');
+    return ['jets-seat', `jets-seat--${this.data.type}`, `jets-seat--${this.data.status}`].filter(Boolean).join(' ');
   }
 
   /**
@@ -370,10 +350,7 @@ export class JetsSeatComponent implements OnChanges {
 
   get seatTitle(): string {
     if (this.data.type !== ENTITY_TYPE_MAP.seat) return '';
-    return [
-      this.data.number,
-      this.data.price != null ? `${this.data.currency ?? ''} ${this.data.price}`.trim() : null,
-    ]
+    return [this.data.number, this.data.price != null ? `${this.data.currency ?? ''} ${this.data.price}`.trim() : null]
       .filter(Boolean)
       .join(' — ');
   }
@@ -434,9 +411,7 @@ export class JetsSeatComponent implements OnChanges {
       svg = svg
         .replace(/<svg\s/, match => match) // no-op, just for clarity
         .replace(/<svg([^>]*)>/, (full, attrs) => {
-          const cleaned = attrs
-            .replace(/\s*\bwidth="[^"]*"/, '')
-            .replace(/\s*\bheight="[^"]*"/, '');
+          const cleaned = attrs.replace(/\s*\bwidth="[^"]*"/, '').replace(/\s*\bheight="[^"]*"/, '');
           return `<svg${cleaned} width="${nw}" height="${nh}">`;
         });
     }
@@ -448,14 +423,21 @@ export class JetsSeatComponent implements OnChanges {
     const theme = this.colorTheme ?? {};
     const def = DEFAULT_COLOR_THEME;
 
+    // Explicit theme.seatAvailableColor / seatSelectedColor outrank
+    // API/score-injected per-seat colours, matching the precedence already
+    // applied to the unavailable branch. The legacy `forceThemeSeatColors`
+    // flag remains supported as a belt-and-braces alias.
     const force = theme.forceThemeSeatColors === true;
+    const availOverride = theme.seatAvailableColor != null;
+    const selOverride = theme.seatSelectedColor != null;
 
     let fillColor: string;
     switch (this.data.status) {
       case 'available': {
-        let base = force
-          ? (theme.seatAvailableColor ?? def.seatAvailableColor)
-          : (this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor);
+        let base =
+          force || availOverride
+            ? (theme.seatAvailableColor ?? def.seatAvailableColor)
+            : (this.data.color ?? def.seatAvailableColor);
         if (this.colorfulSeatsByClass) {
           base = tintSeatColorForClass(base, classType, theme.seatClassTints);
         }
@@ -464,18 +446,12 @@ export class JetsSeatComponent implements OnChanges {
       }
       case 'selected':
         fillColor = theme.seatSelectedStrokeColor
-          ? force
+          ? force || availOverride
             ? (theme.seatAvailableColor ?? def.seatAvailableColor)
-            : (this.data.originalColor ??
-              this.data.color ??
-              theme.seatAvailableColor ??
-              def.seatAvailableColor)
-          : force
+            : (this.data.originalColor ?? this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor)
+          : force || selOverride
             ? (theme.seatSelectedColor ?? def.seatSelectedColor)
-            : (this.data.originalColor ??
-              this.data.color ??
-              theme.seatAvailableColor ??
-              def.seatAvailableColor);
+            : (this.data.originalColor ?? this.data.color ?? theme.seatAvailableColor ?? def.seatAvailableColor);
         break;
       case 'preferred':
         fillColor = theme.seatPreferredColor ?? def.seatPreferredColor;
@@ -484,11 +460,13 @@ export class JetsSeatComponent implements OnChanges {
         fillColor = theme.seatExtraColor ?? def.seatExtraColor;
         break;
       default:
-        fillColor = theme.seatUnavailableColor ?? def.seatUnavailableColor;
+        // notAvailableSeatsColor is the documented public alias (README + demo
+        // both use it). Honour it first; seatUnavailableColor stays as the
+        // legacy fallback so existing consumers don't regress.
+        fillColor = theme.notAvailableSeatsColor ?? theme.seatUnavailableColor ?? def.seatUnavailableColor;
     }
 
-    const uniformUnavailable =
-      this.data.status === 'unavailable' && !!theme.seatUnavailableCrossColor;
+    const uniformUnavailable = this.data.status === 'unavailable' && !!theme.seatUnavailableCrossColor;
     const selectedStroke = this.data.status === 'selected' && theme.seatSelectedStrokeColor;
 
     const crossColor = theme.seatUnavailableCrossColor;
@@ -505,16 +483,10 @@ export class JetsSeatComponent implements OnChanges {
       fillColor,
       strokeColor,
       strokeWidth: selectedStroke ? 3 : uniformUnavailable ? 1.5 : baseStrokeWidth,
-      armrestColor: uniformUnavailable
-        ? fillColor
-        : (theme.seatArmrestColor ?? theme.armrestColor ?? def.armrestColor),
+      armrestColor: uniformUnavailable ? fillColor : (theme.seatArmrestColor ?? theme.armrestColor ?? def.armrestColor),
       backingColor: uniformUnavailable ? fillColor : (backing ?? 'rgb(169, 169, 169)'),
       shellColor: uniformUnavailable ? fillColor : (backing ?? 'rgb(235, 235, 235)'),
-      backingStrokeColor: uniformUnavailable
-        ? (crossColor ?? fillColor)
-        : backing
-          ? strokeColor
-          : 'rgb(235, 235, 235)',
+      backingStrokeColor: uniformUnavailable ? (crossColor ?? fillColor) : backing ? strokeColor : 'rgb(235, 235, 235)',
       backingStrokeWidth: selectedStroke ? 3 : uniformUnavailable ? 1.5 : 1.2,
     };
   }

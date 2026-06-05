@@ -33,6 +33,14 @@ import { LOCALES_MAP } from '../../constants';
         [class.jets-tooltip--side-panel]="sidePanel"
         [style.top.px]="sidePanel ? null : data.top"
         [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
+        [style.font-family]="colorTheme?.fontFamily || null"
+        [style.--tooltip-bg]="colorTheme?.tooltipBackgroundColor || null"
+        [style.--tooltip-border]="colorTheme?.tooltipBorderColor || null"
+        [style.--tooltip-font]="colorTheme?.tooltipFontColor || null"
+        [style.--tooltip-header]="colorTheme?.tooltipHeaderColor || null"
+        [style.--tooltip-icon]="colorTheme?.tooltipIconColor || null"
+        [style.--tooltip-icon-border]="colorTheme?.tooltipIconBorderColor || null"
+        [style.--tooltip-icon-bg]="colorTheme?.tooltipIconBackgroundColor || null"
       >
         <div class="jets-tooltip--body">
           <div class="jets-tooltip--content">
@@ -219,7 +227,6 @@ export class JetsTooltipComponent {
     return !!f.key && this.hiddenSeatFeatures.includes(f.key);
   }
 
-  /** `icon` field already holds a full SVG string — wrap it for `[innerHTML]`. */
   /**
    * `ISeatData.price` is loose-typed (`number | string`) because the public
    * emit payload replaces it with a formatted string. Internally — inside the
@@ -233,6 +240,7 @@ export class JetsTooltipComponent {
     return typeof p === 'number' ? p : NaN;
   }
 
+  /** `icon` field already holds a full SVG string — wrap it for `[innerHTML]`. */
   safeSvg(svg: string | undefined): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(svg ?? '');
   }
