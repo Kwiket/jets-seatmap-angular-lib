@@ -583,7 +583,22 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       // call owns the final state. Drop the stale result.
       if (this._loadId !== loadId) return;
 
-      const content = result.content;
+      // If availability / passengers landed via @Input() while the
+      // `getSeatMapData` fetch was awaiting, the result.content was prepared
+      // with the *captured* values (likely the initial empty/undefined ones).
+      // Re-apply the current inputs so the post-load DOM reflects them —
+      // ngOnChanges' setAvailabilityHandler/applyPassengers branches were
+      // gated on `isSeatMapInited` and got skipped during the in-flight
+      // window. Both handlers are idempotent.
+      let content = result.content;
+      if (this.availability?.length) {
+        content = this.seatmapService.setAvailabilityHandler(content, this.availability);
+      }
+      const lateList = this.seatmapService.addAbbrToPassengers(this.passengers);
+      if (lateList?.length) {
+        content = this.seatmapService.setPassengersHandler(content, lateList);
+        this.passengersList = lateList;
+      }
       this.content = content;
       this.media = result.media || null;
       this.isSeatMapInited = true;
