@@ -12,16 +12,18 @@
 
 ## Status
 
-- **Last updated:** 2026-06-05 — Wave C интегрирована: commits 5 (`seat → button`, SHA `df885db`, DOM-breaking — user-approved) и 12 (`landmarks + skip-link + deck-selector semantics`, SHA `f216a55`) сделаны параллельно суб-агентами.
+- **Last updated:** 2026-06-05 — Wave D интегрирована: commits 6 (`grid scaffolding`, SHA `49c34f6`) и 13 (`alternative list view`, SHA `b81fead`). Sub-агенты Wave D **оба** упали по stream-timeout мид-работы (≈115 минут run-time), orchestrator подобрал partial work обоих и дописал лично.
 - **Orchestration mode active:** Claude как orchestrator. Подробности — Claude memory `project_wcag_orchestration` и `project_wcag_sub_agent_constraints`.
-- **Current wave (Wave D, стартует):** commit 6 (`grid scaffolding` — role=grid/row/gridcell + aria-rowindex/colindex/rowcount/colcount, оборачивается на JetsDeckComponent/Row/Seat без касания jets-seat-map) и commit 13 (`alternative list view` — новый компонент + config.alternativeView). Файлово непересекающиеся.
-- **Next after Wave D:** commit 7 (roving + 2D keyboard), затем commits 8 (1.4.13 hover-tooltip) и 11 (tooltip non-modal dialog).
+- **Current wave (Wave E, готовится):** commit 7 (`roving tabindex + 2D keyboard nav` в JetsSeatMapComponent — single agent, без параллельных партнёров). Commits 8 и 11 ждут commit 7 (все трое трогают jets-seat-map.ts).
+- **Next after commit 7:** commits 8 (`hover-tooltip focus-aware`) и 11 (`tooltip non-modal dialog`) — оба зависят от 5, скорее всего тоже sequentially из-за пересечения по jets-seat-map.ts.
+- **Final wave:** commits 16 (axe + keyboard tests) и 17 (README + ACR docs).
 - **Pre-existing e2e flakes** (зафиксировано суб-агентами Wave C на baseline `9eb0b26`): `colorTheme · field-seatArmrestColor`, `colorTheme · field-seatStrokeWidth`, `customCabinTitles · default`, `customCabinTitles · short`. Проходят в изолированном single-worker запуске, ломаются на параллельных воркерах. Не связаны с WCAG-работой; разбирать отдельно после ветки.
 - **Blockers:**
   - ⚠ Baseline при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — init-testbed setup инжектируется только через `ng test`. Тесты гонять командой `npm test -- --watch=false` / `ng test seatmap-lib --watch=false`, **не** `vitest run` напрямую.
   - ⚠ Sub-агенты не могут `git push origin HEAD:WCAG` — harness блокирует push в shared-branch от не-orchestrator-сессии. Orchestrator интегрирует их коммиты сам (fetch+rebase+push из worktree).
   - ⚠ E2E (Playwright) требует `.env.local` в корне worktree с реальными API-ключами sandbox'а. Без этого `prestart → generate:env` пишет пустой `__env`, и все тесты валятся с `HTTP 200: parsing /auth`. Orchestrator должен симлинковать/копировать `.env.local` из main checkout при создании worktree.
   - ⚠ Удалить вспомогательные `origin/wcag-commit-N` ветки harness тоже запрещает. Безвредны — оставляем как есть.
+  - ⚠ **Long-running sub-agents падают по stream-timeout** (~115 мин run-time). Wave D показала: для крупных задач (новый компонент + интеграция + spec) prompt лучше делить на 2 узких suba — или orchestrator принимает partial work и дописывает сам. Это уже произошло на commits 6 и 13.
 
 ## Context
 
@@ -318,14 +320,14 @@ Position рассчитывается по индексу в `row.seats` (пер
 | 3 | `feat(a11y): accessible-name builder + locale keys` | [x] | `7a70627` | 2026-06-04 | utils/a11y.ts + 18 locales × 22 keys; 317 unit tests green |
 | 4 | `feat(a11y): default color tokens meet WCAG AA contrast` | [x] | `d49e100` | 2026-06-04 | sub-agent Wave B; user-approved snapshot regen, 99 PNG перегенерированы; visual breaking зафиксирован в CHANGELOG |
 | 5 | `feat(a11y): seat is a button with ARIA semantics` | [x] | `df885db` | 2026-06-05 | sub-agent Wave C; DOM-breaking (`div.jets-seat` → `button.jets-seat`), user-approved; класс `.jets-seat` + `data-seat-number` сохранены, 15 регрессионных спецов |
-| 6 | `feat(a11y): grid scaffolding (role=grid/row/gridcell)` | [ ] | — | — | |
+| 6 | `feat(a11y): grid scaffolding (role=grid/row/gridcell)` | [x] | `49c34f6` | 2026-06-05 | sub-agent Wave D upstaled, orchestrator завершил; full Layout Grid pattern; jets-deck host=grid + aria-rowcount/colcount; jets-row host=row; jets-seat role=gridcell на обеих ветках + nonSeatAriaLabel + effectiveTabindex |
 | 7 | `feat(a11y): roving tabindex + 2D keyboard navigation` | [ ] | — | — | |
 | 8 | `fix(a11y): 1.4.13 hover-tooltip focus-aware + dismissable` | [ ] | — | — | |
 | 9 | `feat(a11y): LiveAnnouncer for selection/jump/restrictions` | [x] | `d85a86a` | 2026-06-04 | sub-agent Wave B; polite announcements на select/unselect/jump; restriction-reason wiring оставлен TODO до интеграции commit 10's `selectAttemptBlocked` output |
 | 10 | `feat(a11y): expose seat-restriction reasoning (3.3.1/3.3.3)` | [x] | `eb4d17f` | 2026-06-04 | sub-agent Wave B; `getSelectDisabledReason()` + visible text + `aria-describedby` + `selectAttemptBlocked` Output; `isSelectDisabled()` boolean-facade сохранён |
 | 11 | `feat(a11y): tooltip is a non-modal dialog` | [ ] | — | — | |
 | 12 | `feat(a11y): landmarks + skip link + deck-selector semantics` | [x] | `f216a55` | 2026-06-05 | sub-agent Wave C; `<section role="region">` + visually-hidden h2 + skip-link; deck-selector → switch (N=2) / tablist (N≥3) с arrow-навигацией; focus на первое interactive место после смены палубы |
-| 13 | `feat(a11y): alternative list view + config.alternativeView` | [ ] | — | — | |
+| 13 | `feat(a11y): alternative list view + config.alternativeView` | [x] | `b81fead` | 2026-06-05 | sub-agent Wave D upstaled на финале, orchestrator дописал matchMedia watcher / effectiveView / toggle / spec; новый JetsSeatListComponent + filters + sort; default `alternativeView='grid'` |
 | 14 | `feat(a11y): prefers-reduced-motion` | [x] | `8fbc5a3` | 2026-06-04 | sub-agent Wave A; scrollIntoView SSR-safe, hover wrapped в `prefers-reduced-motion: no-preference` |
 | 15 | `feat(a11y): forced-colors / Windows High Contrast support` | [x] | `22494ce` | 2026-06-04 | sub-agent Wave A; forced-colors SCSS на seat/exit/deck-selector/deck-separator; декоративный chrome оставлен браузеру |
 | 16 | `test(a11y): jest-axe unit + @axe-core/playwright e2e` | [ ] | — | — | |
