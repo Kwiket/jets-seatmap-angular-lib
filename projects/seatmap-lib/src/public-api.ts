@@ -18,6 +18,7 @@ export * from './lib/components/jets-bulk/jets-bulk.component';
 export * from './lib/components/jets-deck-exit/jets-deck-exit.component';
 export * from './lib/components/jets-deck-selector/jets-deck-selector.component';
 export * from './lib/components/jets-deck-separator/jets-deck-separator.component';
+export * from './lib/components/jets-seat-list/jets-seat-list.component';
 
 export * from './lib/components/jets-not-init/jets-not-init.component';
 export * from './lib/components/jets-no-data/jets-no-data.component';

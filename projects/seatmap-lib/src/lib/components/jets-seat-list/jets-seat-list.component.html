@@ -1,0 +1,103 @@
+<div class="jets-seat-list">
+  <fieldset class="jets-seat-list__filters">
+    <legend class="cdk-visually-hidden">{{ filtersLegend }}</legend>
+
+    <label class="jets-seat-list__filter">
+      <input
+        type="checkbox"
+        name="filterWindow"
+        [(ngModel)]="filterWindow"
+      />
+      <span>{{ filterWindowLabel }}</span>
+    </label>
+
+    <label class="jets-seat-list__filter">
+      <input
+        type="checkbox"
+        name="filterAisle"
+        [(ngModel)]="filterAisle"
+      />
+      <span>{{ filterAisleLabel }}</span>
+    </label>
+
+    <label class="jets-seat-list__filter">
+      <input
+        type="checkbox"
+        name="filterExtraLegroom"
+        [(ngModel)]="filterExtraLegroom"
+      />
+      <span>{{ filterExtraLegroomLabel }}</span>
+    </label>
+
+    <label class="jets-seat-list__filter">
+      <input
+        type="checkbox"
+        name="filterExitRow"
+        [(ngModel)]="filterExitRow"
+      />
+      <span>{{ filterExitRowLabel }}</span>
+    </label>
+
+    <label class="jets-seat-list__sort">
+      <span>{{ sortLabel }}</span>
+      <select [(ngModel)]="sortKey" name="sortKey">
+        <option value="row">{{ sortByRowLabel }}</option>
+        <option value="priceAsc">{{ sortByPriceAscLabel }}</option>
+        <option value="priceDesc">{{ sortByPriceDescLabel }}</option>
+      </select>
+    </label>
+  </fieldset>
+
+  <table class="jets-seat-list__table">
+    <caption class="cdk-visually-hidden">{{ tableCaption }}</caption>
+    <thead>
+      <tr>
+        <th scope="col">{{ loc['row'] || 'Row' }}</th>
+        <th scope="col">{{ loc['seat'] || 'Seat' }}</th>
+        <th scope="col">{{ loc['cabin'] || 'Cabin' }}</th>
+        <th scope="col">{{ loc['position'] || 'Position' }}</th>
+        <th scope="col">{{ loc['features'] || 'Features' }}</th>
+        <th scope="col">{{ loc['price'] || 'Price' }}</th>
+        <th scope="col">{{ loc['status'] || 'Status' }}</th>
+        @if (showActions) {
+          <th scope="col">{{ loc['action'] || 'Action' }}</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (entry of filteredAndSortedSeats; track entry.seat.id) {
+        <tr>
+          <td>{{ entry.rowName }}</td>
+          <td>{{ entry.seat.number || entry.seat.letter }}</td>
+          <td>{{ entry.row.cabinTitle || entry.row.cabinClassCode || '—' }}</td>
+          <td>{{ positionLabel(entry) }}</td>
+          <td>{{ featuresLabel(entry.seat) }}</td>
+          <td>{{ priceLabel(entry.seat) }}</td>
+          <td>{{ statusLabel(entry.seat) }}</td>
+          @if (showActions) {
+            <td>
+              @if (entry.seat.passenger) {
+                <button
+                  type="button"
+                  class="jets-seat-list__action jets-seat-list__action--unselect"
+                  (click)="onUnselectClick(entry.seat)"
+                >
+                  {{ unselectLabel }}
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="jets-seat-list__action jets-seat-list__action--select"
+                  [disabled]="isSelectDisabled(entry.seat)"
+                  (click)="onSelectClick(entry.seat)"
+                >
+                  {{ selectLabel }}
+                </button>
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

@@ -67,7 +67,26 @@
       }
     }
 
-    @if (content.length) {
+    @if (content.length && showViewToggle) {
+      <!-- View toggle button (visible only when alternativeView is 'auto' or unset). -->
+      <button
+        type="button"
+        class="jets-seat-map__view-toggle"
+        (click)="toggleView()"
+      >{{ viewToggleLabel }}</button>
+    }
+
+    @if (content.length && effectiveView === 'list') {
+      <sm-jets-seat-list
+        [content]="content"
+        [lang]="$any(lang)"
+        [colorTheme]="resolvedConfig.colorTheme"
+        [showActions]="hasAvailability"
+        [isSelectAvailable]="isSelectAvailable"
+        (seatSelected)="onTooltipSelect($event)"
+        (seatUnselected)="onTooltipUnselect($event)"
+      />
+    } @else if (content.length) {
       <!-- Aircraft body with decks -->
       <sm-jets-plane-body
         [decks]="content"

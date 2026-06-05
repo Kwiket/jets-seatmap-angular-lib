@@ -53,6 +53,7 @@ import { JetsPlaneBodyComponent } from '../jets-plane-body/jets-plane-body.compo
 import { JetsDeckSelectorComponent } from '../jets-deck-selector/jets-deck-selector.component';
 import { JetsDeckSeparatorComponent } from '../jets-deck-separator/jets-deck-separator.component';
 import { JetsWingComponent } from '../jets-wing/jets-wing.component';
+import { JetsSeatListComponent } from '../jets-seat-list/jets-seat-list.component';
 
 // Module-scope counter for stable per-instance IDs used by ARIA wiring
 // (region heading, skip-link target, deck panel/tab id pairs). Restarting
@@ -76,6 +77,7 @@ const nextSeatMapInstanceId = (): string =>
     JetsDeckSelectorComponent,
     JetsDeckSeparatorComponent,
     JetsWingComponent,
+    JetsSeatListComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './jets-seat-map.component.html',
@@ -132,6 +134,19 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   private _prevLang: string | null = null;
   private _prevUnits: string | null = null;
   private _prevSeatJumpToLabel: string | null = null;
+
+  // ─── Alternative-view (list vs grid) state ──────────────────────────────
+  /**
+   * User toggle override. `null` means "follow config / viewport". Set when
+   * the user clicks the toggle button so a viewport resize doesn't fight
+   * the user's intent.
+   */
+  viewOverride: 'grid' | 'list' | null = null;
+
+  /** Tracks `matchMedia('(max-width: 480px)').matches` for `'auto'` mode. */
+  private _viewportNarrow = false;
+  private _viewportMql: MediaQueryList | null = null;
+  private _viewportMqlListener: ((e: MediaQueryListEvent) => void) | null = null;
 
   // ─── Per-instance ARIA identifiers ──────────────────────────────────────
   // Generated lazily via a module-level counter so multiple seat maps on the
@@ -492,6 +507,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit(): void {
     this.activeDeckIndex = this.currentDeckIndex;
+    this._initViewportWatcher();
     this._loadSeatMap();
   }
 
@@ -596,6 +612,64 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this._flightId = null;
+    this._teardownViewportWatcher();
+  }
+
+  // ─── Alternative-view (list vs grid) — commit 13 ────────────────────────
+
+  /**
+   * Resolved render mode. `config.alternativeView` wins unless the user
+   * toggled manually (then `viewOverride` is used). For `'auto'` we follow
+   * the live `_viewportNarrow` flag (matchMedia('(max-width: 480px)')).
+   */
+  get effectiveView(): 'grid' | 'list' {
+    if (this.viewOverride) return this.viewOverride;
+    const cfg = this.config?.alternativeView;
+    if (cfg === 'list') return 'list';
+    if (cfg === 'grid') return 'grid';
+    // 'auto' or unset
+    return cfg === 'auto' && this._viewportNarrow ? 'list' : 'grid';
+  }
+
+  /**
+   * Whether the user-facing toggle button should render. We only show the
+   * toggle when the host hasn't pinned `alternativeView` to a specific
+   * value — pinning it means the host explicitly wants one mode.
+   */
+  get showViewToggle(): boolean {
+    const cfg = this.config?.alternativeView;
+    return cfg !== 'grid' && cfg !== 'list';
+  }
+
+  /** Localised label for the toggle button (English fallback). */
+  get viewToggleLabel(): string {
+    // TODO(commit 17 docs): add 'viewAsList' / 'viewAsMap' locale keys.
+    return this.effectiveView === 'list' ? 'View as map' : 'View as list';
+  }
+
+  /** Flip user override; viewport changes will no longer override. */
+  toggleView(): void {
+    this.viewOverride = this.effectiveView === 'list' ? 'grid' : 'list';
+    this.cdr.markForCheck();
+  }
+
+  private _initViewportWatcher(): void {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    this._viewportMql = window.matchMedia('(max-width: 480px)');
+    this._viewportNarrow = this._viewportMql.matches;
+    this._viewportMqlListener = (e: MediaQueryListEvent) => {
+      this._viewportNarrow = e.matches;
+      this.cdr.markForCheck();
+    };
+    this._viewportMql.addEventListener('change', this._viewportMqlListener);
+  }
+
+  private _teardownViewportWatcher(): void {
+    if (this._viewportMql && this._viewportMqlListener) {
+      this._viewportMql.removeEventListener('change', this._viewportMqlListener);
+    }
+    this._viewportMql = null;
+    this._viewportMqlListener = null;
   }
 
   private _isSettingsReload = false;

@@ -1,0 +1,100 @@
+// Inlined fallback for @angular/cdk/a11y's `.cdk-visually-hidden`. Identical
+// rules — keeps this component self-contained so consumers who don't import
+// the CDK a11y stylesheet still get a visually-hidden caption and legend.
+.cdk-visually-hidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  white-space: nowrap;
+  outline: 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.jets-seat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.jets-seat-list__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.jets-seat-list__filter,
+.jets-seat-list__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.jets-seat-list__sort select {
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.jets-seat-list__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    border-bottom: 1px solid #eeeeee;
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  thead th {
+    background: #fafafa;
+    font-weight: 600;
+    color: #333333;
+  }
+
+  tbody tr:hover {
+    background: #f7fbff;
+  }
+}
+
+.jets-seat-list__action {
+  font: inherit;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #0277bd;
+  color: #ffffff;
+
+  &--unselect {
+    background: #ffffff;
+    color: #0277bd;
+    border-color: #0277bd;
+  }
+
+  &[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

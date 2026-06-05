@@ -192,6 +192,11 @@ export interface IConfig {
   customCabinTitles?: Record<string, string>;
   hiddenSeatFeatures?: string[];
   componentOverrides?: IComponentOverrides;
+  /**
+   * Render mode: 'grid' (default) shows the visual map; 'list' shows an
+   * accessible semantic table; 'auto' switches to 'list' below 480px.
+   */
+  alternativeView?: 'grid' | 'list' | 'auto';
 }
 
 // ─── Passenger ────────────────────────────────────────────────────────────────
