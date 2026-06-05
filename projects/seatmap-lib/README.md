@@ -156,6 +156,7 @@ If you prefer `NgModule`-style consumption, `JetsSeatMapModule` is also exported
     - [ availabilityApplied](#-availabilityapplied)
     - [Angular-only extensions](#angular-only-extensions)
   - [Advanced: Overriding Components](#advanced-overriding-components)
+  - [Accessibility](#accessibility)
   - [Testing](#testing)
   - [Continuous integration](#continuous-integration)
 
@@ -892,6 +893,96 @@ having to re-implement them.
 
 If you override the whole `JetsTooltip`, you take ownership of positioning, opening, closing and interaction events
 (`tooltipRequested`, `activeTooltipChanged`, etc.).
+
+&nbsp;
+
+## Accessibility
+
+This component meets WCAG 2.2 Level AA where the seat-grid widget is concerned. The host page remains responsible
+for landmark / page-title / language / authentication concerns (full breakdown in [`docs/ACR.md`](../../docs/ACR.md)).
+
+### What's built in
+
+- **Full keyboard navigation** — Arrow keys, Home/End (row), Ctrl+Home / Ctrl+End (whole map), PageUp/PageDown (±5
+  rows), Ctrl+Arrow (skim — jump only between interactable seats), Enter / Space (activate), Esc (close tooltip).
+- **Roving tabindex** — exactly one Tab stop into each deck-grid; subsequent navigation is by arrow keys.
+- **ARIA semantics** — `role="region"` landmark around the widget; per-deck `role="grid"` with `aria-rowcount` /
+  `aria-colcount`; each `role="row"` carries `aria-rowindex`; each `role="gridcell"` carries `aria-rowindex` /
+  `aria-colindex` and an `aria-label` built from `utils/a11y.ts` (`"14C, aisle, extra legroom, available, €12"`).
+  Unavailable seats use `aria-disabled="true"` rather than the HTML `disabled` attribute so they remain focusable
+  and discoverable by screen readers.
+- **Live announcements** via `@angular/cdk/a11y` `LiveAnnouncer` (politeness `polite`) on seat select, unselect,
+  jump-to-seat and restricted-select attempts. All strings are localised through `LOCALES_MAP`.
+- **Tooltip** is a non-modal `role="dialog"` with `aria-labelledby` / `aria-describedby`, auto-focus on the primary
+  action, Esc to close, and focus restoration to the trigger seat. The `sidePanel` variant is an inline
+  `role="region"` (not a dialog).
+- **Deck selector** uses `role="switch"` with `aria-checked` when there are exactly two decks, and
+  `role="tablist"` / `role="tab"` with arrow-key navigation when there are three or more.
+- **Alternative semantic `<table>` view** (`config.alternativeView: 'grid' | 'list' | 'auto'`, default `'grid'`)
+  for narrow viewports or linear navigation; `'auto'` switches via `matchMedia('(max-width: 480px)')`. This view
+  closes WCAG 2.5.8 Target Size by giving every seat a 44×44 row/cell footprint regardless of cabin density.
+- **WCAG-AA-compliant default color theme** — `DEFAULT_COLOR_THEME` (in `constants.ts`) guarantees ≥4.5:1 text
+  contrast and ≥3:1 UI / non-text contrast against the seat fills. Consumers passing their own `colorTheme` are
+  responsible for their own contrast budget.
+- **`prefers-reduced-motion`** is respected on the smooth-scroll used by `seatJumpTo`, on seat-hover transitions,
+  and on the deck-selector rotation.
+- **`forced-colors` (Windows High Contrast)** is supported via explicit CSS — focus rings, seat borders and the
+  unavailable cross survive the SVG-fill normalisation through `@media (forced-colors: active)` rules.
+
+### Override responsibility
+
+When the host swaps `JetsSeat`, `JetsTooltip` or `JetsTooltipView` via `config.componentOverrides`, the override
+component inherits responsibility for the ARIA contract the default implementation provides. The library cannot
+enforce these at compile time, so a custom `JetsSeat` that ships without them will silently regress the WCAG
+conformance recorded in [`docs/ACR.md`](../../docs/ACR.md) (see the *Override Responsibility* appendix for the
+full per-component checklist).
+
+At minimum a custom `JetsSeat` override must:
+
+```html
+<button type="button"
+        role="gridcell"
+        [attr.aria-label]="ariaLabel"
+        [attr.aria-selected]="ariaSelected"
+        [attr.aria-disabled]="ariaDisabled"
+        [attr.tabindex]="rovingTabindex"
+        [attr.aria-colindex]="colIndex"
+        [attr.data-seat-number]="seat.label">…</button>
+```
+
+A custom `JetsTooltip` must keep `role="dialog"`, an accessible name (`aria-labelledby` or `aria-label`), Esc-to-
+close, and must restore focus to the trigger element on close. A custom `JetsTooltipView` may render any markup
+but should not strip `aria-describedby` targets or the visible seat-restriction reason emitted by the host
+container.
+
+### Testing your integration
+
+The library ships two complementary a11y test layers (added in the WCAG 2.2 refit):
+
+```bash
+# Unit-level a11y assertions (jest-axe through Vitest)
+npm run test:a11y
+
+# End-to-end a11y assertions (@axe-core/playwright + keyboard scenarios)
+npm run e2e:a11y
+```
+
+CI fails on any new axe violations. The keyboard suite covers Tab-into-grid, arrow navigation, Esc-closes-
+tooltip, focus-restoration, disabled-seat-is-focusable-but-Enter-noop, and skim mode.
+
+### Known host responsibilities (out of scope)
+
+The following success criteria cannot be satisfied by a re-usable component and remain the host page's
+responsibility — they are flagged as *Host responsibility* in `docs/ACR.md`:
+
+- **1.4.2 Audio Control** — the library has no audio.
+- **2.4.2 Page Titled** — the host owns `<title>`.
+- **3.1.1 Language of Page** — the host owns `<html lang>`.
+- **3.1.2 Language of Parts** — only the host knows when a region is in a different language.
+- **3.3.7 Redundant Entry** — applies to multi-step host flows (passenger forms, checkout), not the seat-grid.
+- **3.3.8 Accessible Authentication (Minimum)** — applies to the host's login / payment flow.
+- **The page-level ACR itself** — the library ships its own ACR (`docs/ACR.md`) covering the widget; the host is
+  responsible for an ACR covering the whole page.
 
 &nbsp;
 
