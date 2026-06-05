@@ -107,6 +107,13 @@ export class JetsSeatMapService {
             status: ENTITY_STATUS_MAP.available,
             price: source.price,
             currency: source.currency,
+            // Availability colour wins when set; otherwise preserve the seat's
+            // existing colour (e.g. score-based tint) instead of clobbering it
+            // to undefined. The earlier `color: source.color` lost the
+            // pre-computed colour whenever the availability entry omitted one,
+            // which both broke the integrator contract (`color: string`) and
+            // forced the renderer back to the theme default.
+            //
             // React parity (service.js:108) — availability `color` overrides
             // the prepared score/API colour, but when the availability entry
             // doesn't carry a colour (e.g. a `{ label: '*', price }` wildcard)
@@ -158,8 +165,12 @@ export class JetsSeatMapService {
     const nextPassenger = this.getNextPassenger(passengers);
     if (!nextPassenger || !seat.number) return { data: content, passengers };
 
+    // `seat.price` is loose-typed (number on the lib's internal seat record,
+    // string on the emitted payload). The passenger record only ever stores
+    // the numeric form.
+    const numericPrice = typeof seat.price === 'number' ? seat.price : 0;
     const updatedPassengers = passengers.map(p =>
-      p.id === nextPassenger.id ? { ...p, seat: { price: seat.price ?? 0, seatLabel: seat.number! } } : p
+      p.id === nextPassenger.id ? { ...p, seat: { price: numericPrice, seatLabel: seat.number! } } : p
     );
 
     const data = content.map(deck => ({

@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { applyConfigAndReady, screenshotSeatMap } from '../helpers/demo';
+import { applyConfigAndReady, screenshotRows, screenshotSeatMap } from '../helpers/demo';
 
 const VARIANTS = [
   { name: 'dollar', sign: '$' },
@@ -23,7 +23,11 @@ test.describe('currencySign', () => {
         { visibleSeatPriceLabels: true, currencySign: v.sign },
         { availability: AVAILABILITY },
       );
+      // Full deck shows the broad layout, but the pill is ~13×11 px at this
+      // scale — the symbol is unreadable. Capture a zoomed crop of the first
+      // few rows so each variant's currency glyph is plainly visible.
       await screenshotSeatMap(page, __dirname, `currencySign-${v.name}`);
+      await screenshotRows(page, __dirname, `currencySign-${v.name}-zoom`, 0, 3);
     });
   }
 });

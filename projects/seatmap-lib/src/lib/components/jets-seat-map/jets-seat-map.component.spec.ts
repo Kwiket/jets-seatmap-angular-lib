@@ -372,7 +372,28 @@ describe('JetsSeatMapComponent', () => {
       const el = document.createElement('div');
       component.onSeatClick({ seat, element: el });
 
-      expect(spy).toHaveBeenCalledWith({ seat, element: el });
+      // Public emit shape mirrors the integrator contract:
+      //   - `number → label`, layout-only fields (`id`, `size`, `topOffset`, `leftOffset`,
+      //     `cabinTitle`) stripped.
+      //   - `classType` becomes the full word ('Economy', 'Business', …).
+      //   - `priceValue` carries the raw number; `price` becomes a formatted string.
+      //   - features/measurements default to empty arrays.
+      const { id: _id, size: _size, number: _number, ...rest } = seat;
+      // Emit shape: undefined-valued keys (`currency`, `price`, `priceValue`)
+      // are stripped, `passengerTypes` defaults to [] when unset.
+      const expectedSeat = {
+        ...rest,
+        label: seat.number,
+        classCode: 'E',
+        classType: 'Economy',
+        color: seat.color,
+        originalColor: seat.color,
+        passengerTypes: [],
+        features: [],
+        measurements: [],
+        additionalProps: [],
+      };
+      expect(spy).toHaveBeenCalledWith({ seat: expectedSeat, element: el, event: undefined });
     });
 
     it('should emit seatSelected after seat selection', async () => {

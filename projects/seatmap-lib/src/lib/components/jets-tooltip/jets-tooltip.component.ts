@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
-import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICONS } from '../../constants';
+import { LOCALES_MAP } from '../../constants';
 
 @Component({
   selector: 'sm-jets-tooltip',
@@ -48,12 +48,12 @@ import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICO
             <div class="jets-tooltip--header" [style.direction]="textDirection">
               <div class="jets-tooltip--header-title">
                 <span>{{ data.seat.name || data.seat.rowName || getClassType() }} {{ data.seat.number }}</span>
-                @if (data.seat.price != null && data.seat.price > 0) {
+                @if (hasNumericPrice() && getNumericPrice() > 0) {
                   <span class="jets-tooltip--header-price"
-                    >{{ resolvedCurrency }}{{ currencySeparator }}{{ data.seat.price }}</span
+                    >{{ resolvedCurrency }}{{ currencySeparator }}{{ getNumericPrice() }}</span
                   >
                 }
-                @if (data.seat.price === 0) {
+                @if (getNumericPrice() === 0) {
                   <span class="jets-tooltip--header-price">Free</span>
                 }
                 @if (!sidePanel) {
@@ -91,10 +91,10 @@ import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICO
             <!-- Amenities list -->
             @if (amenities.length) {
               <div class="jets-tooltip--amenities" [style.direction]="textDirection">
-                @for (amenity of amenities; track amenity.title) {
-                  <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.negative">
-                    <span class="jets-tooltip--amenity-icon" [innerHTML]="getAmenityIcon(amenity)"></span>
-                    <span class="jets-tooltip--amenity-text">{{ amenity.title }}</span>
+                @for (amenity of amenities; track amenity.uniqId || amenity.key) {
+                  <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.title === null">
+                    <span class="jets-tooltip--amenity-icon" [innerHTML]="safeSvg(amenity.icon)"></span>
+                    <span class="jets-tooltip--amenity-text">{{ amenity.title ?? amenity.value }}</span>
                   </div>
                 }
               </div>
@@ -103,10 +103,10 @@ import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICO
             <!-- Seat dimensions (pitch / width / recline) -->
             @if (dimensions.length) {
               <div class="jets-tooltip--dimensions">
-                @for (dim of dimensions; track dim.title) {
+                @for (dim of dimensions; track dim.uniqId || dim.key) {
                   <div class="jets-tooltip--dimension">
-                    <div class="jets-tooltip--dim-icon" [innerHTML]="getDimIcon(dim)"></div>
-                    <div class="jets-tooltip--dim-label">{{ getDimLabel(dim) }}</div>
+                    <div class="jets-tooltip--dim-icon" [innerHTML]="safeSvg(dim.icon)"></div>
+                    <div class="jets-tooltip--dim-label">{{ dim.title }}</div>
                     <div class="jets-tooltip--dim-value">{{ dim.value }}</div>
                   </div>
                 }
@@ -173,11 +173,6 @@ export class JetsTooltipComponent {
   @Input() showActions = true;
   @Input() rightToLeft = false;
   /**
-   * Feature keys (e.g. 'nearGalley', 'audioVideo') to omit from the tooltip's
-   * amenities/dimensions lists. Mirrors React's `params.hiddenSeatFeatures`.
-   */
-  @Input() hiddenSeatFeatures: string[] = [];
-  /**
    * Global currency override (from `config.currencySign`). When set, the
    * tooltip header shows this string instead of the per-seat `data.seat.currency`,
    * mirroring the behaviour of the per-seat price pill.
@@ -200,6 +195,12 @@ export class JetsTooltipComponent {
   get currencySeparator(): string {
     return this.resolvedCurrency.length > 1 ? ' ' : '';
   }
+
+  /**
+   * Feature keys (e.g. 'nearGalley', 'audioVideo') to omit from the tooltip's
+   * amenities/dimensions lists. Mirrors React's `params.hiddenSeatFeatures`.
+   */
+  @Input() hiddenSeatFeatures: string[] = [];
   @Output() select = new EventEmitter<ISeatData>();
   @Output() unselect = new EventEmitter<ISeatData>();
   @Output() close = new EventEmitter<void>();
@@ -212,51 +213,41 @@ export class JetsTooltipComponent {
     return this.rightToLeft ? 'rtl' : 'ltr';
   }
 
-  /** Features that have a numeric/text value (pitch, width, recline) */
+  /** Seat dimensions (pitch, width, recline) — comes pre-split from the preparer. */
   get dimensions(): ISeatFeature[] {
-    return (this.data.seat.features || []).filter(f => f.value != null && !this.isFeatureHidden(f));
+    return (this.data.seat.measurements || []).filter(f => !this.isFeatureHidden(f));
   }
 
-  /** Features that are amenities (icon-based, no numeric value) */
+  /** Amenities (audioVideo, power, wifi, nearGalley, …) — comes pre-split from the preparer. */
   get amenities(): ISeatFeature[] {
-    return (this.data.seat.features || []).filter(f => f.value == null && !this.isFeatureHidden(f));
+    return (this.data.seat.features || []).filter(f => !this.isFeatureHidden(f));
   }
 
   private isFeatureHidden(f: ISeatFeature): boolean {
     return !!f.key && this.hiddenSeatFeatures.includes(f.key);
   }
 
+  /**
+   * `ISeatData.price` is loose-typed (`number | string`) because the public
+   * emit payload replaces it with a formatted string. Internally — inside the
+   * built-in tooltip — only the numeric form is meaningful.
+   */
+  hasNumericPrice(): boolean {
+    return typeof this.data?.seat?.price === 'number';
+  }
+  getNumericPrice(): number {
+    const p = this.data?.seat?.price;
+    return typeof p === 'number' ? p : NaN;
+  }
+
+  /** `icon` field already holds a full SVG string — wrap it for `[innerHTML]`. */
+  safeSvg(svg: string | undefined): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(svg ?? '');
+  }
+
   getClassType(): string {
     if (!this.data?.seat) return '';
     return this.data.seat.classType || 'Seat';
-  }
-
-  getAmenityIcon(amenity: ISeatFeature): SafeHtml {
-    const iconKey = amenity.icon || '';
-    let svg: string;
-    if (amenity.negative) {
-      svg = SEAT_FEATURES_ICONS['-'] || '';
-    } else if (SEAT_FEATURES_ICONS[iconKey]) {
-      svg = SEAT_FEATURES_ICONS[iconKey];
-    } else {
-      // Default: green checkmark for positive features
-      svg = SEAT_FEATURES_ICONS['+'] || '';
-    }
-    return this.sanitizer.bypassSecurityTrustHtml(svg);
-  }
-
-  getDimIcon(dim: ISeatFeature): SafeHtml {
-    const key = dim.key || '';
-    const svg = SEAT_MEASUREMENTS_ICONS[key] || '';
-    return this.sanitizer.bypassSecurityTrustHtml(svg);
-  }
-
-  getDimLabel(dim: ISeatFeature): string {
-    const loc = this.locale;
-    if (dim.key) {
-      return loc[dim.key + 'Short'] ?? loc[dim.key] ?? dim.title;
-    }
-    return dim.title ?? '';
   }
 
   isSelectDisabled(): boolean {

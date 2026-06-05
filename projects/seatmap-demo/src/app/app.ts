@@ -276,8 +276,17 @@ export class App {
     );
   }
 
+  /**
+   * Exposes the latest `tooltipRequested` payload on `window.__lastTooltipRequest`
+   * so the e2e suite can introspect the data the lib hands to integrators when
+   * they want to render a custom tooltip. The actual demo never builds its own
+   * tooltip — this hook exists solely as a test seam.
+   */
   onTooltipRequested(data: ITooltipRequestData): void {
     console.log('Tooltip requested: ', data);
+    if (typeof window !== 'undefined') {
+      (window as Window & { __lastTooltipRequest?: unknown }).__lastTooltipRequest = data;
+    }
     this.addLog('tooltip', `Tooltip requested for seat ${data.seat?.number ?? '?'}`);
   }
 

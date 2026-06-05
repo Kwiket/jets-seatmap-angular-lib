@@ -25,6 +25,7 @@ import {
   IMediaData,
   IPassenger,
   ISeatData,
+  ISeatFeature,
   ISeatMouseClickData,
   ISeatMouseEnterData,
   ISeatMouseLeaveData,
@@ -34,6 +35,7 @@ import {
   TSeatAvailability,
 } from '../../types';
 import {
+  CLASS_CODE_MAP,
   DEFAULT_COLOR_THEME,
   DEFAULT_LANG,
   DEFAULT_SEAT_MAP_WIDTH,
@@ -213,7 +215,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       for (const row of deck.rows) {
         for (const seat of row.seats) {
           if (seat.type !== 'seat') continue;
-          if (seat.status === 'available' && seat.price != null && !seenPrices.has(seat.price)) {
+          if (seat.status === 'available' && typeof seat.price === 'number' && !seenPrices.has(seat.price)) {
             seenPrices.add(seat.price);
             if (seat.price === 0) {
               const freeColor = seat.color || theme.seatAvailableColor || DEFAULT_COLOR_THEME.seatAvailableColor;
@@ -684,8 +686,98 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
     this.activeTooltipChanged.emit(this.activeTooltip);
     this.selectAvailableChanged.emit(this.isSelectAvailable);
-    this.tooltipRequested.emit({ seat, element, event });
+    this.tooltipRequested.emit({ seat: this._prepareSeatForEmit(seat), element, event });
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Build the public `tooltipRequested.seat` payload from the lib's internal
+   * seat record. Mirrors React's `prepareSeatDataForEmit` and is then enriched
+   * to match the documented integrator contract:
+   *
+   *   - `label`     ← `number`
+   *   - `classType` ← `CLASS_CODE_MAP[classCode]` (full word, e.g. 'Business')
+   *   - `priceValue` ← raw numeric price
+   *   - `price`     ← formatted '${currency} ${priceValue}' string
+   *   - `features[].title` and `features[].value` are coerced to strings so
+   *     negative amenities (which carry `title: null` internally) still satisfy
+   *     `ISeatFeature.{ title: string, value: string }` in the public type.
+   *
+   * Stripped: `id`, `topOffset`, `leftOffset`, `size`, `number`, `cabinTitle`
+   * — layout-only or renamed fields not part of the public contract.
+   */
+  private _prepareSeatForEmit(seat: ISeatData): ISeatData {
+    const {
+      number,
+      topOffset: _to,
+      leftOffset: _lo,
+      size: _sz,
+      id: _id,
+      cabinTitle: _ct,
+      classCode,
+      color,
+      originalColor,
+      price,
+      currency,
+      features,
+      measurements,
+      ...rest
+    } = seat as ISeatData & { cabinTitle?: string };
+
+    // `classType` becomes the full word ('Business'), `classCode` stays single-letter.
+    const code = (classCode || rest.classType || 'E').toString();
+    const classTypeFull = CLASS_CODE_MAP[code.toLowerCase()] || CLASS_CODE_MAP[code] || code;
+
+    // Defensive fallback: the contract is `color: string` (not optional). The
+    // availability handler was the historic culprit that produced `color:
+    // undefined`; even though that's now fixed, fall back through
+    // `originalColor` → theme's seat-available colour → DEFAULT_COLOR_THEME so
+    // a downstream regression cannot ship an undefined colour again.
+    const theme = this.resolvedConfig.colorTheme ?? {};
+    const resolvedColor = color ?? originalColor ?? theme.seatAvailableColor ?? DEFAULT_COLOR_THEME.seatAvailableColor;
+
+    // Public ISeatFeature requires `title: string` and `value: string`. Internally we
+    // carry `title: null` on negative amenities (with the localized phrase living in
+    // `value`); flatten that to the same string in both slots for the emit shape.
+    const stringifyFeature = (f: ISeatFeature): ISeatFeature => {
+      const value = f.value == null ? '' : String(f.value);
+      return { ...f, title: f.title ?? value, value };
+    };
+
+    const numericPrice = typeof price === 'number' ? price : undefined;
+    const priceStr = numericPrice != null ? `${currency ?? ''}${currency ? ' ' : ''}${numericPrice}` : undefined;
+
+    // `passengerTypes` semantically means "allowed passenger types for this
+    // seat". When the API/availability don't restrict the seat, default to []
+    // ("no restriction = open to all"). Avoids surfacing `undefined` to
+    // integrators, who'd otherwise need to defensive-check before iterating.
+    const passengerTypes = (rest as ISeatData).passengerTypes ?? [];
+
+    const emitted = {
+      ...(rest as ISeatData),
+      label: number,
+      classCode: code,
+      classType: classTypeFull,
+      color: resolvedColor,
+      originalColor: originalColor ?? resolvedColor,
+      currency,
+      // `price` becomes the formatted string; `priceValue` carries the number.
+      price: priceStr as unknown as number,
+      priceValue: numericPrice,
+      passengerTypes,
+      features: (features ?? []).map(stringifyFeature),
+      measurements: (measurements ?? []).map(stringifyFeature),
+      additionalProps: ((rest as ISeatData).additionalProps ?? []).map(stringifyFeature),
+    };
+
+    // Strip any remaining undefined-valued keys so the payload only carries
+    // fields the lib actually has data for. Mirrors how integrators would
+    // hand-craft a JSON contract — present keys mean "set", missing keys
+    // mean "unset" — instead of `{ price: undefined }` style noise.
+    for (const k of Object.keys(emitted) as Array<keyof typeof emitted>) {
+      if (emitted[k] === undefined) delete emitted[k];
+    }
+    return emitted;
   }
 
   onTooltipSelect(seat: ISeatData): void {

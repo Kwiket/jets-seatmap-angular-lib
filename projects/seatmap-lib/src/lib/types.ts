@@ -215,29 +215,61 @@ export type TSeatAvailability = Array<{
 }>;
 
 // ─── Seat feature ─────────────────────────────────────────────────────────────
+/**
+ * Shape mirrors React's prepared feature/measurement item.
+ * - `key`: stable feature identifier matching the API (e.g. 'audioVideo', 'nearGalley', 'pitch').
+ * - `icon`: full inline SVG string (looked up from SEAT_FEATURES_ICONS / SEAT_MEASUREMENTS_ICONS).
+ *   Integrators render it via `innerHTML`. Never just the icon key.
+ * - `title`: short localized label (e.g. 'Audio / Video', 'Pitch'). `null` for negative amenities
+ *   — in that case the localized phrase moves to `value` (matches React's pros/cons convention).
+ * - `value`: for measurements, the formatted dimension (e.g. '198 cm'). For positive amenities,
+ *   the raw API value (true | string). For negative amenities, the localized phrase.
+ * - `uniqId`: per-item identifier; useful as a React/Angular `*ngFor` track key.
+ */
 export interface ISeatFeature {
-  title: string | null;
-  icon?: string;
-  value?: string | number;
-  /** Identifies the feature type (e.g. 'pitch', 'width', 'recline') for display logic */
   key?: string;
-  /** If true, this is a negative/warning amenity (e.g. "Close to galleys") */
-  negative?: boolean;
+  icon?: string;
+  title: string | null;
+  value?: string | number | boolean | null;
+  uniqId?: string;
 }
 
 // ─── Rendered seat ────────────────────────────────────────────────────────────
 export interface ISeatData {
   id: string;
+  /**
+   * Per-item identifier (React parity). Generated when the seat is prepared,
+   * stable for the lifetime of that seat instance. Integrators can use it as
+   * a `*ngFor` track key or to correlate `tooltipRequested` payloads with
+   * subsequent `seatSelected` events.
+   */
+  uniqId?: string;
   letter: string;
   type: TSeatType;
   status: TSeatStatus;
   size: number;
+  /** Internal seat number (e.g. '6L'). Renamed to `label` in the public emit payload. */
   number?: string;
+  /** Emitted alias for `number` (React parity). Present on `tooltipRequested.seat`. */
+  label?: string;
+  /** Cabin-class single-letter code from the API row (F/B/P/E). */
+  classCode?: string;
+  /** Composite identifier `${classCode}-${seatIconType}` — matches React's `seatType`. */
+  seatType?: string;
   color?: string;
   originalColor?: string;
   rotation?: TSeatRotation;
   passenger?: IPassenger;
-  price?: number;
+  /**
+   * Internally the lib treats `price` as a number. On the public emit payload
+   * (`tooltipRequested.seat`) it is replaced with the formatted string
+   * `${currency} ${priceValue}` (e.g. '$ 29') — see `priceValue` for the
+   * raw number. Typed loose so both internal and emit shapes type-check.
+   */
+  price?: number | string;
+  /** Raw numeric price exposed on the public emit payload. */
+  priceValue?: number;
+  /** Currency symbol or code (e.g. '$', 'EUR'). */
   currency?: string;
   features?: ISeatFeature[];
   measurements?: ISeatFeature[];

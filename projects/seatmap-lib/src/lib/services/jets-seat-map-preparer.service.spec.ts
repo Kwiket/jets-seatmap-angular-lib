@@ -272,7 +272,8 @@ describe('JetsSeatMapPreparerService', () => {
 
       expect(titles).toContain('Personal screens');
       expect(titles.some(t => t?.includes('Wi-Fi'))).toBe(true);
-      expect(titles.some(t => t?.includes('AC/USB'))).toBe(true);
+      // React parity: combined power + USB → 'USB and power plug' (used to be 'AC/USB').
+      expect(titles.some(t => t?.includes('USB and power plug'))).toBe(true);
     });
 
     it('should handle multiple decks', () => {
