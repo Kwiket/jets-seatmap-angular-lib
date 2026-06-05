@@ -89,4 +89,49 @@ describe('JetsDeckComponent', () => {
     component.seatOverride = FakeSeat as any;
     expect(component.seatOverride).toBe(FakeSeat);
   });
+
+  describe('ARIA grid host (commit 6)', () => {
+    it('should set role="grid" on the host element', () => {
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).getAttribute('role')).toBe('grid');
+    });
+
+    it('should set aria-rowcount to rows.length and aria-colcount to max seats-per-row', () => {
+      component.deck = {
+        rows: [
+          { id: 'r1', seats: [makeSeat({ id: 's1' }), makeSeat({ id: 's2' }), makeSeat({ id: 's3' })] },
+          { id: 'r2', seats: [makeSeat({ id: 's4' }), makeSeat({ id: 's5' })] },
+          { id: 'r3', seats: [makeSeat({ id: 's6' }), makeSeat({ id: 's7' }), makeSeat({ id: 's8' }), makeSeat({ id: 's9' })] },
+        ],
+        number: 1,
+        scale: 1,
+      };
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      expect(host.getAttribute('aria-rowcount')).toBe('3');
+      expect(host.getAttribute('aria-colcount')).toBe('4');
+    });
+
+    it('should include the deck title in aria-label', () => {
+      fixture.detectChanges();
+      const label = (fixture.nativeElement as HTMLElement).getAttribute('aria-label') ?? '';
+      expect(label).toContain('Upper');
+    });
+
+    it('should pass rowIndex (1-based) to each sm-jets-row', () => {
+      component.deck = {
+        rows: [
+          { id: 'r1', seats: [makeSeat({ id: 's1' })] },
+          { id: 'r2', seats: [makeSeat({ id: 's2' })] },
+        ],
+        number: 1,
+        scale: 1,
+      };
+      fixture.detectChanges();
+      const rows = (fixture.nativeElement as HTMLElement).querySelectorAll('sm-jets-row');
+      // Each row sets aria-rowindex via host binding in JetsRowComponent (commit 6).
+      expect(rows[0].getAttribute('aria-rowindex')).toBe('1');
+      expect(rows[1].getAttribute('aria-rowindex')).toBe('2');
+    });
+  });
 });

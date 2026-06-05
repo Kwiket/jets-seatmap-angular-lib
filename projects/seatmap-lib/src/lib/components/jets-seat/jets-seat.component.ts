@@ -16,6 +16,8 @@ import {
   DEFAULT_COLOR_THEME,
   SEAT_SIZE_BY_TYPE,
   DEFAULT_SEAT_TYPE,
+  LOCALES_MAP,
+  DEFAULT_LANG,
 } from '../../constants';
 import { seatTemplateService, ISeatStyle } from '../../services/seat-template.service';
 import { tintSeatColorForClass } from '../../utils/color-tint';
@@ -31,6 +33,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
       <button
         #seatEl
         type="button"
+        role="gridcell"
         [class]="seatClasses"
         [attr.data-seat-number]="data.number || null"
         [attr.aria-label]="ariaLabel || null"
@@ -38,7 +41,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
         [attr.aria-disabled]="ariaDisabled ? 'true' : null"
         [attr.aria-colindex]="colIndex ?? null"
         [attr.aria-rowindex]="rowIndex ?? null"
-        [attr.tabindex]="rovingTabindex ?? 0"
+        [attr.tabindex]="effectiveTabindex"
         [style.width.px]="seatWidth"
         [style.height.px]="seatHeight"
         [style.flex-shrink]="0"
@@ -112,8 +115,13 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
     } @else {
       <div
         #seatEl
+        role="gridcell"
         [class]="seatClasses"
         [attr.data-seat-number]="data.number || null"
+        [attr.aria-label]="nonSeatAriaLabel"
+        [attr.aria-colindex]="colIndex ?? null"
+        [attr.aria-rowindex]="rowIndex ?? null"
+        [attr.tabindex]="effectiveTabindex"
         [style.width.px]="seatWidth"
         [style.height.px]="seatHeight"
         [style.flex-shrink]="0"
@@ -171,6 +179,12 @@ export class JetsSeatComponent implements OnChanges {
   @Input() colIndex?: number;
   /** aria-rowindex (1-based). Same as above. */
   @Input() rowIndex?: number;
+  /**
+   * Language tag used to look up localised aria-labels for non-seat cells
+   * (aisle / empty / index). Defaults to English; the parent grid propagates
+   * the map-level `config.lang` in commit 6.
+   */
+  @Input() lang: string = DEFAULT_LANG;
 
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
@@ -198,6 +212,53 @@ export class JetsSeatComponent implements OnChanges {
     if (this.data?.type === ENTITY_TYPE_MAP.seat) {
       const svg = this._buildSvg();
       this.svgContent = this.sanitizer.bypassSecurityTrustHtml(svg);
+    }
+  }
+
+  /**
+   * tabindex applied to the rendered root.
+   *
+   * Seat cells default to `0` so a standalone seat (rendered outside a grid)
+   * stays focusable. When the parent grid wires `rovingTabindex` (commit 7),
+   * exactly one focused seat keeps `0` and the rest get `-1`.
+   *
+   * Non-seat cells (aisle / empty / index) are always `-1`: they're reachable
+   * via the grid's arrow-key navigation (commit 7) but never via Tab.
+   */
+  get effectiveTabindex(): number {
+    if (this.data?.type === ENTITY_TYPE_MAP.seat) {
+      return this.rovingTabindex ?? 0;
+    }
+    return -1;
+  }
+
+  /**
+   * Accessible label for non-seat gridcells (aisle / empty / index).
+   *
+   * Falls back to English literals when the active locale doesn't define the
+   * key — see TODO(commit 17 docs) to backfill `aisle` / `empty` for every
+   * locale in LOCALES_MAP.
+   *
+   * For `index` cells we surface the row number (the cell exists purely as a
+   * row label in the spatial layout); the type is currently unused by the
+   * generator but plumbed through the type system, so we cover it for
+   * completeness.
+   */
+  get nonSeatAriaLabel(): string | null {
+    if (!this.data || this.data.type === ENTITY_TYPE_MAP.seat) return null;
+    const loc = LOCALES_MAP[this.lang] ?? LOCALES_MAP[DEFAULT_LANG] ?? {};
+    // TODO(commit 17 docs): add 'aisle' / 'empty' keys to all locales in LOCALES_MAP.
+    switch (this.data.type) {
+      case ENTITY_TYPE_MAP.aisle:
+        return loc['aisle'] || 'aisle';
+      case ENTITY_TYPE_MAP.empty:
+        return loc['empty'] || 'empty';
+      case ENTITY_TYPE_MAP.index: {
+        const rowLabel = loc['row'] || 'Row';
+        return this.data.number ? `${rowLabel} ${this.data.number}` : (loc['index'] || rowLabel);
+      }
+      default:
+        return null;
     }
   }
 

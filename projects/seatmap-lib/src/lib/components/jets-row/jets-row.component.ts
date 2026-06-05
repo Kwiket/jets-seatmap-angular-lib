@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Type } from '@angular/core';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { ISeatData, IRowData, IColorTheme } from '../../types';
+import { DEFAULT_LANG } from '../../constants';
 import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
 
 @Component({
@@ -8,10 +9,14 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
   standalone: true,
   imports: [CommonModule, NgComponentOutlet, JetsSeatComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    'role': 'row',
+    '[attr.aria-rowindex]': 'rowIndex ?? null',
+  },
   template: `
     <div class="jets-row" [class.jets-row--has-offset]="row.topOffset != null" [style.margin-top.px]="rowMarginTop">
       <div class="jets-row__seats">
-        @for (seat of row.seats; track seat.id) {
+        @for (seat of row.seats; track seat.id; let i = $index) {
           @if (seatOverride) {
             <ng-container
               *ngComponentOutlet="
@@ -27,8 +32,9 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
                   ariaSelected: ariaSelected,
                   ariaDisabled: ariaDisabled,
                   rovingTabindex: rovingTabindex,
-                  colIndex: colIndex,
+                  colIndex: i + 1,
                   rowIndex: rowIndex,
+                  lang: lang,
                 }
               "
             />
@@ -44,8 +50,9 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
               [ariaSelected]="ariaSelected"
               [ariaDisabled]="ariaDisabled"
               [rovingTabindex]="rovingTabindex"
-              [colIndex]="colIndex"
+              [colIndex]="i + 1"
               [rowIndex]="rowIndex"
+              [lang]="lang"
               (seatClick)="seatClick.emit($event)"
               (seatMouseEnter)="seatMouseEnter.emit($event)"
               (seatMouseLeave)="seatMouseLeave.emit($event)"
@@ -94,8 +101,15 @@ export class JetsRowComponent {
   @Input() ariaSelected?: boolean | null;
   @Input() ariaDisabled?: boolean;
   @Input() rovingTabindex?: number;
+  /**
+   * @deprecated colIndex is computed per-seat from the @for index (1-based) in commit 6.
+   * The input is preserved for API stability but no longer flows through to seats.
+   */
   @Input() colIndex?: number;
+  /** 1-based row index for `aria-rowindex` (commit 6 grid scaffold). */
   @Input() rowIndex?: number;
+  /** Language tag forwarded to seat for non-seat aria-labels (commit 6). */
+  @Input() lang: string = DEFAULT_LANG;
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
     element: HTMLElement;

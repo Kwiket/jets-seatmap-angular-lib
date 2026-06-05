@@ -697,4 +697,63 @@ describe('JetsSeatComponent', () => {
       expect(style.fillColor).toBe('#cccccc');
     });
   });
+
+  // ─── Grid cell semantics (commit 6) ─────────────────────────────────────
+
+  describe('Grid cell semantics (commit 6)', () => {
+    it('sets role="gridcell" on the seat button', () => {
+      component.data = makeSeat();
+      fixture.detectChanges();
+      const btn = (fixture.nativeElement as HTMLElement).querySelector('button.jets-seat');
+      expect(btn?.getAttribute('role')).toBe('gridcell');
+    });
+
+    it('sets role="gridcell" on aisle / empty cells (div branch)', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle, number: undefined });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('role')).toBe('gridcell');
+    });
+
+    it('aisle gets localised aria-label (English fallback)', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle, number: undefined });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('aria-label')).toBe('aisle');
+    });
+
+    it('empty gets localised aria-label (English fallback)', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.empty, number: undefined });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('aria-label')).toBe('empty');
+    });
+
+    it('index cell surfaces "Row {number}" when number is present', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.index, number: '14' });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('aria-label')).toBe('Row 14');
+    });
+
+    it('non-seat cells have tabindex="-1" by default (reachable via arrow nav, not Tab)', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('tabindex')).toBe('-1');
+    });
+
+    it('seat cells default to tabindex="0" (focusable via Tab); rovingTabindex input overrides', () => {
+      component.data = makeSeat();
+      fixture.detectChanges();
+      let btn = (fixture.nativeElement as HTMLElement).querySelector('button.jets-seat');
+      expect(btn?.getAttribute('tabindex')).toBe('0');
+
+      // OnPush requires setInput to mark the view dirty.
+      fixture.componentRef.setInput('rovingTabindex', -1);
+      fixture.detectChanges();
+      btn = (fixture.nativeElement as HTMLElement).querySelector('button.jets-seat');
+      expect(btn?.getAttribute('tabindex')).toBe('-1');
+    });
+  });
 });
