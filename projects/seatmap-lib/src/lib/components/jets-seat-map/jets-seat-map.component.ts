@@ -467,17 +467,33 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       this._applyPassengers();
     }
 
-    // Detect lang/units changes in config — requires full reload (API returns different text/units)
-    if (changes['config'] && !changes['config'].firstChange && this.isSeatMapInited) {
+    // Detect config changes that require a full re-prep.
+    //   - lang / units: API returns different text/units, must refetch.
+    //   - customCabinTitles: cabin labels are baked into row.cabinTitle by the
+    //     preparer, so a stale prep keeps the previous titles in the DOM even
+    //     though the new config object is in place.
+    // Important: we *don't* gate this on `isSeatMapInited` — an integrator may
+    // swap config while the initial load is still in-flight (e.g. e2e test
+    // setup), and the stale in-flight prep would otherwise win on completion.
+    // `_loadSeatMap` itself is guarded by a load-id so the second call cleanly
+    // supersedes the first.
+    if (changes['config'] && !changes['config'].firstChange) {
       const newLang = this.config?.lang;
       const newUnits = this.config?.units;
-      if ((newLang && newLang !== this._prevLang) || (newUnits && newUnits !== this._prevUnits)) {
+      const prevConfig = changes['config'].previousValue as IConfig | undefined;
+      const customCabinTitlesChanged =
+        JSON.stringify(prevConfig?.customCabinTitles) !== JSON.stringify(this.config?.customCabinTitles);
+      if (
+        (newLang && newLang !== this._prevLang) ||
+        (newUnits && newUnits !== this._prevUnits) ||
+        customCabinTitlesChanged
+      ) {
         this._isSettingsReload = true;
         this._loadSeatMap();
         return;
       }
       // Re-emit legend when colorTheme changes (colors affect legend swatches)
-      this.legendReady.emit(this.legendItems);
+      if (this.isSeatMapInited) this.legendReady.emit(this.legendItems);
     }
 
     // seatJumpTo: scroll to and open tooltip for a specific seat. Tracked by value
@@ -528,10 +544,15 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private _isSettingsReload = false;
+  // Monotonic load counter. Each `_loadSeatMap` call captures the current
+  // value at start and re-checks it after the async fetch. If a newer load
+  // has been kicked off in the meantime, the older result is discarded.
+  private _loadId = 0;
 
   private async _loadSeatMap(): Promise<void> {
     if (!this.flight?.id) return;
 
+    const loadId = ++this._loadId;
     const flightId = this.flight.id;
     this._flightId = flightId;
     this.isLoading = true;
@@ -557,6 +578,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       );
 
       if (this._flightId !== flightId) return;
+      // If another _loadSeatMap kicked off while this one was awaiting (e.g.
+      // a config change landed during the initial in-flight load), the newer
+      // call owns the final state. Drop the stale result.
+      if (this._loadId !== loadId) return;
 
       const content = result.content;
       this.content = content;
