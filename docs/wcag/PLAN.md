@@ -12,10 +12,9 @@
 
 ## Status
 
-- **Last updated:** 2026-06-05 — Wave E интегрирована: commit 7 (`roving + 2D keyboard`) сделан в 2 этапа: sub-agent написал чистый `SeatGridNavigationService` + 66 спецов (SHA `61b3b78`), orchestrator подключил в `JetsSeatMapComponent` (SHA `c055e2a`). Тактика «split-then-wire» сработала без timeout-а.
+- **Last updated:** 2026-06-05 — Wave F интегрирована: commits 8 (`1.4.13 hover-tooltip focus-aware + dismissable`, SHA `8ea5e36`) и 11 (`tooltip non-modal dialog`, SHA `8ce3f3f`) — оба sub-агенты, прошли без timeout-а. **15 из 17 коммитов готовы.** Осталось 16 (axe + keyboard tests) и 17 (docs + ACR).
 - **Orchestration mode active:** Claude как orchestrator. Подробности — Claude memory `project_wcag_orchestration` и `project_wcag_sub_agent_constraints`.
-- **Current wave (Wave F, готовится):** commits 8 (`hover-tooltip focus-aware + dismissable`) → 11 (`tooltip non-modal dialog`) sequentially — оба трогают `jets-tooltip.component.ts` и `jets-seat-map.component.ts`, параллелить нельзя.
-- **Next:** commits 16 (axe + keyboard tests) и 17 (README + ACR docs) — финальная волна.
+- **Current wave (Wave G, финальная):** commits 16 (`axe + keyboard tests`) и 17 (`README + ACR docs`) — параллельно. 16 трогает только новые `*.a11y.spec.ts` файлы + `projects/seatmap-demo/e2e/a11y/`. 17 трогает только `README.md`, `docs/ACR.md`, `CHANGELOG.md`. Disjoint.
 - **Pre-existing e2e flakes** (зафиксировано суб-агентами Wave C на baseline `9eb0b26`): `colorTheme · field-seatArmrestColor`, `colorTheme · field-seatStrokeWidth`, `customCabinTitles · default`, `customCabinTitles · short`. Проходят в изолированном single-worker запуске, ломаются на параллельных воркерах. Не связаны с WCAG-работой; разбирать отдельно после ветки.
 - **Blockers:**
   - ⚠ Baseline при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — init-testbed setup инжектируется только через `ng test`. Тесты гонять командой `npm test -- --watch=false` / `ng test seatmap-lib --watch=false`, **не** `vitest run` напрямую.
@@ -321,10 +320,10 @@ Position рассчитывается по индексу в `row.seats` (пер
 | 5 | `feat(a11y): seat is a button with ARIA semantics` | [x] | `df885db` | 2026-06-05 | sub-agent Wave C; DOM-breaking (`div.jets-seat` → `button.jets-seat`), user-approved; класс `.jets-seat` + `data-seat-number` сохранены, 15 регрессионных спецов |
 | 6 | `feat(a11y): grid scaffolding (role=grid/row/gridcell)` | [x] | `49c34f6` | 2026-06-05 | sub-agent Wave D upstaled, orchestrator завершил; full Layout Grid pattern; jets-deck host=grid + aria-rowcount/colcount; jets-row host=row; jets-seat role=gridcell на обеих ветках + nonSeatAriaLabel + effectiveTabindex |
 | 7 | `feat(a11y): roving tabindex + 2D keyboard navigation` | [x] | `c055e2a` (+ `61b3b78` сервис) | 2026-06-05 | split-then-wire: sub-agent написал pure SeatGridNavigationService + 66 спецов, orchestrator подключил в JetsSeatMapComponent (focusedCell state, onGridKeydown/Focusin, _applyRovingTabindex, _focusCell, onDeckSelect refinement); 452/452 тестов |
-| 8 | `fix(a11y): 1.4.13 hover-tooltip focus-aware + dismissable` | [ ] | — | — | |
+| 8 | `fix(a11y): 1.4.13 hover-tooltip focus-aware + dismissable` | [x] | `8ea5e36` | 2026-06-05 | sub-agent Wave F; focus-triggered tooltip + 80ms delayed close (hoverable) + Esc from inside tooltip + host-div для componentOverride |
 | 9 | `feat(a11y): LiveAnnouncer for selection/jump/restrictions` | [x] | `d85a86a` | 2026-06-04 | sub-agent Wave B; polite announcements на select/unselect/jump; restriction-reason wiring оставлен TODO до интеграции commit 10's `selectAttemptBlocked` output |
 | 10 | `feat(a11y): expose seat-restriction reasoning (3.3.1/3.3.3)` | [x] | `eb4d17f` | 2026-06-04 | sub-agent Wave B; `getSelectDisabledReason()` + visible text + `aria-describedby` + `selectAttemptBlocked` Output; `isSelectDisabled()` boolean-facade сохранён |
-| 11 | `feat(a11y): tooltip is a non-modal dialog` | [ ] | — | — | |
+| 11 | `feat(a11y): tooltip is a non-modal dialog` | [x] | `8ce3f3f` | 2026-06-05 | sub-agent Wave F; role=dialog (no aria-modal/no trap) + auto-focus primary + Esc + lastTriggerElement focus restoration + sidePanel = role=region; close aria-label локализован |
 | 12 | `feat(a11y): landmarks + skip link + deck-selector semantics` | [x] | `f216a55` | 2026-06-05 | sub-agent Wave C; `<section role="region">` + visually-hidden h2 + skip-link; deck-selector → switch (N=2) / tablist (N≥3) с arrow-навигацией; focus на первое interactive место после смены палубы |
 | 13 | `feat(a11y): alternative list view + config.alternativeView` | [x] | `b81fead` | 2026-06-05 | sub-agent Wave D upstaled на финале, orchestrator дописал matchMedia watcher / effectiveView / toggle / spec; новый JetsSeatListComponent + filters + sort; default `alternativeView='grid'` |
 | 14 | `feat(a11y): prefers-reduced-motion` | [x] | `8fbc5a3` | 2026-06-04 | sub-agent Wave A; scrollIntoView SSR-safe, hover wrapped в `prefers-reduced-motion: no-preference` |
