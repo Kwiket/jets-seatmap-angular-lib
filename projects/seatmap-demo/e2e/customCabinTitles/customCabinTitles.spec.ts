@@ -49,8 +49,14 @@ test.describe('customCabinTitles', () => {
       await page.goto('/');
       await applyConfigAndReady(page, v.overrides);
 
-      const labels = await readCabinLabels(page);
-      expect(labels.sort()).toEqual([...v.expected].sort());
+      // applyConfigAndReady waits for the *initial* inited event / first-seat
+      // visible — when the lib re-prepares content because customCabinTitles
+      // changed (commit honoring it as a re-prep trigger), the second prep is
+      // async and may land slightly after the first inited resolution. Poll
+      // the rendered labels so we read the post-re-prep DOM.
+      await expect
+        .poll(async () => (await readCabinLabels(page)).sort(), { timeout: 5_000 })
+        .toEqual([...v.expected].sort());
 
       // Full deck for the broad layout. Cabin titles render vertically along
       // the seatmap edges — at full deck scale long strings like 'Premium Economy'
