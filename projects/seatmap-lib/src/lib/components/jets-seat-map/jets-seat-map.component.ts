@@ -174,6 +174,17 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    */
   focusedCell: ICellPos = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
 
+  // ─── Hover tooltip "hoverable" delay (commit 8 / SC 1.4.13) ─────────────
+  /**
+   * Pending close timer id. Scheduled by `onSeatMouseLeave` /
+   * `onTooltipMouseLeave` and cancelled by `_showTooltip` or
+   * `onTooltipMouseEnter` so the user can move the cursor from the seat
+   * into the tooltip without it being yanked away.
+   */
+  private _hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Delay (ms) before a hover-tooltip is auto-closed once the cursor leaves. */
+  private static readonly HOVER_CLOSE_DELAY_MS = 80;
+
   get resolvedConfig(): IConfig {
     const env = getEnvironmentInfo();
     // Firefox doesn't fully support CSS zoom — force SCALE mode
@@ -624,6 +635,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this._flightId = null;
     this._teardownViewportWatcher();
+    // SC 1.4.13: cancel any pending hover-close so the timer can't fire
+    // against a destroyed view and emit a stray `activeTooltipChanged(null)`.
+    this._cancelHoverClose();
   }
 
   // ─── Alternative-view (list vs grid) — commit 13 ────────────────────────
@@ -729,6 +743,34 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     if (isNaN(rowIdx) || isNaN(colIdx)) return;
     this.focusedCell = { deckIdx: this.activeDeckIndex, rowIdx, colIdx };
     this._applyRovingTabindex();
+
+    // WCAG 2.1 SC 1.4.13 — focus parity for hover tooltip.
+    // Mouse users get the tooltip on mouseenter when `tooltipOnHover` is on
+    // (see `onSeatMouseEnter`). Keyboard / AT users navigating the grid
+    // with arrow keys (commit 7) must get the same affordance — otherwise
+    // information that is "available on hover" is invisible to them.
+    if (!this.resolvedConfig.tooltipOnHover) return;
+    if (getEnvironmentInfo().isTouchDevice) return;
+
+    const deck = this.content[this.focusedCell.deckIdx];
+    const row = deck?.rows?.[this.focusedCell.rowIdx];
+    const seat = row?.seats?.[this.focusedCell.colIdx];
+    if (!seat || seat.type !== 'seat') return;
+    // Only interactive seats trigger the tooltip — matches the implicit
+    // contract of `_showTooltip` (which would render a tooltip with no
+    // actions for non-interactive states like 'unavailable').
+    const interactive =
+      seat.status === 'available' ||
+      seat.status === 'selected' ||
+      seat.status === 'preferred' ||
+      seat.status === 'extra';
+    if (!interactive) return;
+
+    // Avoid flicker / redundant emits when focus moves within the same seat
+    // (e.g. focus bounces back from the tooltip).
+    if (this.activeTooltip && this.activeTooltip.seat === seat) return;
+
+    this._showTooltip({ seat, element: el });
   }
 
   /**
@@ -902,9 +944,49 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.seatMouseLeave.emit(payload);
 
     if (this.resolvedConfig.tooltipOnHover && !getEnvironmentInfo().isTouchDevice) {
+      // WCAG 2.1 SC 1.4.13 ("hoverable"): defer the close so a user moving
+      // the cursor from the seat into the tooltip body has time to reach
+      // it. `onTooltipMouseEnter` cancels the pending close; if the cursor
+      // misses the tooltip the timer fires and the tooltip vanishes.
+      this._scheduleHoverClose();
+    }
+  }
+
+  /**
+   * Cursor (or focus, indirectly via :focus-within) entered the tooltip body.
+   * Cancels the pending hover-close timer set by `onSeatMouseLeave` so the
+   * tooltip stays put for as long as the user is interacting with it.
+   */
+  onTooltipMouseEnter(): void {
+    this._cancelHoverClose();
+  }
+
+  /**
+   * Cursor left the tooltip body. Re-arm the same delayed close used by
+   * `onSeatMouseLeave` so moving cursor from tooltip → off-grid still
+   * dismisses the tooltip, matching the original "leaves on mouseleave"
+   * behaviour but with the 80 ms grace window required by SC 1.4.13.
+   */
+  onTooltipMouseLeave(): void {
+    if (!this.resolvedConfig.tooltipOnHover) return;
+    if (getEnvironmentInfo().isTouchDevice) return;
+    this._scheduleHoverClose();
+  }
+
+  private _scheduleHoverClose(): void {
+    this._cancelHoverClose();
+    this._hoverCloseTimer = setTimeout(() => {
+      this._hoverCloseTimer = null;
       this.activeTooltip = null;
       this.activeTooltipChanged.emit(null);
       this.cdr.markForCheck();
+    }, JetsSeatMapComponent.HOVER_CLOSE_DELAY_MS);
+  }
+
+  private _cancelHoverClose(): void {
+    if (this._hoverCloseTimer != null) {
+      clearTimeout(this._hoverCloseTimer);
+      this._hoverCloseTimer = null;
     }
   }
 
@@ -928,6 +1010,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   private _showTooltip(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
     const { seat, element, event } = payload;
+
+    // Re-entering a seat (or focus moving back) while a hover-close was
+    // pending must abort the close so we don't immediately tear down the
+    // tooltip we're about to open.
+    this._cancelHoverClose();
 
     const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
     this.isSelectAvailable = !!nextPassenger;

@@ -1237,10 +1237,18 @@ describe('JetsSeatMapComponent', () => {
 
       const closedSpy = vi.fn();
       component.activeTooltipChanged.subscribe(closedSpy);
-      component.onSeatMouseLeave({
-        seat: makeSeat(),
-        element: document.createElement('div'),
-      });
+      vi.useFakeTimers();
+      try {
+        component.onSeatMouseLeave({
+          seat: makeSeat(),
+          element: document.createElement('div'),
+        });
+        // SC 1.4.13: close is deferred so the cursor can land on the tooltip.
+        expect(component.activeTooltip).toBeTruthy();
+        vi.advanceTimersByTime(100);
+      } finally {
+        vi.useRealTimers();
+      }
       expect(component.activeTooltip).toBeNull();
       expect(closedSpy).toHaveBeenCalledWith(null);
     });
@@ -1478,6 +1486,183 @@ describe('JetsSeatMapComponent', () => {
       const ev = { target: el } as unknown as FocusEvent;
       component.onGridFocusin(ev);
       expect(component.focusedCell).toMatchObject({ rowIdx: 1, colIdx: 2 });
+    });
+  });
+
+  // ─── Hover tooltip — focus-aware + hoverable (commit 8 / SC 1.4.13) ────
+  //
+  // Covers the three behaviour changes layered on top of the existing
+  // hover-tooltip path: (a) focusin opens the tooltip when tooltipOnHover
+  // is on, (b) onSeatMouseLeave defers the close so the cursor can land on
+  // the tooltip, (c) tooltip mouseenter/mouseleave cancel/re-arm the close.
+  describe('Hover tooltip a11y (commit 8)', () => {
+    let savedDescriptor: PropertyDescriptor | undefined;
+    let hadOntouchstart = false;
+
+    beforeEach(() => {
+      // Force non-touch — the hover/focus paths short-circuit on touch.
+      resetCachedEnvironmentInfo();
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      hadOntouchstart = Object.prototype.hasOwnProperty.call(proto, 'ontouchstart');
+      if (hadOntouchstart) {
+        savedDescriptor = Object.getOwnPropertyDescriptor(proto, 'ontouchstart');
+        delete proto['ontouchstart'];
+      }
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        configurable: true,
+        get: () => 0,
+      });
+
+      // Minimal in-memory content the focusin handler can resolve a seat from.
+      component.content = [
+        {
+          rows: [
+            {
+              id: 'r1',
+              seats: [
+                makeSeat({ id: 's-1a', number: '1A', letter: 'A' }),
+                makeSeat({ id: 's-1b', number: '1B', letter: 'B' }),
+              ],
+            },
+          ],
+          number: 1,
+          scale: 1,
+        },
+      ];
+      component.focusedCell = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
+      Object.defineProperty(component, 'mapContainer', {
+        value: { nativeElement: { querySelector: () => null, querySelectorAll: () => [] } },
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      if (hadOntouchstart && savedDescriptor) {
+        Object.defineProperty(proto, 'ontouchstart', savedDescriptor);
+      }
+      resetCachedEnvironmentInfo();
+    });
+
+    function makeGridcellFocusEvent(rowIdx = 1, colIdx = 1): FocusEvent {
+      const el = document.createElement('button');
+      el.setAttribute('aria-rowindex', String(rowIdx));
+      el.setAttribute('aria-colindex', String(colIdx));
+      return { target: el } as unknown as FocusEvent;
+    }
+
+    it('onGridFocusin opens the tooltip when tooltipOnHover=true and the cell is an available seat', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      const tooltipSpy = vi.fn();
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onGridFocusin(makeGridcellFocusEvent(1, 1));
+
+      expect(component.activeTooltip).toBeTruthy();
+      expect(tooltipSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('onGridFocusin does NOT open the tooltip when tooltipOnHover is off', () => {
+      component.config = makeConfig({ tooltipOnHover: false });
+      const tooltipSpy = vi.fn();
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onGridFocusin(makeGridcellFocusEvent(1, 1));
+
+      expect(component.activeTooltip).toBeNull();
+      expect(tooltipSpy).not.toHaveBeenCalled();
+    });
+
+    it('onSeatMouseLeave defers the close by ~80ms (SC 1.4.13 hoverable)', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      expect(component.activeTooltip).toBeTruthy();
+
+      vi.useFakeTimers();
+      try {
+        component.onSeatMouseLeave({
+          seat: makeSeat(),
+          element: document.createElement('div'),
+        });
+        // Tooltip must still be open immediately after mouseleave.
+        expect(component.activeTooltip).toBeTruthy();
+        vi.advanceTimersByTime(79);
+        expect(component.activeTooltip).toBeTruthy();
+        vi.advanceTimersByTime(2);
+        expect(component.activeTooltip).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('onTooltipMouseEnter cancels a pending close timer', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      vi.useFakeTimers();
+      try {
+        component.onSeatMouseLeave({
+          seat: makeSeat(),
+          element: document.createElement('div'),
+        });
+        // Cursor moves into the tooltip — cancel the pending close.
+        component.onTooltipMouseEnter();
+        vi.advanceTimersByTime(500);
+        // Tooltip should still be open because the timer was cancelled.
+        expect(component.activeTooltip).toBeTruthy();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('onTooltipMouseLeave re-schedules the deferred close', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      vi.useFakeTimers();
+      try {
+        // Simulate cursor entering and then leaving the tooltip body.
+        component.onTooltipMouseEnter();
+        component.onTooltipMouseLeave();
+        expect(component.activeTooltip).toBeTruthy();
+        vi.advanceTimersByTime(100);
+        expect(component.activeTooltip).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('ngOnDestroy clears a pending hover-close timer', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      vi.useFakeTimers();
+      try {
+        component.onSeatMouseLeave({
+          seat: makeSeat(),
+          element: document.createElement('div'),
+        });
+        const closedSpy = vi.fn();
+        component.activeTooltipChanged.subscribe(closedSpy);
+        component.ngOnDestroy();
+        vi.advanceTimersByTime(500);
+        // The timer must have been cleared — no stray emit after destroy.
+        expect(closedSpy).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

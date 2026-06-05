@@ -33,24 +33,40 @@
       (keydown)="onGridKeydown($event)"
       (focusin)="onGridFocusin($event)"
     >
-    <!-- Built-in tooltip (or user-provided override) -->
+    <!-- Built-in tooltip (or user-provided override).
+         (mouseenter)/(mouseleave) implement SC 1.4.13 "hoverable" — moving
+         the cursor from the seat into the tooltip cancels the delayed close
+         scheduled by `onSeatMouseLeave`. (keydown.escape) implements
+         SC 1.4.13 "dismissable" when focus is INSIDE the tooltip (e.g. on
+         the Select / Cancel buttons) — the global Escape handler on the
+         grid only fires when focus is still on a seat.
+         The override branch is wrapped in a host <div> so it can carry the
+         same event bindings as the built-in tooltip; component outlets
+         can't take event bindings directly. -->
     @if (activeTooltip && resolvedConfig.builtInTooltip !== false) {
       @if (tooltipOverride) {
-        <ng-container
-          *ngComponentOutlet="
-            tooltipOverride;
-            inputs: {
-              data: activeTooltip,
-              isSelectAvailable: isSelectAvailable,
-              showActions: hasAvailability,
-              showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
-              colorTheme: resolvedConfig.colorTheme,
-              rightToLeft: resolvedConfig.rightToLeft ?? false,
-              hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
-              currencyOverride: resolvedConfig.currencySign || '',
-            }
-          "
-        />
+        <div
+          class="jets-seat-map__tooltip-host"
+          (mouseenter)="onTooltipMouseEnter()"
+          (mouseleave)="onTooltipMouseLeave()"
+          (keydown.escape)="onTooltipClose(); $event.stopPropagation()"
+        >
+          <ng-container
+            *ngComponentOutlet="
+              tooltipOverride;
+              inputs: {
+                data: activeTooltip,
+                isSelectAvailable: isSelectAvailable,
+                showActions: hasAvailability,
+                showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
+                colorTheme: resolvedConfig.colorTheme,
+                rightToLeft: resolvedConfig.rightToLeft ?? false,
+                hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
+                currencyOverride: resolvedConfig.currencySign || '',
+              }
+            "
+          />
+        </div>
       } @else {
         <sm-jets-tooltip
           [data]="activeTooltip"
@@ -65,6 +81,9 @@
           (select)="onTooltipSelect($event)"
           (unselect)="onTooltipUnselect($event)"
           (close)="onTooltipClose()"
+          (mouseenter)="onTooltipMouseEnter()"
+          (mouseleave)="onTooltipMouseLeave()"
+          (keydown.escape)="onTooltipClose(); $event.stopPropagation()"
         />
       }
     }
