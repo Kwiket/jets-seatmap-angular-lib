@@ -534,6 +534,48 @@ describe('JetsSeatMapComponent', () => {
     });
   });
 
+  // ─── Tooltip focus return (commit 11 / WCAG 2.4.3) ────────────────────
+  describe('Tooltip focus return', () => {
+    it('_showTooltip records the trigger element as _lastTriggerElement', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const trigger = document.createElement('div');
+      component.onSeatClick({ seat: makeSeat(), element: trigger });
+
+      // Field is private; cast to any in the test only.
+      expect((component as any)._lastTriggerElement).toBe(trigger);
+    });
+
+    it('onTooltipClose schedules a focus restoration on the stored trigger', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // Use a real button so .focus() actually works in jsdom.
+      const trigger = document.createElement('button');
+      document.body.appendChild(trigger);
+      const focusSpy = vi.spyOn(trigger, 'focus');
+
+      vi.useFakeTimers();
+      try {
+        component.onSeatClick({ seat: makeSeat(), element: trigger });
+        component.onTooltipClose();
+        // Restoration is deferred via setTimeout(0) so the tooltip DOM has
+        // time to detach before focus moves.
+        expect(focusSpy).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(10);
+        expect(focusSpy).toHaveBeenCalledTimes(1);
+        // After restoration, the stored reference is cleared.
+        expect((component as any)._lastTriggerElement).toBeNull();
+      } finally {
+        vi.useRealTimers();
+        document.body.removeChild(trigger);
+      }
+    });
+  });
+
   // ─── Edge cases ───────────────────────────────────────────────────────
 
   describe('Edge cases', () => {

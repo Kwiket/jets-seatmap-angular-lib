@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, Type } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  EventEmitter,
+  inject,
+  Input,
+  Output,
+  Type,
+  ViewChild,
+} from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
@@ -26,6 +37,13 @@ export interface ISelectDisabledReason {
 
 /** Counter for per-instance unique DOM ids — avoids `Math.random()` so it's SSR-deterministic. */
 let _selectReasonUid = 0;
+/**
+ * Separate counter for the dialog-related ids (header label / amenities or
+ * dimensions description target). Kept distinct from `_selectReasonUid` so
+ * the two streams of ids stay independently monotonic and easy to reason
+ * about in DOM dumps. Same module-scope pattern as `nextSeatMapInstanceId`.
+ */
+let _tooltipDialogUid = 0;
 
 @Component({
   selector: 'sm-jets-tooltip',
@@ -54,6 +72,10 @@ let _selectReasonUid = 0;
         class="jets-tooltip"
         [class.jets-tooltip--below]="!sidePanel && data.openBelow"
         [class.jets-tooltip--side-panel]="sidePanel"
+        [attr.role]="sidePanel ? 'region' : 'dialog'"
+        [attr.aria-labelledby]="headerTitleId"
+        [attr.aria-describedby]="describedById ?? null"
+        (keydown.escape)="onEscapeKey($event)"
         [style.top.px]="sidePanel ? null : data.top"
         [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
         [style.font-family]="colorTheme?.fontFamily || null"
@@ -70,7 +92,9 @@ let _selectReasonUid = 0;
             <!-- Header -->
             <div class="jets-tooltip--header" [style.direction]="textDirection">
               <div class="jets-tooltip--header-title">
-                <span>{{ data.seat.name || data.seat.rowName || getClassType() }} {{ data.seat.number }}</span>
+                <span [id]="headerTitleId"
+                  >{{ data.seat.name || data.seat.rowName || getClassType() }} {{ data.seat.number }}</span
+                >
                 @if (data.seat.price != null && data.seat.price > 0) {
                   <span class="jets-tooltip--header-price"
                     >{{ resolvedCurrency }}{{ currencySeparator }}{{ data.seat.price }}</span
@@ -80,7 +104,11 @@ let _selectReasonUid = 0;
                   <span class="jets-tooltip--header-price">Free</span>
                 }
                 @if (!sidePanel) {
-                  <button class="jets-tooltip--close-btn" (click)="close.emit()" aria-label="Close">
+                  <button
+                    class="jets-tooltip--close-btn"
+                    (click)="close.emit()"
+                    [attr.aria-label]="closeLabel"
+                  >
                     <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
                       <line
                         x1="1"
@@ -113,7 +141,11 @@ let _selectReasonUid = 0;
 
             <!-- Amenities list -->
             @if (amenities.length) {
-              <div class="jets-tooltip--amenities" [style.direction]="textDirection">
+              <div
+                class="jets-tooltip--amenities"
+                [id]="amenitiesId"
+                [style.direction]="textDirection"
+              >
                 @for (amenity of amenities; track amenity.title) {
                   <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.negative">
                     <span
@@ -129,7 +161,7 @@ let _selectReasonUid = 0;
 
             <!-- Seat dimensions (pitch / width / recline) -->
             @if (dimensions.length) {
-              <div class="jets-tooltip--dimensions">
+              <div class="jets-tooltip--dimensions" [id]="dimensionsId">
                 @for (dim of dimensions; track dim.title) {
                   <div class="jets-tooltip--dimension">
                     <div class="jets-tooltip--dim-icon" aria-hidden="true" [innerHTML]="getDimIcon(dim)"></div>
@@ -155,6 +187,7 @@ let _selectReasonUid = 0;
 
               @if (data.seat.passenger) {
                 <button
+                  #primaryActionBtn
                   class="jets-btn jets-tooltip--btn jets-select-btn"
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
                   [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
@@ -165,6 +198,7 @@ let _selectReasonUid = 0;
               } @else {
                 @let _reason = getSelectDisabledReason();
                 <button
+                  #primaryActionBtn
                   class="jets-btn jets-tooltip--btn jets-select-btn"
                   [class.jets-select-btn--aria-disabled]="_reason.disabled"
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
@@ -194,8 +228,17 @@ let _selectReasonUid = 0;
   `,
   styleUrls: ['./jets-tooltip.component.scss'],
 })
-export class JetsTooltipComponent {
+export class JetsTooltipComponent implements AfterViewInit {
   private sanitizer = inject(DomSanitizer);
+
+  /**
+   * Primary action button (Select when no passenger, Unselect when seat carries
+   * one). Used by `ngAfterViewInit` to move keyboard focus into the dialog so
+   * keyboard / AT users land on the most likely action (WCAG 2.4.3 Focus Order).
+   * Optional because the actions block is gated behind `showActions` and we
+   * must never throw when the host renders the tooltip without action buttons.
+   */
+  @ViewChild('primaryActionBtn') primaryActionBtnRef?: ElementRef<HTMLButtonElement>;
 
   /**
    * Optional override for the tooltip view (presentational layer). When provided,
@@ -258,6 +301,42 @@ export class JetsTooltipComponent {
 
   /** Stable per-instance id so multiple tooltips on a page don't collide. */
   readonly selectReasonId = `jets-tooltip-select-reason-${++_selectReasonUid}`;
+
+  // ─── Dialog ARIA ids (commit 11) ───────────────────────────────────────
+  // The non-sidePanel branch renders as `role="dialog"` (non-modal — see the
+  // Decisions log entry 2026-06-04: the map is not overlaid, click-outside
+  // closes the tooltip, so `aria-modal="true"` would lie about the contract).
+  // The sidePanel branch is rendered inline in the page and uses `role="region"`
+  // with the same `aria-labelledby` so AT users get a navigable landmark.
+  /** Id of the visible seat label inside the header — target of `aria-labelledby`. */
+  readonly _dialogUid = ++_tooltipDialogUid;
+  readonly headerTitleId = `jets-tooltip-title-${this._dialogUid}`;
+  readonly amenitiesId = `jets-tooltip-amenities-${this._dialogUid}`;
+  readonly dimensionsId = `jets-tooltip-dimensions-${this._dialogUid}`;
+
+  /**
+   * `aria-describedby` target chosen from whichever descriptive block is
+   * actually rendered. Prefers amenities (richer content) and falls back to
+   * dimensions; returns `null` when neither is present so we don't dangle a
+   * pointer to a missing id (some screen readers warn about that).
+   */
+  get describedById(): string | null {
+    if (this.amenities.length) return this.amenitiesId;
+    if (this.dimensions.length) return this.dimensionsId;
+    return null;
+  }
+
+  /**
+   * Localised label for the header close (×) button. Falls back to the English
+   * `'Close'` when the active locale is missing the `close` key.
+   *
+   * TODO(commit 17 docs): if any locale ever drops the `close` key, document
+   * the fallback policy here. (constants.ts is owned by another commit — we
+   * never edit it from here; the inline English fallback is the safety net.)
+   */
+  get closeLabel(): string {
+    return LOCALES_MAP[this.data?.lang]?.['close'] || 'Close';
+  }
 
   get locale(): Record<string, string> {
     return LOCALES_MAP[this.data?.lang] || LOCALES_MAP['EN'];
@@ -420,5 +499,37 @@ export class JetsTooltipComponent {
   private capitaliseFirst(s: string): string {
     if (!s) return s;
     return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  /**
+   * On view init, drop keyboard focus on the primary action button so
+   * keyboard / AT users land directly on the most likely next action
+   * (WCAG 2.4.3 Focus Order). Skipped in `sidePanel` mode — that branch
+   * is an inline page region, not a dialog, so auto-focus would steal
+   * the cursor mid-scroll. `setTimeout(0)` defers past the current change
+   * detection tick so the button is actually painted; `preventScroll`
+   * stops the page from jumping when the tooltip is below the fold.
+   */
+  ngAfterViewInit(): void {
+    if (this.sidePanel) return;
+    setTimeout(() => {
+      try {
+        this.primaryActionBtnRef?.nativeElement?.focus({ preventScroll: true });
+      } catch {
+        /* no-op: jsdom and old browsers may throw on focus options */
+      }
+    }, 0);
+  }
+
+  /**
+   * Escape inside the tooltip closes it and stops propagation so the
+   * surrounding seat-map's global Escape handler doesn't also fire. This
+   * is the in-dialog dismiss path; the seat-map keeps its own handler as
+   * a safety net for keyboards that don't deliver the event to the
+   * tooltip (e.g. focus parked back on the trigger seat).
+   */
+  onEscapeKey(event: Event): void {
+    this.close.emit();
+    event.stopPropagation();
   }
 }

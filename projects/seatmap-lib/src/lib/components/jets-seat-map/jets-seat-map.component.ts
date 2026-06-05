@@ -185,6 +185,16 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   /** Delay (ms) before a hover-tooltip is auto-closed once the cursor leaves. */
   private static readonly HOVER_CLOSE_DELAY_MS = 80;
 
+  // ─── Tooltip dialog focus return (commit 11 / WCAG 2.4.3) ───────────────
+  /**
+   * The element that opened the tooltip (a seat `<div>` or list-row button).
+   * Captured in `_showTooltip` and consumed by `onTooltipClose` / Select /
+   * Unselect to restore keyboard focus back to the trigger when the dialog
+   * goes away — same pattern as any non-modal dialog (a la `mat-menu`).
+   * `null` while no tooltip is open.
+   */
+  private _lastTriggerElement: HTMLElement | null = null;
+
   get resolvedConfig(): IConfig {
     const env = getEnvironmentInfo();
     // Firefox doesn't fully support CSS zoom — force SCALE mode
@@ -1011,6 +1021,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   private _showTooltip(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
     const { seat, element, event } = payload;
 
+    // Record the element that opened the dialog so `onTooltipClose` (and the
+    // Select / Unselect handlers below) can return focus to it when the
+    // tooltip is dismissed (WCAG 2.4.3 Focus Order). Mirrors the standard
+    // non-modal-dialog focus-return contract.
+    this._lastTriggerElement = element;
+
     // Re-entering a seat (or focus moving back) while a hover-close was
     // pending must abort the close so we don't immediately tear down the
     // tooltip we're about to open.
@@ -1048,6 +1064,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.passengersChanged.emit(passengers);
     this.legendReady.emit(this.legendItems);
     this._announceSeatSelected(seat, nextPassenger);
+    this._restoreFocusToTrigger();
     this.cdr.markForCheck();
   }
 
@@ -1061,13 +1078,36 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.passengersChanged.emit(passengers);
     this.legendReady.emit(this.legendItems);
     this._announceSeatCleared(seat);
+    this._restoreFocusToTrigger();
     this.cdr.markForCheck();
   }
 
   onTooltipClose(): void {
     this.activeTooltip = null;
     this.activeTooltipChanged.emit(null);
+    this._restoreFocusToTrigger();
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Return keyboard focus to the seat (or list row) that opened the tooltip,
+   * then clear the stored reference. Deferred via `setTimeout(0)` so the
+   * tooltip DOM has time to detach before `.focus()` runs — focusing while
+   * the dialog is still mounted can re-trigger an unwanted hover-open. All
+   * wrapped in try/catch so a removed/disconnected trigger never throws.
+   * WCAG 2.4.3 (Focus Order) — non-modal dialog focus-return contract.
+   */
+  private _restoreFocusToTrigger(): void {
+    const trigger = this._lastTriggerElement;
+    this._lastTriggerElement = null;
+    if (!trigger) return;
+    setTimeout(() => {
+      try {
+        trigger.focus({ preventScroll: true });
+      } catch {
+        /* no-op: jsdom / disconnected node may throw on focus options */
+      }
+    }, 0);
   }
 
   onMapClick(event: MouseEvent): void {
