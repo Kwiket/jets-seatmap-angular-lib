@@ -1400,4 +1400,84 @@ describe('JetsSeatMapComponent', () => {
       expect(announceSpy).toHaveBeenCalledWith('Seat 99Z not found', 'polite');
     });
   });
+
+  // ─── Grid keyboard nav integration (commit 7) ──────────────────────────
+
+  describe('Grid keyboard navigation (commit 7)', () => {
+    beforeEach(() => {
+      component.content = [
+        {
+          rows: [
+            { id: 'r1', name: '1', seats: [
+              makeSeat({ id: 's-1a', number: '1A', letter: 'A' }),
+              makeSeat({ id: 's-1b', number: '1B', letter: 'B' }),
+              makeSeat({ id: 's-1c', number: '1C', letter: 'C' }),
+            ]},
+            { id: 'r2', name: '2', seats: [
+              makeSeat({ id: 's-2a', number: '2A', letter: 'A' }),
+              makeSeat({ id: 's-2b', number: '2B', letter: 'B' }),
+              makeSeat({ id: 's-2c', number: '2C', letter: 'C' }),
+            ]},
+          ],
+          number: 1,
+          scale: 1,
+        },
+      ];
+      component.focusedCell = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
+      // Stub mapContainer so the imperative DOM walk (`_applyRovingTabindex`,
+      // `_focusCell`) doesn't throw on a missing native element.
+      Object.defineProperty(component, 'mapContainer', {
+        value: { nativeElement: { querySelector: () => null, querySelectorAll: () => [] } },
+        configurable: true,
+      });
+    });
+
+    it('ArrowRight advances colIdx and prevents default', () => {
+      const ev = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+      const preventSpy = vi.spyOn(ev, 'preventDefault');
+      component.onGridKeydown(ev);
+      expect(component.focusedCell).toMatchObject({ deckIdx: 0, rowIdx: 0, colIdx: 1 });
+      expect(preventSpy).toHaveBeenCalled();
+    });
+
+    it('ArrowDown advances rowIdx', () => {
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+      expect(component.focusedCell).toMatchObject({ deckIdx: 0, rowIdx: 1, colIdx: 0 });
+    });
+
+    it('Home jumps to first column of current row', () => {
+      component.focusedCell = { deckIdx: 0, rowIdx: 1, colIdx: 2 };
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'Home' }));
+      expect(component.focusedCell.colIdx).toBe(0);
+    });
+
+    it('Ctrl+End jumps to last cell of the deck', () => {
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'End', ctrlKey: true }));
+      expect(component.focusedCell).toMatchObject({ rowIdx: 1, colIdx: 2 });
+    });
+
+    it('Escape with an open tooltip closes it (does not move focus)', () => {
+      component.activeTooltip = { seat: makeSeat(), top: 0, left: 0, nextPassenger: null, lang: 'EN' } as any;
+      const closeSpy = vi.spyOn(component, 'onTooltipClose');
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(closeSpy).toHaveBeenCalled();
+    });
+
+    it('ignores unrelated keys (typing letters does not move focus)', () => {
+      const ev = new KeyboardEvent('keydown', { key: 'a' });
+      const preventSpy = vi.spyOn(ev, 'preventDefault');
+      component.onGridKeydown(ev);
+      expect(component.focusedCell).toMatchObject({ deckIdx: 0, rowIdx: 0, colIdx: 0 });
+      expect(preventSpy).not.toHaveBeenCalled();
+    });
+
+    it('focusin on a gridcell with aria-rowindex/colindex updates focusedCell', () => {
+      const el = document.createElement('button');
+      el.setAttribute('aria-rowindex', '2');
+      el.setAttribute('aria-colindex', '3');
+      const ev = { target: el } as unknown as FocusEvent;
+      component.onGridFocusin(ev);
+      expect(component.focusedCell).toMatchObject({ rowIdx: 1, colIdx: 2 });
+    });
+  });
 });

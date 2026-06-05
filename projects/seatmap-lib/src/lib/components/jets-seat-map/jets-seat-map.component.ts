@@ -45,6 +45,7 @@ import {
 import { getNativeRowHeight } from '../../utils/cabin-utils';
 import { getEnvironmentInfo } from '../../services/environment.service';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
+import { SeatGridNavigationService, ICellPos } from '../../services/seat-grid-navigation.service';
 import { JetsDeckComponent } from '../jets-deck/jets-deck.component';
 import { JetsTooltipComponent } from '../jets-tooltip/jets-tooltip.component';
 import { JetsNotInitComponent } from '../jets-not-init/jets-not-init.component';
@@ -160,8 +161,18 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   constructor(
     private seatmapService: JetsSeatMapService,
     private cdr: ChangeDetectorRef,
-    private liveAnnouncer: LiveAnnouncer
+    private liveAnnouncer: LiveAnnouncer,
+    private gridNav: SeatGridNavigationService
   ) {}
+
+  // ─── Grid keyboard navigation state (commit 7) ──────────────────────────
+  /**
+   * Currently focused cell in the seat grid. Drives roving-tabindex (the
+   * cell with `tabindex=0` is the only Tab entry point; arrow keys then
+   * move focus within the grid). Updated on `focusin` from any seat and
+   * by `onGridKeydown` after a successful nav move.
+   */
+  focusedCell: ICellPos = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
 
   get resolvedConfig(): IConfig {
     const env = getEnvironmentInfo();
@@ -672,6 +683,102 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this._viewportMqlListener = null;
   }
 
+  // ─── Grid keyboard navigation handlers (commit 7) ──────────────────────
+
+  /**
+   * Handle keydown bubbling up from any cell in the active grid. Delegates
+   * the key → next-cell decision to `SeatGridNavigationService`, then
+   * imperatively focuses the next cell + flips the roving tabindex. Escape
+   * closes the tooltip without moving focus.
+   */
+  onGridKeydown(event: KeyboardEvent): void {
+    // Tooltip dismiss takes precedence over grid moves.
+    if (event.key === 'Escape' && this.activeTooltip) {
+      this.onTooltipClose();
+      event.preventDefault();
+      return;
+    }
+
+    const key = this.gridNav.classifyKey(event);
+    if (!key) return;
+
+    const next = this.gridNav.move(this.focusedCell, key, this.content);
+    if (next === this.focusedCell) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.focusedCell = next;
+    this._applyRovingTabindex();
+    this._focusCell(next);
+  }
+
+  /**
+   * Sync `focusedCell` to wherever the user actually clicked / Tab-landed.
+   * Listens to bubbling `focusin` so a pointer-only user moves the roving
+   * anchor too, keeping subsequent arrow nav consistent with their last
+   * click.
+   */
+  onGridFocusin(event: FocusEvent): void {
+    const el = event.target as HTMLElement | null;
+    if (!el) return;
+    const rowAttr = el.getAttribute?.('aria-rowindex');
+    const colAttr = el.getAttribute?.('aria-colindex');
+    if (rowAttr == null || colAttr == null) return;
+    const rowIdx = parseInt(rowAttr, 10) - 1;
+    const colIdx = parseInt(colAttr, 10) - 1;
+    if (isNaN(rowIdx) || isNaN(colIdx)) return;
+    this.focusedCell = { deckIdx: this.activeDeckIndex, rowIdx, colIdx };
+    this._applyRovingTabindex();
+  }
+
+  /**
+   * Walk every gridcell in the active map container and set `tabindex` so
+   * exactly the focused cell carries `0` and every other carries `-1`.
+   * Cheap DOM walk — at most a few hundred elements per deck.
+   */
+  private _applyRovingTabindex(): void {
+    const container = this.mapContainer?.nativeElement;
+    if (!container) return;
+    const focusedRow = String(this.focusedCell.rowIdx + 1);
+    const focusedCol = String(this.focusedCell.colIdx + 1);
+    const cells = container.querySelectorAll<HTMLElement>('[role="gridcell"]');
+    cells.forEach(cell => {
+      const isFocused =
+        cell.getAttribute('aria-rowindex') === focusedRow &&
+        cell.getAttribute('aria-colindex') === focusedCol;
+      cell.setAttribute('tabindex', isFocused ? '0' : '-1');
+    });
+  }
+
+  /**
+   * Imperatively focus the cell at `pos`. Uses `aria-rowindex`/`-colindex`
+   * (set by commit 6) so we don't depend on having a `data-seat-number`
+   * (aisle / empty cells have no seat number).
+   */
+  private _focusCell(pos: ICellPos): void {
+    const container = this.mapContainer?.nativeElement;
+    if (!container) return;
+    const row = String(pos.rowIdx + 1);
+    const col = String(pos.colIdx + 1);
+    const el = container.querySelector<HTMLElement>(
+      `[role="gridcell"][aria-rowindex="${row}"][aria-colindex="${col}"]`
+    );
+    el?.focus?.();
+  }
+
+  /**
+   * Initialise / reset the roving anchor after a new map renders or the
+   * active deck changes. Picks the first interactive seat in the active
+   * deck (via `initialCell`), then applies the tabindex so Tab into the
+   * grid lands on the right cell.
+   */
+  private _resetGridFocus(): void {
+    if (!this.content?.length) return;
+    this.focusedCell = this.gridNav.initialCell(this.activeDeckIndex, this.content);
+    // Defer to next tick so the rendered DOM matches the new `content`.
+    setTimeout(() => this._applyRovingTabindex(), 0);
+  }
+
   private _isSettingsReload = false;
 
   private async _loadSeatMap(): Promise<void> {
@@ -728,6 +835,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
         });
         this.layoutUpdated.emit(layout);
       }, 0);
+
+      // Seed the roving-tabindex anchor on the first interactive seat of the
+      // active deck (commit 7). The applier defers a tick so it runs after
+      // the grid DOM has materialised.
+      this._resetGridFocus();
 
       this.mediaReady.emit(this.media);
       this.legendReady.emit(this.legendItems);
@@ -899,17 +1011,14 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.activeTooltip = null;
     this.deckChanged.emit(index);
     this.cdr.markForCheck();
-    // Move keyboard focus to the first interactive seat in the newly active
-    // deck so keyboard users don't lose context after the deck swap.
-    // Commit 7 will refine this via the roving-tabindex manager; for now a
-    // simple post-render lookup is sufficient. Wrapped in try/catch because
-    // it's purely a UX nicety — never fail the deck switch over a focus glitch.
+    // Re-anchor the roving tabindex to the first interactive seat of the new
+    // deck (commit 7). Best-effort focus call via try/catch — never fail a
+    // deck switch over a focus glitch.
     setTimeout(() => {
       try {
-        const el = this.mapContainer?.nativeElement?.querySelector(
-          '[data-seat-number]'
-        ) as HTMLElement | null;
-        el?.focus({ preventScroll: false });
+        this.focusedCell = this.gridNav.initialCell(index, this.content);
+        this._applyRovingTabindex();
+        this._focusCell(this.focusedCell);
       } catch {
         /* no-op: best-effort focus restoration */
       }

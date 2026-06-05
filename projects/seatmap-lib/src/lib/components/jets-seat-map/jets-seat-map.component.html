@@ -30,6 +30,8 @@
       [style.transform]="mapTransform || null"
       [style.transform-origin]="mapTransformOrigin || null"
       (click)="onMapClick($event)"
+      (keydown)="onGridKeydown($event)"
+      (focusin)="onGridFocusin($event)"
     >
     <!-- Built-in tooltip (or user-provided override) -->
     @if (activeTooltip && resolvedConfig.builtInTooltip !== false) {
