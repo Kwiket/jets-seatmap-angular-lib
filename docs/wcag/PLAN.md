@@ -12,9 +12,9 @@
 
 ## Status
 
-- **Last updated:** 2026-06-05 — Wave F интегрирована: commits 8 (`1.4.13 hover-tooltip focus-aware + dismissable`, SHA `8ea5e36`) и 11 (`tooltip non-modal dialog`, SHA `8ce3f3f`) — оба sub-агенты, прошли без timeout-а. **15 из 17 коммитов готовы.** Осталось 16 (axe + keyboard tests) и 17 (docs + ACR).
+- **Last updated:** 2026-06-05 — **🎉 ВСЕ 17 КОММИТОВ ЗАВЕРШЕНЫ.** Wave G интегрирована параллельно: commit 17 (`README + ACR + CHANGELOG`, SHA `5d3a35a`) и commit 16 (`axe + keyboard tests`, SHA `9a9ab70`). ACR покрывает 59 SC (0 «Does not support», 2 «Partially supports» из-за host responsibility). Unit-набор: 476/476 зелёные. E2E a11y-набор: 3/3 зелёные. Ветка `WCAG` готова к ревью и мёржу.
 - **Orchestration mode active:** Claude как orchestrator. Подробности — Claude memory `project_wcag_orchestration` и `project_wcag_sub_agent_constraints`.
-- **Current wave (Wave G, финальная):** commits 16 (`axe + keyboard tests`) и 17 (`README + ACR docs`) — параллельно. 16 трогает только новые `*.a11y.spec.ts` файлы + `projects/seatmap-demo/e2e/a11y/`. 17 трогает только `README.md`, `docs/ACR.md`, `CHANGELOG.md`. Disjoint.
+- **Current wave:** нет — все 17 коммитов завершены 2026-06-05. Дальше — code review ветки `WCAG`, согласование с другими стейкхолдерами, merge в `main`, выпуск релиза.
 - **Pre-existing e2e flakes** (зафиксировано суб-агентами Wave C на baseline `9eb0b26`): `colorTheme · field-seatArmrestColor`, `colorTheme · field-seatStrokeWidth`, `customCabinTitles · default`, `customCabinTitles · short`. Проходят в изолированном single-worker запуске, ломаются на параллельных воркерах. Не связаны с WCAG-работой; разбирать отдельно после ветки.
 - **Blockers:**
   - ⚠ Baseline при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — init-testbed setup инжектируется только через `ng test`. Тесты гонять командой `npm test -- --watch=false` / `ng test seatmap-lib --watch=false`, **не** `vitest run` напрямую.
@@ -328,8 +328,8 @@ Position рассчитывается по индексу в `row.seats` (пер
 | 13 | `feat(a11y): alternative list view + config.alternativeView` | [x] | `b81fead` | 2026-06-05 | sub-agent Wave D upstaled на финале, orchestrator дописал matchMedia watcher / effectiveView / toggle / spec; новый JetsSeatListComponent + filters + sort; default `alternativeView='grid'` |
 | 14 | `feat(a11y): prefers-reduced-motion` | [x] | `8fbc5a3` | 2026-06-04 | sub-agent Wave A; scrollIntoView SSR-safe, hover wrapped в `prefers-reduced-motion: no-preference` |
 | 15 | `feat(a11y): forced-colors / Windows High Contrast support` | [x] | `22494ce` | 2026-06-04 | sub-agent Wave A; forced-colors SCSS на seat/exit/deck-selector/deck-separator; декоративный chrome оставлен браузеру |
-| 16 | `test(a11y): jest-axe unit + @axe-core/playwright e2e` | [ ] | — | — | |
-| 17 | `docs(a11y): README + ACR + override responsibility` | [ ] | — | — | |
+| 16 | `test(a11y): jest-axe unit + @axe-core/playwright e2e` | [x] | `9a9ab70` | 2026-06-05 | sub-agent Wave G; 4 jest-axe unit-сценария (default, tooltip open, list view, 3-deck tablist) + 3 Playwright e2e (axe + tab cycle + arrow + dialog); color-contrast в jsdom отключён (false-positives без layout); npm scripts `test:a11y` / `e2e:a11y` |
+| 17 | `docs(a11y): README + ACR + override responsibility` | [x] | `5d3a35a` | 2026-06-05 | sub-agent Wave G; README получил секцию Accessibility + override-responsibility snippet; docs/ACR.md — 59 SC (33 Supports, 18 N/A, 6 Host responsibility, 2 Partially); CHANGELOG.md с тремя breaking changes (peer dep, default colors, DOM tag) |
 
 После каждого коммита:
 ```
