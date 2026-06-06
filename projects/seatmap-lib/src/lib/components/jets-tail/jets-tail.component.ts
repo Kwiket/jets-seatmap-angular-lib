@@ -51,31 +51,22 @@ export class JetsTailComponent implements OnChanges {
     const strokeWidth = 1.5;
 
     /* eslint-disable max-len */
-    const scaleY = 0.71;
-    const viewBoxHeight = Math.round(340 * scaleY);
-    return `<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 ${viewBoxHeight}">
+    return `<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 80">
 <style type="text/css">
-\t.tail-filling-straight{fill:none;stroke:${outlineColor};stroke-width:${strokeWidth};stroke-miterlimit:10;}
+\t.tail-filling-straight{fill:${hullColor};stroke:${outlineColor};stroke-width:${strokeWidth};stroke-miterlimit:10;}
 \t.tail-filling{fill:${hullColor};}
 \t.tail-outline{fill:none;stroke:${outlineColor};stroke-width:${strokeWidth};stroke-miterlimit:10;}
-\t.tail-dotted-line{fill:none;stroke:${outlineColor};stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:0.9808,5.8847;}
+\t.tail-dotted-line{fill:none;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:0.9808,5.8847;}
 </style>
-<g transform="scale(1, ${scaleY})">
-<path class="tail-filling-straight" d="M1.5,0v17c0,0,13.1,132.9,33.1,193.1c5.5,16.5,37.5,128.3,65.1,128.3s59.6-111.9,65.1-128.3
-\tC184.6,149.9,198.5,17,198.5,17V0"/>
-<path class="tail-filling" d="M128.8,304.5l69.7,5V158.7c0,0-14.3,2.5-17-22.3"/>
-<path class="tail-filling" d="M71.2,304.5l-69.7,5V158.7c0,0,13.8,2.4,16.5-22.4"/>
-<path class="tail-filling" d="M197.1,10.9c0,0-34.7-9.2-46.9-9.3c-12.9-0.1-37.7,9.9-50.5,9.9c-13.3,0-38.8-10.2-52.1-10.1
-\tC35.8,1.6,3.1,10.9,3.1,10.9L1.5,11v6c0,0,13.1,132.9,33.1,193.1c5.5,16.5,37.5,128.3,65.1,128.3s59.6-111.9,65.1-128.3
-\tC184.6,149.9,198.5,17,198.5,17"/>
-<path class="tail-outline" d="M71.2,304.5l-69.7,5V158.7c0,0,13.8,2.4,16.5-22.4"/>
-<path class="tail-outline" d="M128.8,304.5l69.7,5V158.7c0,0-14.3,2.5-17-22.3"/>
-<path class="tail-outline" d="M1.5,10.9V17c0,0,13.1,132.9,33.1,193.1c5.5,16.5,37.5,128.3,65.1,128.3s59.6-111.9,65.1-128.3
-\tC184.6,149.9,198.5,17,198.5,17v-6.1"/>
-<path class="tail-dotted-line" d="M5.9,10.1C6,10.1,6.2,10,6.3,10"/>
-<path class="tail-dotted-line" d="M12,8.4c11-2.9,28.2-7,36.3-7c13.5,0,37.7,10.1,51.2,10.1c13.1,0,36.7-10.2,51.4-9.8c8.8,0.1,29.5,5,39.9,7.6"/>
-<path class="tail-dotted-line" d="M193.6,10c0.2,0,0.3,0.1,0.5,0.1"/>
-</g>
+<path class="tail-filling-straight" d="M2.4,38.5c-0.6-3.5-0.9-7.1-0.9-10.7V0h197v27.4c0,3.8-0.3,7.6-1,11.4c-1.3,7.4-3.9,21.3-7.6,37.5H9.7
+\tC6.1,59.8,3.6,45.8,2.4,38.5z"/>
+<path class="tail-filling" fill-rule="evenodd" clip-rule="evenodd" d="M9.7,76.3C4.5,52.2,1.5,33.1,1.5,33.1V29H5c0.2,0,0.4-0.1,0.6-0.1c8.7-1.4,32.4-5.4,42-5.5
+\tc6.7,0,16.4,3.8,26.1,7.7c9.7,3.8,19.3,7.7,26,7.7c6.4,0,15.7-3.8,25.1-7.6c9.5-3.9,18.9-7.7,25.4-7.7c10,0.1,35.2,4.1,44.2,5.5
+\tl0.5,0.1h3.6v4.1c0,0-3.1,19-8.6,43.1H9.7z"/>
+<path class="tail-dotted-line" d="M5,29c8.1-1.4,32.7-5.5,42.6-5.6c13.3-0.1,38.8,15.4,52.1,15.4c12.8,0,37.6-15.4,50.5-15.4c10.2,0.1,36.2,4.2,44.7,5.6"/>
+<path class="tail-outline" d="M9.7,76.1h180.2"/>
+<path class="tail-outline" d="M12.9,76.3H9.7C6.1,59.8,3.6,45.8,2.4,38.5c-0.6-3.5-0.9-7.1-0.9-10.7V0 M186.7,76.3h3.3c3.6-16.2,6.3-30.1,7.6-37.5
+\tc0.7-3.8,1-7.5,1-11.4V0"/>
 </svg>`;
     /* eslint-enable max-len */
   }
