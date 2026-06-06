@@ -348,6 +348,24 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
+   * `fuselageFillColor`-painted side lining on `.deck-floor` — mirrors React's
+   * `borderWidth = max((innerWidth - deck.width)*0.5 - fuselageStrokeWidth, fuselageStrokeWidth)`
+   * in `PlaneBody/index.js:88-92`. With box-sizing: border-box on the floor,
+   * the border carves the inside, leaving a thin coloured strip between the
+   * green fuselage outline and the dark cabin floor.
+   */
+  getDeckFloorLiningWidth(deck: IDeckData): number {
+    const stroke = this.resolvedConfig.colorTheme?.fuselageStrokeWidth ?? 12;
+    const innerW = this.fuselageBodyWidth;
+    const deckW = deck.deckWidth ?? innerW;
+    return Math.max((innerW - deckW) * 0.5 - stroke, stroke);
+  }
+
+  getDeckFloorLiningColor(): string {
+    return this.resolvedConfig.colorTheme?.fuselageFillColor ?? DEFAULT_COLOR_THEME.fuselageFillColor;
+  }
+
+  /**
    * Gap (px) from deck-floor edge to fuselage edge on each side.
    * Used to push cabin labels outward so they appear at the fuselage, not at the floor.
    */

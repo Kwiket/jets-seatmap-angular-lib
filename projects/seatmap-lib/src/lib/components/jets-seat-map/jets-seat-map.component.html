@@ -86,6 +86,13 @@
               class="deck-floor"
               [style.background-color]="resolvedConfig.colorTheme?.floorColor || '#555'"
               [style.width]="getDeckFloorWidth(deck)"
+              [style.box-sizing]="'border-box'"
+              [style.border-left-style]="'solid'"
+              [style.border-right-style]="'solid'"
+              [style.border-left-color]="getDeckFloorLiningColor()"
+              [style.border-right-color]="getDeckFloorLiningColor()"
+              [style.border-left-width.px]="getDeckFloorLiningWidth(deck)"
+              [style.border-right-width.px]="getDeckFloorLiningWidth(deck)"
             >
               <sm-jets-deck
                 [deck]="deck"
