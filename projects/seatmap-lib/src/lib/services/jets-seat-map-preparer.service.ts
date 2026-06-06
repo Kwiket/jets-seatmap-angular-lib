@@ -119,14 +119,11 @@ export class JetsSeatMapPreparerService {
   ): IDeckData {
     const rows = deck.rows ?? [];
 
-    // SVG-unit theme value → rendered pixels so deck content fits inside the
-    // fuselage body's rendered border (which is also (themed * width / 200) px).
-    const themedStroke = config.colorTheme?.fuselageStrokeWidth ?? 12;
-    const fuselageStrokeWidthPx = (themedStroke * config.width) / 200;
+    const fuselageStrokeWidth = config.colorTheme?.fuselageStrokeWidth ?? 12;
     const nativeDeckWidth = this._computeNativeDeckWidth(rows);
     // Use global (widest) deck width for scale — matches React's single global scale
     const scaleBase = globalNativeDeckWidth ?? nativeDeckWidth;
-    const { scale, deckWidth } = this._computeDeckScale(scaleBase, config.width, fuselageStrokeWidthPx, sideSpace);
+    const { scale, deckWidth } = this._computeDeckScale(scaleBase, config.width, fuselageStrokeWidth, sideSpace);
 
     // Row area width = this deck's OWN native width × global scale.
     // Narrower decks (e.g. A380 upper) get proportionally narrower rows.
@@ -531,12 +528,11 @@ export class JetsSeatMapPreparerService {
     sideSpace = 0,
     cabinsByClass: Record<string, IApiCabin> = {}
   ): IDeckData {
-    const themedStroke = config.colorTheme?.fuselageStrokeWidth ?? 12;
-    const fuselageStrokeWidthPx = (themedStroke * config.width) / 200;
+    const fuselageStrokeWidth = config.colorTheme?.fuselageStrokeWidth ?? 12;
     const nativeDeckWidth = this._computeNativeDeckWidth(deck.rows);
     // Use global (widest) deck width for scale — matches React's single global scale
     const scaleBase = globalNativeDeckWidth ?? nativeDeckWidth;
-    const { scale, deckWidth } = this._computeDeckScale(scaleBase, config.width, fuselageStrokeWidthPx, sideSpace);
+    const { scale, deckWidth } = this._computeDeckScale(scaleBase, config.width, fuselageStrokeWidth, sideSpace);
 
     // Row area width = this deck's OWN native width × global scale.
     // Narrower decks (e.g. A380 upper) get proportionally narrower rows.
@@ -1019,13 +1015,13 @@ export class JetsSeatMapPreparerService {
   private _computeDeckScale(
     nativeDeckWidth: number,
     containerWidth: number,
-    fuselageStrokeWidthPx = 12,
+    fuselageStrokeWidth = 12,
     sideSpace = 0
   ): { scale: number; deckWidth: number } {
     const DECK_PADDING = 10;
     const FUSELAGE_OUTLINE = 12;
     const innerDeckWidth = nativeDeckWidth + (DECK_PADDING + FUSELAGE_OUTLINE) * 2;
-    const maxDeckWidth = innerDeckWidth + fuselageStrokeWidthPx * 2 + sideSpace * 2;
+    const maxDeckWidth = innerDeckWidth + fuselageStrokeWidth * 2 + sideSpace * 2;
     const scale = maxDeckWidth > 0 ? containerWidth / maxDeckWidth : 1;
 
     return { scale, deckWidth: innerDeckWidth * scale };

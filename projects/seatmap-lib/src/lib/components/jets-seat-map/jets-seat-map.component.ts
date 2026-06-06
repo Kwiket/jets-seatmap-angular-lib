@@ -46,6 +46,7 @@ import {
 import { getNativeRowHeight } from '../../utils/cabin-utils';
 import { getEnvironmentInfo } from '../../services/environment.service';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
+import { JetsSeatMapPreparerService } from '../../services/jets-seat-map-preparer.service';
 import { JetsDeckComponent } from '../jets-deck/jets-deck.component';
 import { JetsTooltipComponent } from '../jets-tooltip/jets-tooltip.component';
 import { JetsNotInitComponent } from '../jets-not-init/jets-not-init.component';
@@ -165,6 +166,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       flatBulks: this.config?.flatBulks ?? false,
       colorfulSeatsByClass: this.config?.colorfulSeatsByClass ?? false,
       colorfulSeatsByScore: this.config?.colorfulSeatsByScore ?? true,
+      colorTheme: JetsSeatMapPreparerService.mergeColorThemeWithConstraints(this.config?.colorTheme),
       scaleType,
     };
   }
@@ -331,18 +333,16 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
-   * Per-deck floor width as a CSS percentage string.
-   * Narrower decks (e.g. A380 upper deck) get a proportionally narrower
-   * floor area. The fuselage fill background shows through on the sides.
-   * Returns '100%' for the widest deck.
+   * Per-deck floor width as a CSS percentage string. The widest deck fills
+   * the fuselage interior edge-to-edge (matches React PlaneBody/index.js,
+   * where the deck-floor is 100 % of the body inner). Narrower decks (e.g.
+   * A380 upper) shrink proportionally and let the body fill color show on
+   * the sides.
    */
   getDeckFloorWidth(deck: IDeckData): string {
     const maxNative = this.maxNativeDeckWidth;
     const deckNative = deck.nativeDeckWidth ?? maxNative;
-    // Never let the floor cover the entire fuselage interior — leave a thin
-    // band on each side so colorTheme.fuselageFillColor is visible as the
-    // hull lining even on single-deck planes where deck width == max.
-    if (deckNative >= maxNative) return 'calc(100% - 16px)';
+    if (deckNative >= maxNative) return '100%';
     const pct = Math.round((deckNative / maxNative) * 100);
     return `${pct}%`;
   }

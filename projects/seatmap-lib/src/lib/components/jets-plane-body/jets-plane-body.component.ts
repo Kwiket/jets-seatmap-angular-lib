@@ -78,26 +78,23 @@ export class JetsPlaneBodyComponent {
   private static readonly NOSE_STROKE = 1.5;
 
   /**
-   * Fuselage width matching the nose SVG outline outer edges.
-   * Nose outline path is at x=1.5 .. x=198.5; with stroke-width S (SVG units),
-   * the body's outer edges align with the nose's outer stroke edges when we
-   * subtract S from the viewBox span. Falls back to 1.5 when no theme override.
+   * Fuselage container width = full seatmap width. Matches React's
+   * `bodyWidth = config.width` (PlaneBody/index.js). The pixel-wide
+   * `border-left`/`border-right` carve the interior via box-sizing: border-box.
    */
   get fuselageWidth(): number {
-    const vb = JetsPlaneBodyComponent.NOSE_VIEWBOX_W;
-    const themedStroke = this.colorTheme?.fuselageStrokeWidth ?? JetsPlaneBodyComponent.NOSE_STROKE;
-    return (this.width * (vb - themedStroke)) / vb;
+    return this.width;
   }
 
-  /** Border width that matches the nose SVG stroke scaled to rendered size. */
+  /**
+   * Body border width in pixels. Mirrors React's
+   * `borderLeft: '${fuselageStrokeWidth}px …'` — the themed value
+   * (clamped 10-18 by mergeColorThemeWithConstraints) IS the pixel width;
+   * no SVG-unit scaling here. NOSE_STROKE fallback for un-themed consumers.
+   */
   get scaledStrokeWidth(): number {
-    // colorTheme.fuselageStrokeWidth (native SVG units, after the
-    // mergeColorThemeWithConstraints clamp to 10-18) wins when set; the
-    // 1.5-unit NOSE_STROKE fallback keeps the look stable for consumers
-    // who don't theme the value.
     const themed = this.colorTheme?.fuselageStrokeWidth;
-    const native = typeof themed === 'number' && themed > 0 ? themed : JetsPlaneBodyComponent.NOSE_STROKE;
-    return (native * this.width) / JetsPlaneBodyComponent.NOSE_VIEWBOX_W;
+    return typeof themed === 'number' && themed > 0 ? themed : JetsPlaneBodyComponent.NOSE_STROKE;
   }
 
   get bgColor(): string {
