@@ -12,24 +12,37 @@
     [style.transform-origin]="mapTransformOrigin || null"
     (click)="onMapClick($event)"
   >
-    <!-- Built-in tooltip (or user-provided override) -->
+    <!-- Built-in tooltip (or user-provided override).
+         (mouseenter)/(mouseleave) implement the "hoverable" behaviour for
+         tooltipOnHover mode: moving the cursor from the seat into the
+         tooltip cancels the delayed close scheduled by `onSeatMouseLeave`,
+         so in-tooltip buttons remain clickable.
+         The override branch is wrapped in a host <div> so it carries the
+         same event bindings — *ngComponentOutlet can't take event bindings
+         directly. -->
     @if (activeTooltip && resolvedConfig.builtInTooltip !== false) {
       @if (tooltipOverride) {
-        <ng-container
-          *ngComponentOutlet="
-            tooltipOverride;
-            inputs: {
-              data: activeTooltip,
-              isSelectAvailable: isSelectAvailable,
-              showActions: hasAvailability,
-              showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
-              colorTheme: resolvedConfig.colorTheme,
-              rightToLeft: resolvedConfig.rightToLeft ?? false,
-              hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
-              currencyOverride: resolvedConfig.currencySign || '',
-            }
-          "
-        />
+        <div
+          class="jets-seat-map__tooltip-host"
+          (mouseenter)="onTooltipMouseEnter()"
+          (mouseleave)="onTooltipMouseLeave()"
+        >
+          <ng-container
+            *ngComponentOutlet="
+              tooltipOverride;
+              inputs: {
+                data: activeTooltip,
+                isSelectAvailable: isSelectAvailable,
+                showActions: hasAvailability,
+                showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
+                colorTheme: resolvedConfig.colorTheme,
+                rightToLeft: resolvedConfig.rightToLeft ?? false,
+                hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
+                currencyOverride: resolvedConfig.currencySign || '',
+              }
+            "
+          />
+        </div>
       } @else {
         <sm-jets-tooltip
           [data]="activeTooltip"
@@ -44,6 +57,8 @@
           (select)="onTooltipSelect($event)"
           (unselect)="onTooltipUnselect($event)"
           (close)="onTooltipClose()"
+          (mouseenter)="onTooltipMouseEnter()"
+          (mouseleave)="onTooltipMouseLeave()"
         />
       }
     }

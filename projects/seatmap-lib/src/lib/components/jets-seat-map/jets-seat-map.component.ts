@@ -126,6 +126,20 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   private _prevUnits: string | null = null;
   private _prevSeatJumpToLabel: string | null = null;
 
+  // Hover-tooltip "hoverable" delay. Without this, mouseleave on the seat
+  // synchronously tears down the tooltip, so any button inside it (Select,
+  // Cancel, Close) is gone before the cursor can land on it. The close is
+  // scheduled instead and cancelled when the cursor enters the tooltip body.
+  //
+  // 300 ms covers a normal-pace cursor travel across the 12 px gap between
+  // seat and tooltip (`calculateTooltipData` in jets-seat-map.service.ts).
+  // A tighter window (e.g. 80 ms) was observed to drop the tooltip when a
+  // user crossed the gap slowly. WCAG SC 1.4.13 allows arbitrary "user can
+  // reach the content" delays as long as the close is dismissable, which
+  // it is via Escape / click-outside.
+  private _hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly HOVER_CLOSE_DELAY_MS = 300;
+
   constructor(
     private seatmapService: JetsSeatMapService,
     private cdr: ChangeDetectorRef
@@ -541,6 +555,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this._flightId = null;
+    this._cancelHoverClose();
   }
 
   private _isSettingsReload = false;
@@ -685,9 +700,49 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.seatMouseLeave.emit(payload);
 
     if (this.resolvedConfig.tooltipOnHover && !getEnvironmentInfo().isTouchDevice) {
+      // Defer the close so the cursor has time to reach the tooltip body —
+      // `onTooltipMouseEnter` cancels the pending close. Without this, the
+      // tooltip is torn out of the DOM before any in-tooltip button can be
+      // clicked.
+      this._scheduleHoverClose();
+    }
+  }
+
+  /**
+   * Cursor entered the tooltip body. Cancel the pending hover-close so the
+   * tooltip stays put while the user is interacting with it (clicking on
+   * Select / Cancel / Close buttons).
+   */
+  onTooltipMouseEnter(): void {
+    this._cancelHoverClose();
+  }
+
+  /**
+   * Cursor left the tooltip body. Re-arm the delayed close so moving the
+   * cursor off the tooltip (without going back to the seat) still dismisses
+   * it — matching the original "leaves on mouseleave" behaviour but with a
+   * grace window the cursor can use to travel between the two elements.
+   */
+  onTooltipMouseLeave(): void {
+    if (!this.resolvedConfig.tooltipOnHover) return;
+    if (getEnvironmentInfo().isTouchDevice) return;
+    this._scheduleHoverClose();
+  }
+
+  private _scheduleHoverClose(): void {
+    this._cancelHoverClose();
+    this._hoverCloseTimer = setTimeout(() => {
+      this._hoverCloseTimer = null;
       this.activeTooltip = null;
       this.activeTooltipChanged.emit(null);
       this.cdr.markForCheck();
+    }, JetsSeatMapComponent.HOVER_CLOSE_DELAY_MS);
+  }
+
+  private _cancelHoverClose(): void {
+    if (this._hoverCloseTimer != null) {
+      clearTimeout(this._hoverCloseTimer);
+      this._hoverCloseTimer = null;
     }
   }
 
@@ -711,6 +766,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   private _showTooltip(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
     const { seat, element, event } = payload;
+
+    // Re-entering a seat while a hover-close was pending must abort the
+    // close so we don't immediately tear down the tooltip we're about to
+    // open.
+    this._cancelHoverClose();
 
     const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
     this.isSelectAvailable = !!nextPassenger;

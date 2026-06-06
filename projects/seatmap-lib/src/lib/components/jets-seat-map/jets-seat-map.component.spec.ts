@@ -1241,6 +1241,7 @@ describe('JetsSeatMapComponent', () => {
     });
 
     it('opens/closes tooltip on hover when tooltipOnHover=true and non-touch', async () => {
+      vi.useFakeTimers();
       applyTouchEnv(false);
       component.config = makeConfig({ tooltipOnHover: true });
       await ready();
@@ -1261,8 +1262,108 @@ describe('JetsSeatMapComponent', () => {
         seat: makeSeat(),
         element: document.createElement('div'),
       });
+      // Close is deferred so the cursor has time to reach the tooltip body.
+      expect(component.activeTooltip).toBeTruthy();
+      vi.advanceTimersByTime(300);
       expect(component.activeTooltip).toBeNull();
       expect(closedSpy).toHaveBeenCalledWith(null);
+      vi.useRealTimers();
+    });
+
+    it('hoverable: mouseenter on tooltip cancels pending close', async () => {
+      vi.useFakeTimers();
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      expect(component.activeTooltip).toBeTruthy();
+
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      // Cursor lands on the tooltip before the close timer fires.
+      component.onTooltipMouseEnter();
+      vi.advanceTimersByTime(200);
+      expect(component.activeTooltip).toBeTruthy();
+      vi.useRealTimers();
+    });
+
+    it('hoverable: mouseleave on tooltip re-arms the deferred close', async () => {
+      vi.useFakeTimers();
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      component.onTooltipMouseEnter();
+      expect(component.activeTooltip).toBeTruthy();
+
+      component.onTooltipMouseLeave();
+      expect(component.activeTooltip).toBeTruthy();
+      vi.advanceTimersByTime(300);
+      expect(component.activeTooltip).toBeNull();
+      vi.useRealTimers();
+    });
+
+    it('hoverable: re-entering a seat aborts a pending close', async () => {
+      vi.useFakeTimers();
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      // Bounce back onto the seat — the pending close must be cancelled,
+      // otherwise the new tooltip would be torn down immediately.
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      vi.advanceTimersByTime(200);
+      expect(component.activeTooltip).toBeTruthy();
+      vi.useRealTimers();
+    });
+
+    it('hoverable: ngOnDestroy clears the pending close timer', async () => {
+      vi.useFakeTimers();
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      const changedSpy = vi.fn();
+      component.activeTooltipChanged.subscribe(changedSpy);
+      component.ngOnDestroy();
+      vi.advanceTimersByTime(200);
+      // No stray activeTooltipChanged(null) emit after teardown.
+      expect(changedSpy).not.toHaveBeenCalled();
+      vi.useRealTimers();
     });
 
     it('tooltipOnHover=false on touch device — click still opens, hover does not', async () => {
