@@ -46,15 +46,18 @@ export class JetsTailComponent implements OnChanges {
   private _buildTailSvg(): string {
     const t = this.colorTheme ?? {};
     const d = DEFAULT_COLOR_THEME;
-    const hullColor = t.hullColor ?? d.fuselageFillColor;
+    const fillColor = t.fuselageFillColor ?? d.fuselageFillColor;
     const outlineColor = t.fuselageStrokeColor ?? d.fuselageStrokeColor;
-    const strokeWidth = 1.5;
+    // Stroke is themed in SVG units; mirrors React lib's
+    // colorTheme.fuselageStrokeWidth / (innerWidth / SVG_WIDTH) scaling.
+    const themedStroke = t.fuselageStrokeWidth ?? d.fuselageStrokeWidth;
+    const strokeWidth = themedStroke / (this.width / 200);
 
     /* eslint-disable max-len */
     return `<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 80">
 <style type="text/css">
-\t.tail-filling-straight{fill:${hullColor};stroke:${outlineColor};stroke-width:${strokeWidth};stroke-miterlimit:10;}
-\t.tail-filling{fill:${hullColor};}
+\t.tail-filling-straight{fill:${fillColor};stroke:${outlineColor};stroke-width:${strokeWidth};stroke-miterlimit:10;}
+\t.tail-filling{fill:${fillColor};}
 \t.tail-outline{fill:none;stroke:${outlineColor};stroke-width:${strokeWidth};stroke-miterlimit:10;}
 \t.tail-dotted-line{fill:none;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:0.9808,5.8847;}
 </style>

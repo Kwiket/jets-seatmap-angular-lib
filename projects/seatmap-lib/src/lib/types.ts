@@ -60,8 +60,10 @@ export interface IColorTheme {
   seatBackingColor?: string;
   notAvailableSeatsColor?: string;
   // Fuselage
+  /** Fill color for the full hull — nose, body and tail. Mirrors the React lib. */
   fuselageFillColor?: string;
   fuselageStrokeColor?: string;
+  /** Stroke width in SVG units, clamped to 10–18 by mergeColorThemeWithConstraints. */
   fuselageStrokeWidth?: number;
   fuselageWindowsColor?: string;
   fuselageWingsColor?: string;
@@ -78,7 +80,10 @@ export interface IColorTheme {
   // Armrest / exit / hull
   armrestColor?: string;
   exitColor?: string;
-  /** Exterior hull color for nose, tail and wings. Defaults to DEFAULT_COLOR_THEME.fuselageFillColor (light). */
+  /**
+   * @deprecated No longer used by the renderer — use `fuselageFillColor`
+   * instead. Kept on the type so existing consumer themes still compile.
+   */
   hullColor?: string;
   // Passenger badge
   defaultPassengerBadgeColor?: string;

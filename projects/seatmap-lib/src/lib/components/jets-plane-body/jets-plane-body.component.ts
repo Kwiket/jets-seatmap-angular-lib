@@ -79,12 +79,14 @@ export class JetsPlaneBodyComponent {
 
   /**
    * Fuselage width matching the nose SVG outline outer edges.
-   * Nose outline path is at x=1.5 .. x=198.5 with stroke-width=1.5,
-   * so outer edges span (198.5+0.75) - (1.5-0.75) = 198.5 SVG units.
+   * Nose outline path is at x=1.5 .. x=198.5; with stroke-width S (SVG units),
+   * the body's outer edges align with the nose's outer stroke edges when we
+   * subtract S from the viewBox span. Falls back to 1.5 when no theme override.
    */
   get fuselageWidth(): number {
     const vb = JetsPlaneBodyComponent.NOSE_VIEWBOX_W;
-    return (this.width * (vb - JetsPlaneBodyComponent.NOSE_STROKE)) / vb;
+    const themedStroke = this.colorTheme?.fuselageStrokeWidth ?? JetsPlaneBodyComponent.NOSE_STROKE;
+    return (this.width * (vb - themedStroke)) / vb;
   }
 
   /** Border width that matches the nose SVG stroke scaled to rendered size. */
@@ -103,7 +105,7 @@ export class JetsPlaneBodyComponent {
   }
 
   get fuselageFill(): string {
-    return this.colorTheme?.hullColor ?? this.colorTheme?.fuselageFillColor ?? DEFAULT_COLOR_THEME.fuselageFillColor;
+    return this.colorTheme?.fuselageFillColor ?? DEFAULT_COLOR_THEME.fuselageFillColor;
   }
 
   get fuselageStroke(): string {
