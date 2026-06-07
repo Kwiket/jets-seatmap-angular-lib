@@ -33,6 +33,9 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 export class JetsTailComponent implements OnChanges {
   @Input() colorTheme?: IColorTheme;
   @Input() width = 200;
+  /** Display scale (mirrors React's `params.scale`); pre-multiplies the SVG
+   *  outline so the tail contour matches the CSS body border thickness. */
+  @Input() displayScale = 1;
 
   svgContent: SafeHtml = '';
 
@@ -50,7 +53,9 @@ export class JetsTailComponent implements OnChanges {
     const outlineColor = t.fuselageStrokeColor ?? d.fuselageStrokeColor;
     // Stroke is themed in SVG units; mirrors React lib's
     // colorTheme.fuselageStrokeWidth / (innerWidth / SVG_WIDTH) scaling.
-    const themedStroke = t.fuselageStrokeWidth ?? d.fuselageStrokeWidth;
+    // Pre-multiply by displayScale so visible thickness matches the CSS body
+    // border (which also goes through displayScale).
+    const themedStroke = (t.fuselageStrokeWidth ?? d.fuselageStrokeWidth) * this.displayScale;
     const strokeWidth = themedStroke / (this.width / 200);
 
     /* eslint-disable max-len */

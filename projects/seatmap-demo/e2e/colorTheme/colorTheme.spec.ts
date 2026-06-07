@@ -575,8 +575,11 @@ const FIELD_CASES: FieldCase[] = [
         .locator('.jets-plane-body__fuselage')
         .first()
         .evaluate(el => parseFloat(getComputedStyle(el).borderLeftWidth));
-      // Override 18 should exceed baseline 16 once scaling is honoured.
-      expect(width).toBeGreaterThan(16);
+      // Override 18 must visibly exceed baseline 12 — both go through the
+      // same displayScale (~0.4 at the per-field screenshot size), so the
+      // rendered baseline ends up around 4-5 px and the override around
+      // 7-8 px. Lower bound 6 sits between them.
+      expect(width).toBeGreaterThan(6);
     },
   },
   {

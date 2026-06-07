@@ -73,6 +73,7 @@
         [visibleNose]="resolvedConfig.visibleNose"
         [visibleTail]="resolvedConfig.visibleTail"
         [noseType]="noseType"
+        [displayScale]="displayScale"
       >
         @for (deck of visibleDecks; track deck.number; let i = $index) {
           @if (i > 0) {

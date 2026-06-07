@@ -333,6 +333,28 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
+   * Display scale matching React's `params.scale` (data-helper.js:21,154-159):
+   *   scale = config.width / (max(deck.width) + fuselageStrokeWidth*2)
+   *
+   * React applies this as a CSS `transform: scale` / `zoom` on the seat-map
+   * wrapper (`SeatMap.js:426-439`), so every CSS px inside renders at
+   * `value * scale`. We don't restructure the DOM into a scaled wrapper —
+   * instead we pre-multiply the body border and the deck-floor lining by
+   * this value, which is what the user perceptually compares (border /
+   * lining thickness) against the React storybook. Rows are already
+   * pre-scaled by the preparer itself.
+   *
+   * Returns 1 when no decks (matches React `|| 1` fallback) or no stroke.
+   */
+  get displayScale(): number {
+    if (!this.content.length) return 1;
+    const stroke = this.resolvedConfig.colorTheme?.fuselageStrokeWidth ?? 0;
+    const maxNative = Math.max(...this.content.map(d => d.nativeDeckWidth ?? 0));
+    if (maxNative <= 0) return 1;
+    return this.resolvedConfig.width / (maxNative + stroke * 2);
+  }
+
+  /**
    * Per-deck floor width as a CSS percentage string. The widest deck fills
    * the fuselage interior edge-to-edge (matches React PlaneBody/index.js,
    * where the deck-floor is 100 % of the body inner). Narrower decks (e.g.
@@ -367,9 +389,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     // `max((innerW - deck.width)*0.5 - fuselageStrokeWidth, fuselageStrokeWidth)`
     // simplifies here to `max(slack, stroke)` because the body border is
     // already carved out by `box-sizing: border-box`.
+    //
+    // Multiply by displayScale so the visible lining matches React's
+    // CSS-zoom-scaled rendering — same as scaledStrokeWidth on the body.
     const innerW = this.fuselageBodyWidth - 2 * stroke;
     const deckW = deck.deckWidth ?? innerW;
-    return Math.max((innerW - deckW) * 0.5, stroke);
+    return Math.max((innerW - deckW) * 0.5, stroke) * this.displayScale;
   }
 
   getDeckFloorLiningColor(): string {

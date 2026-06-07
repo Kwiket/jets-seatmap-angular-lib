@@ -13,7 +13,12 @@ import { JetsTailComponent } from '../jets-tail/jets-tail.component';
     <div class="jets-plane-body" [style.width.px]="width" [style.background-color]="bgColor">
       <!-- Nose -->
       @if (showNose) {
-        <sm-jets-nose [noseType]="noseType" [colorTheme]="colorTheme" [width]="width" />
+        <sm-jets-nose
+          [noseType]="noseType"
+          [colorTheme]="colorTheme"
+          [width]="width"
+          [displayScale]="displayScale"
+        />
       }
 
       <!-- Fuselage wrapper — width & border match nose SVG outline -->
@@ -31,7 +36,7 @@ import { JetsTailComponent } from '../jets-tail/jets-tail.component';
 
       <!-- Tail -->
       @if (showTail) {
-        <sm-jets-tail [colorTheme]="colorTheme" [width]="width" />
+        <sm-jets-tail [colorTheme]="colorTheme" [width]="width" [displayScale]="displayScale" />
       }
     </div>
   `,
@@ -63,6 +68,14 @@ export class JetsPlaneBodyComponent {
   @Input() visibleNose?: boolean;
   @Input() visibleTail?: boolean;
   @Input() noseType?: string;
+  /**
+   * Display scale (= `config.width / maxDeckWidth`, same formula React uses
+   * for its CSS `zoom`/`transform: scale`). React shrinks every CSS px by
+   * this factor when rendering — a `fuselageStrokeWidth: 10` paints at
+   * ~7.17 px on a typical 558-wide native deck. We pre-scale the body's
+   * border-width here so the visual thickness matches.
+   */
+  @Input() displayScale = 1;
 
   get showNose(): boolean {
     return this.visibleNose ?? this.visibleFuselage;
@@ -96,7 +109,8 @@ export class JetsPlaneBodyComponent {
    */
   get scaledStrokeWidth(): number {
     const themed = this.colorTheme?.fuselageStrokeWidth;
-    return typeof themed === 'number' && themed > 0 ? themed : 0;
+    const stroke = typeof themed === 'number' && themed > 0 ? themed : 0;
+    return stroke * this.displayScale;
   }
 
   get bgColor(): string {
