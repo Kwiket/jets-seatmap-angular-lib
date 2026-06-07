@@ -353,12 +353,23 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    * in `PlaneBody/index.js:88-92`. With box-sizing: border-box on the floor,
    * the border carves the inside, leaving a thin coloured strip between the
    * green fuselage outline and the dark cabin floor.
+   *
+   * Mirrors React's NaN-fallthrough: when `fuselageStrokeWidth` is undefined
+   * the React formula returns NaN and the CSS border collapses to 0; we do
+   * the same explicitly so the floor stays edge-to-edge of the body interior.
    */
   getDeckFloorLiningWidth(deck: IDeckData): number {
-    const stroke = this.resolvedConfig.colorTheme?.fuselageStrokeWidth ?? 12;
-    const innerW = this.fuselageBodyWidth;
+    const stroke = this.resolvedConfig.colorTheme?.fuselageStrokeWidth;
+    if (typeof stroke !== 'number' || stroke <= 0) return 0;
+    // The preparer's _computeDeckScale now reserves 4× the stroke (border +
+    // lining) so the rendered deckWidth always fits inside the body interior
+    // minus the lining. The React formula
+    // `max((innerW - deck.width)*0.5 - fuselageStrokeWidth, fuselageStrokeWidth)`
+    // simplifies here to `max(slack, stroke)` because the body border is
+    // already carved out by `box-sizing: border-box`.
+    const innerW = this.fuselageBodyWidth - 2 * stroke;
     const deckW = deck.deckWidth ?? innerW;
-    return Math.max((innerW - deckW) * 0.5 - stroke, stroke);
+    return Math.max((innerW - deckW) * 0.5, stroke);
   }
 
   getDeckFloorLiningColor(): string {

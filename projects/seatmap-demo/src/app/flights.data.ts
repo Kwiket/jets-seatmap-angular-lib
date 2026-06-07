@@ -24,6 +24,7 @@ const CABIN_THEME = {
   bulkBaseColor: 'dimgrey',
   bulkCutColor: 'lightgrey',
   bulkIconColor: 'darkslategray',
+  fuselageStrokeWidth: 10,
   fuselageFillColor: 'lightgrey',
   fuselageStrokeColor: 'darkgrey',
   fuselageWindowsColor: 'darkgrey',

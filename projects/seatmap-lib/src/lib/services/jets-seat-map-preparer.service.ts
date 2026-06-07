@@ -1021,7 +1021,11 @@ export class JetsSeatMapPreparerService {
     const DECK_PADDING = 10;
     const FUSELAGE_OUTLINE = 12;
     const innerDeckWidth = nativeDeckWidth + (DECK_PADDING + FUSELAGE_OUTLINE) * 2;
-    const maxDeckWidth = innerDeckWidth + fuselageStrokeWidth * 2 + sideSpace * 2;
+    // Reserve body border (fuselageStrokeWidth) AND the `fuselageFillColor`
+    // lining on each side — the lining mirrors React's
+    // `borderWidth = max((innerW - deck.width)*0.5 - fuselageStrokeWidth, fuselageStrokeWidth)`
+    // (PlaneBody/index.js:86-94), minimum width == fuselageStrokeWidth.
+    const maxDeckWidth = innerDeckWidth + fuselageStrokeWidth * 4 + sideSpace * 2;
     const scale = maxDeckWidth > 0 ? containerWidth / maxDeckWidth : 1;
 
     return { scale, deckWidth: innerDeckWidth * scale };

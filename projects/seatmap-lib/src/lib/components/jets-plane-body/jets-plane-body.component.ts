@@ -88,13 +88,15 @@ export class JetsPlaneBodyComponent {
 
   /**
    * Body border width in pixels. Mirrors React's
-   * `borderLeft: '${fuselageStrokeWidth}px …'` — the themed value
-   * (clamped 10-18 by mergeColorThemeWithConstraints) IS the pixel width;
-   * no SVG-unit scaling here. NOSE_STROKE fallback for un-themed consumers.
+   * `borderLeft: '${fuselageStrokeWidth}px …'` (PlaneBody/index.js:30-34) —
+   * the themed value (clamped 10-18 by mergeColorThemeWithConstraints) IS
+   * the pixel width; no SVG-unit scaling. When the consumer doesn't set
+   * `fuselageStrokeWidth`, React renders no border (`${undefined}px` → invalid
+   * CSS → 0), so we return 0 too, otherwise a hidden 1.5-px line creeps in.
    */
   get scaledStrokeWidth(): number {
     const themed = this.colorTheme?.fuselageStrokeWidth;
-    return typeof themed === 'number' && themed > 0 ? themed : JetsPlaneBodyComponent.NOSE_STROKE;
+    return typeof themed === 'number' && themed > 0 ? themed : 0;
   }
 
   get bgColor(): string {
