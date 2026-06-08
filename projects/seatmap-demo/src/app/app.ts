@@ -249,10 +249,14 @@ export class App {
     if (typeof window !== 'undefined') {
       (window as Window & { __lastSeatMapInited?: unknown }).__lastSeatMapInited = event;
     }
+    if (event.error) {
+      this.addLog('error', `Seatmap init failed: ${event.error}`);
+      return;
+    }
     this.addLog(
       'inited',
-      `Seatmap loaded. Cabins: ${event.allCabins.length}, decks: ${event.decksCount}, ` +
-        `native ${event.heightInPx.toFixed(0)}×${event.widthInPx.toFixed(0)}, scale ${event.scaleFactor.toFixed(3)}`
+      `Seatmap loaded. Cabins: ${event.allCabins?.length ?? 0}, decks: ${event.decksCount}, ` +
+        `native ${event.heightInPx?.toFixed(0)}×${event.widthInPx?.toFixed(0)}, scale ${event.scaleFactor?.toFixed(3)}`
     );
   }
 

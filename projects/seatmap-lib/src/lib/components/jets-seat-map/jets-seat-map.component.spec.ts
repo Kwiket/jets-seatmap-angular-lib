@@ -1403,7 +1403,37 @@ describe('JetsSeatMapComponent', () => {
       }
     });
 
-    it('should NOT emit seatMapInited when load fails', async () => {
+    it('should emit seatMapInited with error payload when load fails (React parity)', async () => {
+      mockService.getSeatMapData.mockRejectedValue({
+        status: 400,
+        error: {
+          statusCode: 400,
+          message: 'arrival must be shorter than or equal to 3 characters',
+          error: 'Bad Request',
+        },
+        message: 'Http failure response',
+      });
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const payload = spy.mock.calls[0][0];
+      // React format: `postData: {status} - {message}`
+      expect(payload.error).toBe('postData: 400 - arrival must be shorter than or equal to 3 characters');
+      // Layout fields are undefined for error payload (React parity — see screenshot of React lib)
+      expect(payload.heightInPx).toBeUndefined();
+      expect(payload.widthInPx).toBeUndefined();
+      expect(payload.scaleFactor).toBeUndefined();
+      expect(payload.decksCount).toBeUndefined();
+      expect(payload.currentDeckIndex).toBeUndefined();
+    });
+
+    it('should fall back to err.message when API body has no message', async () => {
       mockService.getSeatMapData.mockRejectedValue({ status: 500, message: 'oops' });
       const spy = vi.fn();
       component.seatMapInited.subscribe(spy);
@@ -1413,7 +1443,40 @@ describe('JetsSeatMapComponent', () => {
       fixture.detectChanges();
       await new Promise(r => setTimeout(r, 0));
 
-      expect(spy).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0].error).toBe('postData: 500 - oops');
+    });
+
+    it('should still emit loadError on API failure (backwards compatibility)', async () => {
+      mockService.getSeatMapData.mockRejectedValue({
+        status: 400,
+        error: { message: 'arrival must be shorter than or equal to 3 characters' },
+      });
+      const spy = vi.fn();
+      component.loadError.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0]).toBe('postData: 400 - arrival must be shorter than or equal to 3 characters');
+    });
+
+    it('should emit seatMapInited error payload for non-HTTP throws', async () => {
+      mockService.getSeatMapData.mockRejectedValue(new Error('boom'));
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      // No status → '?'; falls back to err.message
+      expect(spy.mock.calls[0][0].error).toBe('postData: ? - boom');
     });
 
     it('should propagate DOM event in tooltipRequested payload', async () => {

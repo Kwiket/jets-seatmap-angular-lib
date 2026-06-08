@@ -427,15 +427,18 @@ export interface IAvailableSeatsData {
 /**
  * Payload of `seatMapInited` event — initial layout data emitted once the
  * seatmap is rendered for the first time. Matches React's onSeatMapInited.
+ *
+ * When the seatmap fails to load, `seatMapInited` still fires (React parity):
+ * `error` carries the message and the layout fields are `undefined`.
  */
 export interface IInitialLayoutData {
-  /** Native (unscaled) height of the active deck. Multiply by `scaleFactor` for actual rendered pixels. */
-  heightInPx: number;
-  /** Native (unscaled) plane width. Multiply by `scaleFactor` for actual rendered pixels. */
-  widthInPx: number;
-  scaleFactor: number;
-  decksCount: number;
-  currentDeckIndex: number;
+  /** Native (unscaled) height of the active deck. Multiply by `scaleFactor` for actual rendered pixels. `undefined` on error. */
+  heightInPx?: number;
+  /** Native (unscaled) plane width. Multiply by `scaleFactor` for actual rendered pixels. `undefined` on error. */
+  widthInPx?: number;
+  scaleFactor?: number;
+  decksCount?: number;
+  currentDeckIndex?: number;
   /** Media assets (cabin photos, panoramas) loaded along with the seatmap. */
   media?: IMediaData | null;
   /**
@@ -449,8 +452,8 @@ export interface IInitialLayoutData {
   availabilityData?: IAvailableSeatsData;
   /** Present only when the seatmap failed to build. Omitted otherwise (React parity). */
   error?: string;
-  /** All cabin classes detected in the source data (before any cabin-class filtering). */
-  allCabins: { code: string; title: string }[];
+  /** All cabin classes detected in the source data (before any cabin-class filtering). `undefined` on error. */
+  allCabins?: { code: string; title: string }[];
 }
 
 /** Payload of `layoutUpdated` event — emitted whenever the layout is recomputed. */

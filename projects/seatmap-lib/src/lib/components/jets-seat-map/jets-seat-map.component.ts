@@ -719,12 +719,29 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       }
     } catch (err: any) {
       if (this._flightId !== flightId) return;
-      const httpBody = err?.error ? JSON.stringify(err.error) : '';
-      const msg = `HTTP ${err?.status ?? '?'}: ${err?.message ?? ''}${httpBody ? ' | ' + httpBody : ''}`;
+      // React parity: `postData: {status} - {message}` — see jets-seatmap React lib.
+      // Prefer the API body message (HttpErrorResponse.error.message) over the
+      // generic transport message ('Http failure response …') so callers see
+      // the actual validation failure surfaced by the backend.
+      const status = err?.status ?? '?';
+      const message = err?.error?.message ?? err?.message ?? '';
+      const msg = `postData: ${status} - ${message}`;
       this.error = msg;
       this.isLoading = false;
       this.isSeatMapInited = true;
       this.loadError.emit(msg);
+      // React parity: emit `seatMapInited` with `error` and undefined layout
+      // fields, so consumers wiring only onSeatMapInited still receive errors.
+      // Keys are present with `undefined` values to mirror React's payload
+      // shape (visible in the React lib's console.log output).
+      this.seatMapInited.emit({
+        heightInPx: undefined,
+        widthInPx: undefined,
+        scaleFactor: undefined,
+        decksCount: undefined,
+        currentDeckIndex: undefined,
+        error: msg,
+      });
     } finally {
       this.cdr.markForCheck();
     }
