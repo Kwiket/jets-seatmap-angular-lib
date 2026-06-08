@@ -370,12 +370,13 @@ describe('JetsSeatMapComponent', () => {
       component.onSeatClick({ seat, element: el });
 
       // Public emit shape mirrors the React-parity integrator contract:
-      //   - `number → label`, layout-only fields (`id`, `size`, `topOffset`, `leftOffset`,
-      //     `cabinTitle`, `rotation`) stripped.
+      //   - `number → label`, layout-only fields (`id`, `size`, `topOffset`,
+      //     `leftOffset`, `cabinTitle`) stripped.
       //   - `classType` becomes the full word ('Economy', 'Business', …).
       //   - `priceValue` carries the raw number; `price` becomes a formatted string.
       //   - features/measurements default to empty arrays.
       //   - `passengerTypes` defaults to React's `['ADT', 'CHD', 'INF']`.
+      //   - `rotation` is present and defaults to 'n' (React fixtures).
       const { id: _id, size: _size, number: _number, ...rest } = seat;
       const expectedSeat = {
         ...rest,
@@ -385,6 +386,7 @@ describe('JetsSeatMapComponent', () => {
         color: seat.color,
         originalColor: seat.color,
         passengerTypes: ['ADT', 'CHD', 'INF'],
+        rotation: 'n',
         features: [],
         measurements: [],
         additionalProps: [],
@@ -473,7 +475,8 @@ describe('JetsSeatMapComponent', () => {
       expect(arg.seat.features).toEqual([]);
       expect(arg.seat).not.toHaveProperty('id');
       expect(arg.seat).not.toHaveProperty('size');
-      expect(arg.seat).not.toHaveProperty('rotation');
+      // React-parity: rotation is present with 'n' (north / no-rotation) default.
+      expect(arg.seat.rotation).toBe('n');
     });
 
     it('should NOT emit seatMouseLeave when tooltipOnHover is unset/false', () => {
@@ -812,7 +815,8 @@ describe('JetsSeatMapComponent', () => {
       expect(arg.seat.label).toBe(seat.number);
       expect(arg.seat.classType).toBe('Economy');
       expect(arg.seat.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
-      expect(arg.seat).not.toHaveProperty('rotation');
+      // React-parity: rotation default 'n' is part of the emit shape.
+      expect(arg.seat.rotation).toBe('n');
       expect(tooltipSpy).not.toHaveBeenCalled();
       expect(component.activeTooltip).toBeNull();
     });

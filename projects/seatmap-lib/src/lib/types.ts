@@ -25,7 +25,12 @@ export type TUnits = 'metric' | 'imperials';
 // ─── Seat types ───────────────────────────────────────────────────────────────
 export type TSeatType = 'seat' | 'aisle' | 'empty' | 'index';
 export type TSeatStatus = 'available' | 'unavailable' | 'selected' | 'preferred' | 'extra' | 'disabled';
-export type TSeatRotation = 'nw' | 'nw45' | 'ne' | 'ne45' | 's' | 'se' | 'sw' | '';
+// `'n'` (north / no-rotation) is the React default for unrotated seats —
+// see jets-seatmap-react-lib-pub/src/components/Seat/__fixtures__/seatData.js.
+// `''` is the internal carry-over for "no rotation" from older API payloads;
+// both render identically (default branch in jets-seat.component.ts's
+// _computeRotation switch). The publicly emitted shape always normalises '' → 'n'.
+export type TSeatRotation = 'n' | 'nw' | 'nw45' | 'ne' | 'ne45' | 's' | 'se' | 'sw' | '';
 
 // ─── Flight ───────────────────────────────────────────────────────────────────
 export interface IFlight {
@@ -215,7 +220,12 @@ export type TSeatAvailability = Array<{
   price: number;
   currency: string;
   color?: string;
-  onlyForPassengerType?: string;
+  // `string[]` — React's availability item passes the whole array straight
+  // through to `seat.passengerTypes`. Older Angular code over-wrapped this
+  // value into a 2-D array (`[["ADT","CHD","INF"]]`); the type was the
+  // single-string carry-over from an even older shape that no real caller
+  // (demo or sandbox API) ever produced.
+  onlyForPassengerType?: string[];
   additionalProps?: Array<{ type: string; cssClass?: string }>;
 }>;
 
