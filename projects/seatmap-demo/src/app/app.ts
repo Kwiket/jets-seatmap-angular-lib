@@ -244,6 +244,11 @@ export class App {
 
   onSeatMapInited(event: IInitialLayoutData): void {
     console.log('InitialLayoutData:', event);
+    // Test seam — mirrors `__lastTooltipRequest`; lets e2e suites assert the
+    // public contract of the init payload without subscribing inside Playwright.
+    if (typeof window !== 'undefined') {
+      (window as Window & { __lastSeatMapInited?: unknown }).__lastSeatMapInited = event;
+    }
     this.addLog(
       'inited',
       `Seatmap loaded. Cabins: ${event.allCabins.length}, decks: ${event.decksCount}, ` +
