@@ -71,7 +71,7 @@ export function getCabinSubDecks(deck: IDeckData): { title: string; cabinCode: s
 
   const deckFirstRowOffset = rows[0].topOffset ?? 0;
 
-  return groups.map(g => {
+  return groups.map((g, groupIdx) => {
     const cabinRows = rows.slice(g.startIdx, g.endIdx);
     const baseOffset = cabinRows[0].topOffset ?? 0;
 
@@ -85,14 +85,26 @@ export function getCabinSubDecks(deck: IDeckData): { title: string; cabinCode: s
     const lastRowH = getNativeRowHeight(lastRow);
     const rangeEnd = lastRowOffset + lastRowH;
 
+    // The top cabin should claim every bulk/exit above its first row, and the
+    // bottom cabin every bulk/exit below its last row — those are partitions
+    // and emergency exits that belong to that cabin's airspace even when the
+    // API places them well outside the row range (e.g. id=17 lavatories at
+    // topOffset=-125 sitting above row 30, or exits at topOffset=3545 below
+    // the last row). Without this, tight ±50/±100 windows silently drop them.
+    const isFirstGroup = groupIdx === 0;
+    const isLastGroup = groupIdx === groups.length - 1;
+
     const cabinExits = (deck.extras?.exits ?? [])
-      .filter(e => e.topOffset >= baseOffset - 50 && e.topOffset <= rangeEnd + 50)
+      .filter(
+        e =>
+          (isFirstGroup || e.topOffset >= baseOffset - 50) && (isLastGroup || e.topOffset <= rangeEnd + 50)
+      )
       .map(e => ({ ...e, topOffset: e.topOffset - baseOffset }));
 
     const cabinBulks = (deck.extras?.bulks ?? [])
       .filter(b => {
         const bTop = b.topOffset ?? 0;
-        return bTop >= baseOffset - 100 && bTop <= rangeEnd + 100;
+        return (isFirstGroup || bTop >= baseOffset - 100) && (isLastGroup || bTop <= rangeEnd + 100);
       })
       .map(b => ({
         ...b,
