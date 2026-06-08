@@ -116,6 +116,11 @@
 }
 
 .jets-tooltip--amenity-icon {
+  // React parity: amenities render the SVG as a bare glyph — no box, no border.
+  // `tooltipIconBorderColor` / `tooltipIconBackgroundColor` only style the
+  // dimensions block (`.jets-tooltip--measurement`), not the feature list
+  // (`.jets-tooltip--feature`). See `TooltipGlobal.view.js:73-91` (features:
+  // no wrapper styles) vs `:97-119` (measurements: borderColor + background).
   display: flex;
   align-items: center;
   justify-content: center;
@@ -124,8 +129,6 @@
   min-width: 20px;
   min-height: 20px;
   flex-shrink: 0;
-  background: var(--tooltip-icon-bg, transparent);
-  border: 1px solid var(--tooltip-icon-border, transparent);
   color: var(--tooltip-icon, inherit);
 
   svg {
