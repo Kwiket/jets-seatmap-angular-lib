@@ -430,6 +430,25 @@ describe('JetsSeatMapComponent', () => {
       expect(spy).toHaveBeenCalledWith(updatedPassengers);
     });
 
+    it('onTooltipUnselect is a no-op when the occupant is readOnly (React parity)', async () => {
+      // React parity: TooltipGlobal.view.js disables the Unselect button, and
+      // the SeatMap container itself never reaches unselectSeatHandler for a
+      // readOnly passenger. This test guards the container path: even if a
+      // viewOverride dispatched the click, we must not unseat the passenger.
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const spy = vi.fn();
+      component.seatUnselected.subscribe(spy);
+
+      const readOnlyOccupant: IPassenger = { id: 'p0', passengerLabel: 'Alex', readOnly: true };
+      component.onTooltipUnselect(makeSeat({ passenger: readOnlyOccupant }));
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(mockService.unselectSeatHandler).not.toHaveBeenCalled();
+    });
+
     it('should emit deckChanged on deck selection', () => {
       const spy = vi.fn();
       component.deckChanged.subscribe(spy);

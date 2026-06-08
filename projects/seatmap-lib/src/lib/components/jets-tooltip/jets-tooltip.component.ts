@@ -131,6 +131,7 @@ import { LOCALES_MAP } from '../../constants';
                   class="jets-btn jets-tooltip--btn jets-select-btn"
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
                   [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
+                  [disabled]="!!data.seat.passenger.readOnly"
                   (click)="unselect.emit(data.seat)"
                 >
                   {{ locale['unselect'] }}

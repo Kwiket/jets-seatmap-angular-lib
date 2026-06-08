@@ -873,7 +873,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       // tooltip is opened and no `tooltipRequested` is emitted — that branch
       // belongs to the non-hover click path only.
       if (seat.passenger) {
-        if ((seat.passenger as IPassenger & { readOnly?: boolean }).readOnly) return;
+        if (seat.passenger.readOnly) return;
         this.onTooltipUnselect(seat);
         return;
       }
@@ -1038,6 +1038,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onTooltipUnselect(seat: ISeatData): void {
+    // React parity: readOnly occupants cannot be unseated through the built-in
+    // tooltip path. The Unselect button is rendered disabled, but we guard the
+    // handler too in case a viewOverride bypasses the disabled attribute or the
+    // call arrives from the side-panel delegation path.
+    if (seat.passenger?.readOnly) return;
     const { data, passengers } = this.seatmapService.unselectSeatHandler(this.content, seat, this.passengersList);
     this.content = data;
     this.passengersList = passengers;

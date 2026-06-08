@@ -362,6 +362,22 @@ describe('JetsSeatMapService', () => {
     it('should return null for empty passengers array', () => {
       expect(service.getNextPassenger([])).toBeNull();
     });
+
+    it('should skip readOnly passengers and pick the next regular one (React parity)', () => {
+      // React parity: service.js:198 — `!passenger.seat?.seatLabel && !passenger.readOnly`.
+      const p1 = makePassenger({ id: 'p1', seat: { price: 0, seatLabel: '1A' } });
+      const p2 = makePassenger({ id: 'p2', readOnly: true });
+      const p3 = makePassenger({ id: 'p3' });
+
+      expect(service.getNextPassenger([p1, p2, p3])?.id).toBe('p3');
+    });
+
+    it('should return null when the only seatless passenger is readOnly', () => {
+      const p1 = makePassenger({ id: 'p1', seat: { price: 0, seatLabel: '1A' } });
+      const p2 = makePassenger({ id: 'p2', readOnly: true });
+
+      expect(service.getNextPassenger([p1, p2])).toBeNull();
+    });
   });
 
   // ─── addAbbrToPassengers ──────────────────────────────────────────────────

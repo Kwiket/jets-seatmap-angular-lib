@@ -358,6 +358,24 @@ describe('JetsTooltipComponent', () => {
 
       expect(spy).toHaveBeenCalledTimes(1);
     });
+
+    it('disables Unselect and swallows the emit when the occupant is readOnly (React parity)', () => {
+      // React parity: TooltipGlobal.view.js:133 — disabled={data?.passenger?.readOnly}.
+      component.data = makeTooltipData({
+        seat: makeSeat({
+          passenger: { id: 'p1', abbr: 'AT', passengerLabel: 'Alex Test', readOnly: true },
+        }),
+      });
+      fixture.detectChanges();
+
+      const unselectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      expect(unselectBtn?.disabled).toBe(true);
+
+      const spy = vi.fn();
+      component.unselect.subscribe(spy);
+      unselectBtn.click();
+      expect(spy).not.toHaveBeenCalled();
+    });
   });
 
   // ─── Localization ──────────────────────────────────────────────────────

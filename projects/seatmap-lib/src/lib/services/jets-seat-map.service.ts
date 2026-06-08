@@ -229,7 +229,9 @@ export class JetsSeatMapService {
   }
 
   getNextPassenger(passengers: IPassenger[]): IPassenger | null {
-    return passengers.find(p => !p.seat) ?? null;
+    // React parity (SeatMap/service.js:198): readOnly passengers never bid for
+    // the next free seat — they're considered terminally placed.
+    return passengers.find(p => !p.seat && !p.readOnly) ?? null;
   }
 
   addAbbrToPassengers(passengers: IPassenger[] | undefined): IPassenger[] {

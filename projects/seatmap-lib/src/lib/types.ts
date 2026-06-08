@@ -212,6 +212,14 @@ export interface IPassenger {
   passengerLabel?: string;
   passengerColor?: string;
   abbr?: string;
+  /**
+   * When true, the built-in passenger management treats the assignment as
+   * frozen: the tooltip's Unselect button is disabled, the seat-click path
+   * is a no-op, and the passenger is never returned as the "next" candidate
+   * for a new seat. React parity: TooltipGlobal.view.js:133 (disabled),
+   * SeatMap.js:312 (click no-op), service.js:198 (skipped in getNextPassenger).
+   */
+  readOnly?: boolean;
 }
 
 // ─── Availability ─────────────────────────────────────────────────────────────
