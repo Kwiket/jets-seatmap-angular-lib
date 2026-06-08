@@ -120,11 +120,13 @@ export class JetsSeatMapService {
             // we fall back to the seat's originalColor so customSeatColorRanges
             // and per-seat API colours survive the availability merge.
             color: source.color ?? seat.originalColor ?? seat.color,
+            // `source.onlyForPassengerType` is already a `string[]` (e.g.
+            // `['ADT','CHD','INF']`). Wrapping it in another array produced
+            // the [["ADT","CHD","INF"]] nesting reviewer flagged. React keeps
+            // it flat — service.js:100-103 assigns onlyForPassengerType as-is.
             passengerTypes: seat.passengerTypes?.length
               ? seat.passengerTypes
-              : source.onlyForPassengerType
-                ? [source.onlyForPassengerType]
-                : undefined,
+              : (source.onlyForPassengerType ?? undefined),
           };
         }),
       })),

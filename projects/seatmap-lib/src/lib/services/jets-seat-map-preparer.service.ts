@@ -1063,7 +1063,13 @@ export class JetsSeatMapPreparerService {
 
   /** Map API rotation string → TSeatRotation CSS class suffix */
   private _mapRotation(apiRotation: string | undefined): import('../types').TSeatRotation {
+    // React passes the API rotation through verbatim — see Seat fixtures
+    // (rotation: 'n') and SeatMap's class builder which interprets 'n' as
+    // "no rotate" via the truthy check. We do the same: any known direction
+    // wins, everything else (including the unmapped empty string from old
+    // payloads) becomes 'n' so the emitted shape always carries a value.
     const map: Record<string, import('../types').TSeatRotation> = {
+      n: 'n',
       nw: 'nw',
       nw45: 'nw45',
       ne: 'ne',
@@ -1071,10 +1077,8 @@ export class JetsSeatMapPreparerService {
       s: 's',
       se: 'se',
       sw: 'sw',
-      n: '',
-      '': '',
     };
-    return map[apiRotation ?? ''] ?? '';
+    return map[apiRotation ?? ''] ?? 'n';
   }
 
   private _calculateSeatSize(mapWidth: number, rowSize: number): number {

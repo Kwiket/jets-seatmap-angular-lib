@@ -950,11 +950,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       size: _sz,
       id: _id,
       cabinTitle: _ct,
-      // React does not carry a `rotation` field on the emitted seat — its
-      // rotation lives on `seatMap.params`, not the seat itself. Drop the
-      // internal field so integrators don't see Angular-only noise like
-      // `rotation: ""`.
-      rotation: _rotation,
+      rotation,
       classCode,
       color,
       originalColor,
@@ -963,7 +959,14 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       features,
       measurements,
       ...rest
-    } = seat as ISeatData & { cabinTitle?: string; rotation?: string };
+    } = seat as ISeatData & { cabinTitle?: string };
+
+    // React-parity: every emitted seat carries `rotation` with `'n'` (north /
+    // no-rotation) as the default — see Seat/__fixtures__/seatData.js. The
+    // earlier "drop the field" approach matched the wrong seat (an unrotated
+    // 70E) and was a regression for any integrator inspecting the payload
+    // shape. Normalise the legacy empty-string to `'n'` here.
+    const emittedRotation = !rotation || (rotation as string) === '' ? 'n' : rotation;
 
     // `classType` becomes the full word ('Business'), `classCode` stays single-letter.
     const code = (classCode || rest.classType || 'E').toString();
@@ -1006,6 +1009,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       price: priceStr as unknown as number,
       priceValue: numericPrice,
       passengerTypes,
+      rotation: emittedRotation,
       features: (features ?? []).map(normalizeFeature),
       measurements: (measurements ?? []).map(normalizeFeature),
       additionalProps: ((rest as ISeatData).additionalProps ?? []).map(normalizeFeature),
