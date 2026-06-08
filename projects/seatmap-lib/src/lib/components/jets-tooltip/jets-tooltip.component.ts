@@ -85,6 +85,10 @@ import { LOCALES_MAP } from '../../constants';
                 <div class="jets-tooltip--header-passenger">
                   {{ data.seat.passenger!.passengerLabel }}
                 </div>
+              } @else if (restrictionsLabel) {
+                <div class="jets-tooltip--header-passenger">
+                  {{ restrictionsLabel }}
+                </div>
               }
             </div>
 
@@ -225,6 +229,32 @@ export class JetsTooltipComponent {
    * (`jets-seatmap-react-lib-pub/src/common/constants.js:123`).
    */
   private static readonly FEATURES_RENDER_LIMIT = 12;
+
+  /**
+   * Passenger types eligible to be rendered as a seat-restriction line
+   * ("The seat is only for: …"). Mirrors React's `DEFAULT_SEAT_PASSENGER_TYPES`
+   * (`jets-seatmap-react-lib-pub/src/common/constants.js:121`) and
+   * `TooltipGlobal.js#restrictionsLabel`.
+   */
+  private static readonly DEFAULT_PASSENGER_TYPES = ['ADT', 'CHD', 'INF'];
+
+  /**
+   * Seat-restriction line shown under the header when the seat is reserved
+   * for a subset of `DEFAULT_PASSENGER_TYPES` (e.g. "The seat is only for:
+   * adults"). Empty when all default types are allowed or none of the seat's
+   * `passengerTypes` overlap with them. React parity: `TooltipGlobal.js:147-154`.
+   * The slot is shared with `data.seat.passenger.passengerLabel` — when a
+   * passenger is assigned, the label wins (React `passengerLabel || restrictionsLabel`).
+   */
+  get restrictionsLabel(): string {
+    const passengerTypes = this.data?.seat?.passengerTypes;
+    if (!passengerTypes?.length) return '';
+    const allowed = JetsTooltipComponent.DEFAULT_PASSENGER_TYPES;
+    const filtered = passengerTypes.filter(t => allowed.includes(t));
+    if (filtered.length >= allowed.length) return '';
+    const typeStrings = filtered.map(t => this.locale[t] || t);
+    return `${this.locale['seatRestrictions']}: ${typeStrings.join(', ')}`;
+  }
 
   /**
    * Amenities (audioVideo, power, wifi, nearGalley, …) — comes pre-split from

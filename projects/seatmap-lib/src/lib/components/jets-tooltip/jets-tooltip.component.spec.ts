@@ -161,9 +161,7 @@ describe('JetsTooltipComponent', () => {
       component.data = makeTooltipData({
         seat: makeSeat({
           features: [{ title: 'Wi-Fi', icon: '<svg></svg>', key: 'wifiEnabled', value: true }],
-          measurements: [
-            { title: 'Pitch', icon: '<svg></svg>', key: 'pitch', value: '32"' },
-          ],
+          measurements: [{ title: 'Pitch', icon: '<svg></svg>', key: 'pitch', value: '32"' }],
         }),
       });
       fixture.detectChanges();
@@ -207,11 +205,7 @@ describe('JetsTooltipComponent', () => {
       });
       fixture.detectChanges();
 
-      expect(component.amenities.map(a => a.value)).toEqual([
-        true,
-        'Test prop for all',
-        'Another test prop for all',
-      ]);
+      expect(component.amenities.map(a => a.value)).toEqual([true, 'Test prop for all', 'Another test prop for all']);
       const rendered = fixture.nativeElement.querySelectorAll('.jets-tooltip--amenity');
       expect(rendered.length).toBe(3);
       expect(rendered[1].textContent).toContain('Test prop for all');
@@ -222,9 +216,7 @@ describe('JetsTooltipComponent', () => {
       component.data = makeTooltipData({
         seat: makeSeat({
           features: [],
-          additionalProps: [
-            { uniqId: 'ap-1', icon: '<svg>d</svg>', title: '', value: 'Priority boarding' },
-          ],
+          additionalProps: [{ uniqId: 'ap-1', icon: '<svg>d</svg>', title: '', value: 'Priority boarding' }],
         }),
       });
       fixture.detectChanges();
@@ -261,9 +253,7 @@ describe('JetsTooltipComponent', () => {
       component.data = makeTooltipData({
         seat: makeSeat({
           features: [{ key: 'wifiEnabled', icon: '<svg></svg>', title: 'Wi-Fi', value: true }],
-          additionalProps: [
-            { uniqId: 'ap-1', icon: '<svg></svg>', title: '', value: 'Custom row' },
-          ],
+          additionalProps: [{ uniqId: 'ap-1', icon: '<svg></svg>', title: '', value: 'Custom row' }],
         }),
       });
       fixture.detectChanges();
@@ -437,6 +427,98 @@ describe('JetsTooltipComponent', () => {
       component.isSelectAvailable = true;
 
       expect(component.isSelectDisabled()).toBe(false);
+    });
+  });
+
+  // ─── Seat restrictions label (React parity) ────────────────────────────
+  //
+  // React reference: jets-seatmap-react-lib-pub/src/components/TooltipGlobal/
+  // TooltipGlobal.js:147-154 + DEFAULT_SEAT_PASSENGER_TYPES = ['ADT','CHD','INF'].
+  // The label shares the `passengerLabel` slot — passenger wins when assigned.
+  describe('Seat restrictions label', () => {
+    it('renders the restriction line when seat is reserved for a subset of default types', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: null,
+      });
+      fixture.detectChanges();
+
+      const slot = fixture.nativeElement.querySelector('.jets-tooltip--header-passenger');
+      expect(slot?.textContent?.trim()).toBe('The seat is only for: adults');
+    });
+
+    it('joins multiple allowed types with a comma', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['CHD', 'INF'] }),
+        nextPassenger: null,
+      });
+      fixture.detectChanges();
+
+      const slot = fixture.nativeElement.querySelector('.jets-tooltip--header-passenger');
+      expect(slot?.textContent?.trim()).toBe('The seat is only for: children, infants');
+    });
+
+    it('does not render the line when passengerTypes is missing', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: undefined }),
+        nextPassenger: null,
+      });
+      fixture.detectChanges();
+
+      const slot = fixture.nativeElement.querySelector('.jets-tooltip--header-passenger');
+      expect(slot).toBeNull();
+    });
+
+    it('does not render the line when all default types are allowed', () => {
+      // React parity: `filtered.length < existingRestrictions.length` guard —
+      // a seat open to ADT+CHD+INF carries no restriction text.
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT', 'CHD', 'INF'] }),
+        nextPassenger: null,
+      });
+      fixture.detectChanges();
+
+      const slot = fixture.nativeElement.querySelector('.jets-tooltip--header-passenger');
+      expect(slot).toBeNull();
+    });
+
+    it('ignores unknown passenger types when computing the restriction', () => {
+      // React parity: `passengerTypes.filter(type => existingRestrictions.includes(type))`
+      // — unknown codes are dropped before length comparison and label rendering.
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT', 'SRC' as any] }),
+        nextPassenger: null,
+      });
+      fixture.detectChanges();
+
+      const slot = fixture.nativeElement.querySelector('.jets-tooltip--header-passenger');
+      expect(slot?.textContent?.trim()).toBe('The seat is only for: adults');
+    });
+
+    it('prefers passengerLabel over restriction when a passenger occupies the seat', () => {
+      // React parity: TooltipGlobal.js:171 — `passengerLabel || restrictionsLabel`.
+      component.data = makeTooltipData({
+        seat: makeSeat({
+          passengerTypes: ['ADT'],
+          passenger: { id: 'p1', abbr: 'JD', passengerLabel: 'John' },
+        }),
+      });
+      fixture.detectChanges();
+
+      const slot = fixture.nativeElement.querySelector('.jets-tooltip--header-passenger');
+      expect(slot?.textContent?.trim()).toBe('John');
+    });
+
+    it('localizes the restriction line (DE)', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: null,
+        lang: 'DE' as any,
+      });
+      fixture.detectChanges();
+
+      const slot = fixture.nativeElement.querySelector('.jets-tooltip--header-passenger');
+      expect(slot?.textContent?.trim()).toBe('Der Sitz ist nur für: Erwachsene');
     });
   });
 
