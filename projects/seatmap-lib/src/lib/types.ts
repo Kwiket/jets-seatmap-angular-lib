@@ -226,7 +226,19 @@ export type TSeatAvailability = Array<{
   // single-string carry-over from an even older shape that no real caller
   // (demo or sandbox API) ever produced.
   onlyForPassengerType?: string[];
-  additionalProps?: Array<{ type: string; cssClass?: string }>;
+  /**
+   * Integrator-defined extra rows rendered alongside the seat's amenities in the
+   * tooltip (e.g. "Priority boarding", "Free meal"). React parity: the demo and
+   * tests use `{ label, icon, cssClass }`; `icon` is a key into
+   * `SEAT_FEATURES_ICONS` (e.g. 'wifi', 'power'). `null` falls back to the dot
+   * icon. Items from a per-seat entry and from the wildcard (`label: '*'`) are
+   * concatenated, entry first.
+   */
+  additionalProps?: Array<{
+    label: string;
+    icon?: string | null;
+    cssClass?: string;
+  }>;
 }>;
 
 // ─── Seat feature ─────────────────────────────────────────────────────────────
@@ -247,6 +259,12 @@ export interface ISeatFeature {
   title: string | null;
   value?: string | number | boolean | null;
   uniqId?: string;
+  /**
+   * Optional CSS class — carried by integrator-defined `additionalProps` items
+   * (`availability[].additionalProps[].cssClass`). API-derived features and
+   * measurements never set it.
+   */
+  cssClass?: string;
 }
 
 // ─── Rendered seat ────────────────────────────────────────────────────────────

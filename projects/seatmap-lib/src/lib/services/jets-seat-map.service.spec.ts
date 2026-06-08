@@ -117,6 +117,89 @@ describe('JetsSeatMapService', () => {
       expect(result[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
       expect(result[0].rows[0].seats[0].price).toBe(25);
     });
+
+    // ─── additionalProps wiring (React parity) ──────────────────────────────
+    // React's service.js#setAvailabilityHandler concatenates entry+wildcard
+    // additionalProps and runs them through prepareSeatAdditionalProps before
+    // attaching to the seat. The Angular handler used to ignore the field
+    // entirely; these specs lock in the parity.
+
+    it('should attach additionalProps from a matching availability entry', () => {
+      const seat = makeSeat();
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        {
+          label: '1A',
+          price: 50,
+          currency: 'USD',
+          additionalProps: [
+            { label: 'Priority boarding', icon: null },
+            { label: 'Free Wi-Fi', icon: 'wifi' },
+          ],
+        },
+      ];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      const props = result[0].rows[0].seats[0].additionalProps;
+      expect(props).toHaveLength(2);
+      expect(props![0].value).toBe('Priority boarding');
+      expect(props![1].value).toBe('Free Wi-Fi');
+      // Prepared shape: title='' (not null), uniqId set, icon resolved to SVG.
+      expect(props!.every(p => p.title === '')).toBe(true);
+      expect(props!.every(p => typeof p.uniqId === 'string' && p.uniqId.length > 0)).toBe(true);
+    });
+
+    it('should attach wildcard additionalProps when there is no per-seat entry', () => {
+      const seat = makeSeat({ number: '9X' });
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        {
+          label: '*',
+          price: 10,
+          currency: 'USD',
+          additionalProps: [{ label: 'Wildcard prop', icon: null }],
+        },
+      ];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      const props = result[0].rows[0].seats[0].additionalProps;
+      expect(props).toHaveLength(1);
+      expect(props![0].value).toBe('Wildcard prop');
+    });
+
+    it('should concatenate entry then wildcard additionalProps when both are set', () => {
+      const seat = makeSeat();
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        {
+          label: '1A',
+          price: 50,
+          currency: 'USD',
+          additionalProps: [{ label: 'Entry prop', icon: null }],
+        },
+        {
+          label: '*',
+          price: 10,
+          currency: 'USD',
+          additionalProps: [{ label: 'Wildcard prop', icon: null }],
+        },
+      ];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      const props = result[0].rows[0].seats[0].additionalProps;
+      expect(props).toHaveLength(2);
+      expect(props![0].value).toBe('Entry prop');
+      expect(props![1].value).toBe('Wildcard prop');
+    });
+
+    it('should leave additionalProps undefined when neither entry nor wildcard supplies any', () => {
+      const seat = makeSeat();
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [{ label: '1A', price: 50, currency: 'USD' }];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      expect(result[0].rows[0].seats[0].additionalProps).toBeUndefined();
+    });
   });
 
   // ─── setPassengersHandler ─────────────────────────────────────────────────

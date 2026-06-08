@@ -102,11 +102,23 @@ export class JetsSeatMapService {
             return { ...seat, status: ENTITY_STATUS_MAP.unavailable };
           }
 
+          // React parity (service.js:104-119) — entry and wildcard contribute
+          // independent additionalProps lists, concatenated entry-first. When
+          // only the wildcard matches, just the wildcard's list flows through.
+          const mergedAdditional = [
+            ...(entry?.additionalProps ?? []),
+            ...(wildcard?.additionalProps ?? []),
+          ];
+          const additionalProps = mergedAdditional.length
+            ? this.preparer.prepareSeatAdditionalProps(mergedAdditional)
+            : undefined;
+
           return {
             ...seat,
             status: ENTITY_STATUS_MAP.available,
             price: source.price,
             currency: source.currency,
+            additionalProps,
             // Availability colour wins when set; otherwise preserve the seat's
             // existing colour (e.g. score-based tint) instead of clobbering it
             // to undefined. The earlier `color: source.color` lost the

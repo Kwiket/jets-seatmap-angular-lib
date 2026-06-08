@@ -192,6 +192,85 @@ describe('JetsTooltipComponent', () => {
       const amenities = fixture.nativeElement.querySelector('.jets-tooltip--amenities');
       expect(amenities).toBeNull();
     });
+
+    // ─── additionalProps merge (React parity) ─────────────────────────────
+
+    it('should append additionalProps after API features in the amenities list', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({
+          features: [{ key: 'wifiEnabled', icon: '<svg>w</svg>', title: 'Wi-Fi', value: true }],
+          additionalProps: [
+            { uniqId: 'ap-1', icon: '<svg>d</svg>', title: '', value: 'Test prop for all' },
+            { uniqId: 'ap-2', icon: '<svg>w</svg>', title: '', value: 'Another test prop for all' },
+          ],
+        }),
+      });
+      fixture.detectChanges();
+
+      expect(component.amenities.map(a => a.value)).toEqual([
+        true,
+        'Test prop for all',
+        'Another test prop for all',
+      ]);
+      const rendered = fixture.nativeElement.querySelectorAll('.jets-tooltip--amenity');
+      expect(rendered.length).toBe(3);
+      expect(rendered[1].textContent).toContain('Test prop for all');
+      expect(rendered[2].textContent).toContain('Another test prop for all');
+    });
+
+    it('should NOT apply negative-amenity styling to additionalProps (title="")', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({
+          features: [],
+          additionalProps: [
+            { uniqId: 'ap-1', icon: '<svg>d</svg>', title: '', value: 'Priority boarding' },
+          ],
+        }),
+      });
+      fixture.detectChanges();
+
+      const rendered = fixture.nativeElement.querySelectorAll('.jets-tooltip--amenity');
+      expect(rendered.length).toBe(1);
+      expect(rendered[0].classList.contains('jets-tooltip--amenity-negative')).toBe(false);
+    });
+
+    it('should cap the combined list at 12 entries (React parity)', () => {
+      const features = Array.from({ length: 10 }, (_, i) => ({
+        key: `feat-${i}`,
+        icon: '<svg></svg>',
+        title: `Feature ${i}`,
+        value: true,
+      }));
+      const additionalProps = Array.from({ length: 5 }, (_, i) => ({
+        uniqId: `ap-${i}`,
+        icon: '<svg></svg>',
+        title: '',
+        value: `Extra ${i}`,
+      }));
+      component.data = makeTooltipData({ seat: makeSeat({ features, additionalProps }) });
+      fixture.detectChanges();
+
+      expect(component.amenities).toHaveLength(12);
+      // First 10 are the API features, the last 2 are the first two additionalProps.
+      expect(component.amenities[10].value).toBe('Extra 0');
+      expect(component.amenities[11].value).toBe('Extra 1');
+    });
+
+    it('should not filter additionalProps via hiddenSeatFeatures', () => {
+      component.hiddenSeatFeatures = ['wifiEnabled'];
+      component.data = makeTooltipData({
+        seat: makeSeat({
+          features: [{ key: 'wifiEnabled', icon: '<svg></svg>', title: 'Wi-Fi', value: true }],
+          additionalProps: [
+            { uniqId: 'ap-1', icon: '<svg></svg>', title: '', value: 'Custom row' },
+          ],
+        }),
+      });
+      fixture.detectChanges();
+
+      // The API feature is hidden, but the integrator-defined row stays.
+      expect(component.amenities.map(a => a.value)).toEqual(['Custom row']);
+    });
   });
 
   // ─── Dimensions ────────────────────────────────────────────────────────

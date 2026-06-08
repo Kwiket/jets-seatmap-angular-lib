@@ -550,12 +550,41 @@ describe('JetsSeatMapPreparerService', () => {
       expect(service.prepareSeatAdditionalProps([])).toEqual([]);
     });
 
-    it('should map additional props to features', () => {
-      const props = [{ type: 'info', icon: 'dot', label: 'Priority boarding', cssClass: 'priority' }];
+    it('should map additional props with title="" and uniqId', () => {
+      const props = [{ icon: 'dot', label: 'Priority boarding', cssClass: 'priority' }];
       const result = service.prepareSeatAdditionalProps(props);
       expect(result).toHaveLength(1);
       expect(result[0].value).toBe('Priority boarding');
-      expect(result[0].title).toBeNull();
+      // title is '' (not null) so the tooltip's negative-amenity styling does
+      // not fire on integrator-defined rows. React parity.
+      expect(result[0].title).toBe('');
+      expect(typeof result[0].uniqId).toBe('string');
+      expect(result[0].uniqId!.length).toBeGreaterThan(0);
+      expect(result[0].cssClass).toBe('priority');
+      expect(result[0].icon).toBeTypeOf('string');
+      expect(result[0].icon!.length).toBeGreaterThan(0);
+    });
+
+    it('should fall back to the dot icon when icon is null', () => {
+      const dotResult = service.prepareSeatAdditionalProps([{ icon: null, label: 'Test' }]);
+      const fallbackResult = service.prepareSeatAdditionalProps([{ label: 'Test' }]);
+      expect(dotResult[0].icon).toBe(fallbackResult[0].icon);
+      expect(dotResult[0].icon!.length).toBeGreaterThan(0);
+    });
+
+    it('should fall back to empty string for an unknown icon key', () => {
+      const result = service.prepareSeatAdditionalProps([{ icon: 'does-not-exist', label: 'Test' }]);
+      expect(result[0].icon).toBe('');
+    });
+
+    it('should give each item a distinct uniqId', () => {
+      const result = service.prepareSeatAdditionalProps([
+        { label: 'A' },
+        { label: 'B' },
+        { label: 'C' },
+      ]);
+      const ids = result.map(r => r.uniqId);
+      expect(new Set(ids).size).toBe(3);
     });
   });
 });

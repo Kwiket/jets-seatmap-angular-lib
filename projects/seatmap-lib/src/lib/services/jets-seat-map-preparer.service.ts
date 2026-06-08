@@ -1144,14 +1144,23 @@ export class JetsSeatMapPreparerService {
     return merged;
   }
 
-  /** Prepare additionalProps from availability for tooltip rendering */
+  /**
+   * Prepare integrator-defined `availability[].additionalProps` for tooltip
+   * rendering. Mirrors React's `data-preparer.js#prepareSeatAdditionalProps`:
+   * each item turns into an `ISeatFeature` with the icon resolved from
+   * `SEAT_FEATURES_ICONS` (key fallback: `'dot'`), the integrator label landing
+   * in `value`, and a fresh `uniqId` for `@for ... track`. `title` is `''`
+   * (not `null`) so the tooltip's negative-amenity styling does not fire on
+   * these rows — React doesn't apply it to additionalProps either.
+   */
   prepareSeatAdditionalProps(
-    additionalProps?: Array<{ type: string; icon?: string; label?: string; cssClass?: string }>
+    additionalProps?: Array<{ icon?: string | null; label?: string; cssClass?: string }>
   ): ISeatFeature[] {
     if (!additionalProps?.length) return [];
     return additionalProps.map(item => ({
+      uniqId: genFeatureId(),
       icon: SEAT_FEATURES_ICONS[item.icon ?? 'dot'] ?? '',
-      title: null,
+      title: '',
       value: item.label,
       cssClass: item.cssClass,
     }));

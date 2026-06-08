@@ -94,7 +94,7 @@ import { LOCALES_MAP } from '../../constants';
                 @for (amenity of amenities; track amenity.uniqId || amenity.key) {
                   <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.title === null">
                     <span class="jets-tooltip--amenity-icon" [innerHTML]="safeSvg(amenity.icon)"></span>
-                    <span class="jets-tooltip--amenity-text">{{ amenity.title ?? amenity.value }}</span>
+                    <span class="jets-tooltip--amenity-text">{{ amenity.title || amenity.value }}</span>
                   </div>
                 }
               </div>
@@ -218,9 +218,24 @@ export class JetsTooltipComponent {
     return (this.data.seat.measurements || []).filter(f => !this.isFeatureHidden(f));
   }
 
-  /** Amenities (audioVideo, power, wifi, nearGalley, …) — comes pre-split from the preparer. */
+  /**
+   * Cap on the combined `features + additionalProps` list rendered in the
+   * tooltip. Mirrors React's `DEFAULT_FEATURES_RENDER_LIMIT`
+   * (`jets-seatmap-react-lib-pub/src/common/constants.js:123`).
+   */
+  private static readonly FEATURES_RENDER_LIMIT = 12;
+
+  /**
+   * Amenities (audioVideo, power, wifi, nearGalley, …) — comes pre-split from
+   * the preparer. Integrator-defined `availability.additionalProps` are
+   * appended after the API amenities, matching React's
+   * `TooltipGlobal.js#finalListOfFeatures`. `hiddenSeatFeatures` filters API
+   * features only — React does not apply it to additionalProps either.
+   */
   get amenities(): ISeatFeature[] {
-    return (this.data.seat.features || []).filter(f => !this.isFeatureHidden(f));
+    const features = (this.data.seat.features ?? []).filter(f => !this.isFeatureHidden(f));
+    const additional = this.data.seat.additionalProps ?? [];
+    return [...features, ...additional].slice(0, JetsTooltipComponent.FEATURES_RENDER_LIMIT);
   }
 
   private isFeatureHidden(f: ISeatFeature): boolean {
