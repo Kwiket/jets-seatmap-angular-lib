@@ -6,9 +6,10 @@ import { applyConfigAndReady, setAvailability } from '../helpers/demo';
  * Visual proof that the seat event payload now matches the React contract:
  *
  *   - `passengerTypes` defaults to `['ADT','CHD','INF']` (React's
- *     DEFAULT_SEAT_PASSENGER_TYPES) when availability doesn't restrict the seat.
- *   - `rotation` is no longer emitted (React keeps rotation on `seatMap.params`,
- *     never on the seat itself).
+ *     DEFAULT_SEAT_PASSENGER_TYPES) and is a flat `string[]` — no
+ *     `[["ADT","CHD","INF"]]` nesting from the availability merge.
+ *   - `rotation` is emitted with `'n'` (north / no-rotation) as the default,
+ *     matching React's Seat fixtures.
  *   - `features[]` carries a category in `title` and the API summary in `value`
  *     (was inverted before the fix).
  *   - The wifi feature key is `wifi` (not `wifiEnabled`).
