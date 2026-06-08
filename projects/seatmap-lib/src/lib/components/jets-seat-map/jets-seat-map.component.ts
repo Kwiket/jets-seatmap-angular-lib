@@ -96,6 +96,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   @Output() deckChanged = new EventEmitter<number>();
   @Output() loadError = new EventEmitter<string>();
   @Output() seatMouseEnter = new EventEmitter<ISeatMouseEnterData>();
+  /**
+   * React parity: fired when the cursor leaves a seat **only while
+   * `tooltipOnHover === true`**. In React (JetsSeat.js:128-129) the DOM
+   * mouseleave listener is attached only in hover mode, so the callback
+   * cannot fire outside it. Mirrors React's `onSeatMouseLeave`.
+   */
   @Output() seatMouseLeave = new EventEmitter<ISeatMouseLeaveData>();
   /**
    * Fired when a seat is clicked while `externalPassengerManagement` and
@@ -777,6 +783,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onSeatMouseLeave(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
+    // React parity (JetsSeat.js:128-129, SeatMap.js:408-414): the outward
+    // `onSeatMouseLeave` only fires in hover-tooltip mode. In React the DOM
+    // mouseleave listener itself is attached only when `tooltipOnHover === true`;
+    // here the listener is always wired, so we gate the emit at this layer.
+    if (!this.resolvedConfig.tooltipOnHover) return;
+
     // Emit the same enriched shape integrators see in tooltipRequested /
     // seatMouseClick — React-parity (JetsSeat.js routes both hover & click
     // through prepareSeatDataForEmit). Without this pass, mouseLeave would
@@ -785,7 +797,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     const { seat, element, event } = payload;
     this.seatMouseLeave.emit({ seat: this._prepareSeatForEmit(seat), element, event });
 
-    if (this.resolvedConfig.tooltipOnHover && !getEnvironmentInfo().isTouchDevice) {
+    if (!getEnvironmentInfo().isTouchDevice) {
       // Defer the close so the cursor has time to reach the tooltip body —
       // `onTooltipMouseEnter` cancels the pending close. Without this, the
       // tooltip is torn out of the DOM before any in-tooltip button can be

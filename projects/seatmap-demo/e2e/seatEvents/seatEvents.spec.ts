@@ -12,7 +12,9 @@ const OUT_DIR = path.join(__dirname, 'screenshots');
  *                              on a non-touch device. Crucially fires
  *                              regardless of `builtInTooltip` — that was the
  *                              bug the spec guards against.
- *   - `seatMouseLeave`      — fires whenever the cursor leaves a seat.
+ *   - `seatMouseLeave`      — React-parity: fires when the cursor leaves a seat
+ *                              **only** while `tooltipOnHover === true` (the
+ *                              hover-mode DOM listener path).
  *   - `availabilityApplied` — fires after availability is applied; payload
  *                              splits provided labels into existing /
  *                              non-existing buckets.

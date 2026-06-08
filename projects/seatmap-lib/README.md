@@ -729,7 +729,9 @@ interface IPassenger {
 
 ### <a name="seatmouseleave"></a> seatMouseLeave
 
-Fired when the cursor leaves the seat boundaries. Payload — `ISeatMouseLeaveData`, structurally identical to
+Fired when the cursor leaves the seat boundaries — **only when `tooltipOnHover === true`**. The React parent (see the
+React library's `JetsSeat.js` / `SeatMap.js`) attaches the underlying mouseleave listener only in hover mode, so the
+event is silent in click-tooltip mode. Payload — `ISeatMouseLeaveData`, structurally identical to
 [ tooltipRequested](#-tooltiprequested).
 
 ```typescript
@@ -834,7 +836,7 @@ Additional `@Output()`s:
 | -------------------------- | ------------------------ | ----------------------------------------------------------------- |
 | `deckChanged`              | `number`                 | Active deck index changed.                                        |
 | `loadError`                | `string`                 | Failed to load the seatmap (HTTP error message).                  |
-| `seatMouseEnter`           | `ISeatMouseEnterData`    | Cursor entered seat boundaries (counterpart to `seatMouseLeave`). |
+| `seatMouseEnter`           | `ISeatMouseEnterData`    | Cursor entered seat boundaries — fires unconditionally (Angular-only; React has no equivalent). |
 | `activeTooltipChanged`     | `ITooltipData \| null`   | Built-in tooltip opened/closed.                                   |
 | `legendReady`              | `ILegendItem[]`          | Legend recomputed (after load / availability change).             |
 | `mediaReady`               | `IMediaData \| null`     | Media (cabin photos) finished loading.                            |

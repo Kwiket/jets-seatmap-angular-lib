@@ -449,7 +449,14 @@ describe('JetsSeatMapComponent', () => {
       expect(spy).toHaveBeenCalledWith(event);
     });
 
-    it('should emit seatMouseLeave with the enriched (prepared) seat shape', () => {
+    // React parity (JetsSeat.js:128-129, SeatMap.js:408-414): the outward
+    // `onSeatMouseLeave` callback only fires through `onTooltipClose`, and the
+    // DOM mouseleave listener that calls it is attached only when
+    // `tooltipOnHover === true`. The React test
+    // `JetsSeat.integration.test.js:38-54` codifies this — "should not trigger
+    // onMouseEnter and onMouseLeave handlers by default".
+    it('should emit seatMouseLeave with the enriched (prepared) seat shape when tooltipOnHover=true', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
       const spy = vi.fn();
       component.seatMouseLeave.subscribe(spy);
 
@@ -470,6 +477,19 @@ describe('JetsSeatMapComponent', () => {
       expect(arg.seat).not.toHaveProperty('id');
       expect(arg.seat).not.toHaveProperty('size');
       expect(arg.seat).not.toHaveProperty('rotation');
+    });
+
+    it('should NOT emit seatMouseLeave when tooltipOnHover is unset/false', () => {
+      // Default config has no tooltipOnHover — emit must be suppressed.
+      const spy = vi.fn();
+      component.seatMouseLeave.subscribe(spy);
+
+      component.onSeatMouseLeave({ seat: makeSeat(), element: document.createElement('div') });
+      expect(spy).not.toHaveBeenCalled();
+
+      component.config = makeConfig({ tooltipOnHover: false });
+      component.onSeatMouseLeave({ seat: makeSeat(), element: document.createElement('div') });
+      expect(spy).not.toHaveBeenCalled();
     });
   });
 
