@@ -349,7 +349,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   get displayScale(): number {
     if (!this.content.length) return 1;
     const stroke = this.resolvedConfig.colorTheme?.fuselageStrokeWidth ?? 0;
-    const maxNative = Math.max(...this.content.map(d => d.nativeDeckWidth ?? 0));
+    // Match React `data-helper.js:16,21`: scale = config.width / (max(deck.width) + stroke*2).
+    // React's `deck.width` is the seats-only row width (aisles are zero when
+    // computed with `maxRowWidth=0`), so we use `biggestSeatRowWidth` and NOT
+    // `nativeDeckWidth` here — keeping displayScale denominator independent
+    // of the aisle-inflated row-layout metric.
+    const maxNative = Math.max(...this.content.map(d => d.biggestSeatRowWidth ?? d.nativeDeckWidth ?? 0));
     if (maxNative <= 0) return 1;
     return this.resolvedConfig.width / (maxNative + stroke * 2);
   }

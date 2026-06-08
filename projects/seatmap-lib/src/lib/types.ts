@@ -345,6 +345,9 @@ export interface IDeckData {
   deckWidth?: number;
   /** Native (unscaled) targetDeckWidth — used to compute per-deck floor narrowing */
   nativeDeckWidth?: number;
+  /** Native seats-only row width (no aisles) — feeds `displayScale`,
+   *  matches React `data-helper.js:_calculateSeatMapScale` denominator. */
+  biggestSeatRowWidth?: number;
 }
 
 // ─── Legend ──────────────────────────────────────────────────────────────────

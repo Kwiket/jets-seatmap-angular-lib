@@ -180,6 +180,7 @@ export class JetsSeatMapPreparerService {
       scale,
       deckWidth,
       nativeDeckWidth,
+      biggestSeatRowWidth: this._computeBiggestSeatRowWidth(rows),
     };
   }
 
@@ -586,6 +587,7 @@ export class JetsSeatMapPreparerService {
       scale,
       deckWidth,
       nativeDeckWidth,
+      biggestSeatRowWidth: this._computeBiggestSeatRowWidth(deck.rows),
     };
   }
 
@@ -946,9 +948,23 @@ export class JetsSeatMapPreparerService {
    * Groups by cabin class, finds widest row per class, averages.
    */
   private _computeNativeDeckWidth(rows: IApiRow[]): number {
-    // Group rows CONSECUTIVELY by classCode — matches React's _groupRowsByCabinClass.
-    // Then pick the row with the MOST SEATS per group (matches React's findBiggestDeckRow),
-    // and use its total native width (all elements including aisles).
+    return this._computeDeckRowAvg(rows, /* countAisles */ true);
+  }
+
+  /**
+   * Same shape as `_computeNativeDeckWidth` but mirrors React's
+   * `_dataHelper.findBiggestDeckRow` + `_prepareRow` with `maxRowWidth=0`
+   * (data-preparer.js:164,304-313): aisle elements get width 0, so the
+   * resulting average is `seats × nativeW` only. Feeds the `displayScale`
+   * derivation in `JetsSeatMapComponent` — keeping it independent of the
+   * aisle-inflated `nativeDeckWidth` lets row layout stay correct (aisles
+   * visible) while the contour scale matches React.
+   */
+  private _computeBiggestSeatRowWidth(rows: IApiRow[]): number {
+    return this._computeDeckRowAvg(rows, /* countAisles */ false);
+  }
+
+  private _computeDeckRowAvg(rows: IApiRow[], countAisles: boolean): number {
     interface GroupEntry {
       classCode: string;
       bestSeatCount: number;
@@ -979,26 +995,25 @@ export class JetsSeatMapPreparerService {
         seatCount = (scheme.match(/S/g) ?? []).length;
         const seatType = row.seatType ?? DEFAULT_SEAT_TYPE;
         const [nativeW] = SEAT_SIZE_BY_TYPE[seatType] ?? [100, 100];
-        // Native row width counts every scheme element (seats AND aisles) at
-        // full `nativeW` — `_prepareRowNew` (line 230) computes
-        // `remaining = containerWidth - totalSeatRendered` and distributes
-        // `remaining` to aisles, so we MUST leave aisle width in the deck
-        // container; otherwise 3-3/3-4-3 economy collapses into a seamless
-        // strip with no visible centre aisle (DL898 regression).
-        // The displayScale derivation pays a ~1.3× too-small factor for this,
-        // but visible row layout takes priority over pixel-parity contour.
-        nativeRowWidth = scheme.length * nativeW;
+        // countAisles=true → `scheme.length × nativeW` (preparer needs aisle
+        // budget downstream; see `_prepareRowNew` line 230 distributing
+        // `remaining` to aisles).
+        // countAisles=false → `seatCount × nativeW` (React parity for the
+        // displayScale denominator — `data-preparer.js:304-313` collapses
+        // aisle widths to 0 when `maxRowWidth=0`).
+        nativeRowWidth = (countAisles ? scheme.length : seatCount) * nativeW;
       } else {
         const seats = row.seats ?? [];
         const rowSeatType = row.seatType ?? DEFAULT_SEAT_TYPE;
         const [nativeW] = SEAT_SIZE_BY_TYPE[rowSeatType] ?? [100, 100];
-        nativeRowWidth = seats.length * nativeW;
+        let totalLen = 0;
         for (const s of seats) {
           if (this._apiSeatType(s) !== ENTITY_TYPE_MAP.aisle) seatCount++;
+          totalLen++;
         }
+        nativeRowWidth = (countAisles ? totalLen : seatCount) * nativeW;
       }
 
-      // Pick row with most seats (like React's findBiggestDeckRow sort by S-count)
       if (seatCount > bestSeatCount) {
         bestSeatCount = seatCount;
         bestRowWidth = nativeRowWidth;
@@ -1009,8 +1024,7 @@ export class JetsSeatMapPreparerService {
     }
 
     const sum = groups.reduce((acc, g) => acc + g.bestRowWidth, 0);
-    const result = groups.length > 0 ? sum / groups.length : 1;
-    return result;
+    return groups.length > 0 ? sum / groups.length : 1;
   }
 
   /**
