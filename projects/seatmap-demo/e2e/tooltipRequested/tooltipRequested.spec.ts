@@ -133,7 +133,7 @@ test.describe('tooltipRequested payload', () => {
     expect(seat.size).toBeUndefined();
   });
 
-  test('every amenity has string title + string value (negative ones carry localized text)', async ({ page }) => {
+  test('every amenity has non-empty title and a valid value (negative ones carry localized text)', async ({ page }) => {
     await page.goto('/');
     await applyConfigAndReady(page, {}, { availability: AVAILABILITY });
     await selectSeat(page, TARGET_SEAT);
@@ -143,19 +143,27 @@ test.describe('tooltipRequested payload', () => {
     const features = seat.features ?? [];
     expect(features.length).toBeGreaterThan(0);
 
-    // Integrator contract: ISeatFeature.{ title: string, value: string }. Internally
-    // the lib still tracks negative amenities (those omitted from positive lookups);
-    // on emit they flatten so title === value === localized phrase.
+    // Integrator contract — `ISeatFeature.value: string | number | boolean | null`
+    // (see types.ts). React parity (jets-seatmap-react-lib-pub/src/common/data-preparer.js:436-451):
+    //   - Positive amenities: `value` is the RAW API value — usually `true` when
+    //     the API just signals presence, or a string when a summary is given.
+    //   - Negative amenities: `value` is the localized phrase; after the emit
+    //     pass (`normalizeFeature` in _prepareSeatForEmit), `title` is filled
+    //     from `value`, so title === value === localized string.
+    // `title` is always a non-empty string after the emit pass.
     for (const f of features) {
       expect(typeof f.title).toBe('string');
       expect((f.title as string).length).toBeGreaterThan(0);
-      expect(typeof f.value).toBe('string');
-      expect((f.value as string).length).toBeGreaterThan(0);
+      expect(['string', 'boolean']).toContain(typeof f.value);
+      if (typeof f.value === 'string') {
+        expect(f.value.length).toBeGreaterThan(0);
+      }
     }
 
     // At least one feature is the well-known 'Close to lavatories' negative on 43A.
     const lavatory = features.find(f => f.key === 'nearLavatory');
     expect(lavatory).toBeDefined();
+    expect(typeof lavatory!.value).toBe('string');
     expect(lavatory!.title).toBe(lavatory!.value);
   });
 
