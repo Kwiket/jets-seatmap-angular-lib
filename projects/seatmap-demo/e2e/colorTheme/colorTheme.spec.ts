@@ -576,10 +576,11 @@ const FIELD_CASES: FieldCase[] = [
         .first()
         .evaluate(el => parseFloat(getComputedStyle(el).borderLeftWidth));
       // Override 18 must visibly exceed baseline 12 — both go through the
-      // same displayScale (~0.4 at the per-field screenshot size), so the
-      // rendered baseline ends up around 4-5 px and the override around
-      // 7-8 px. Lower bound 6 sits between them.
-      expect(width).toBeGreaterThan(6);
+      // same displayScale (~0.25-0.3 with the production
+      // `_computeNativeDeckWidth` that counts aisles), so the rendered
+      // baseline ends up ~3-4 px and the override ~5-6 px. Lower bound 4
+      // sits between them and survives small flight/aircraft variance.
+      expect(width).toBeGreaterThan(4);
     },
   },
   {

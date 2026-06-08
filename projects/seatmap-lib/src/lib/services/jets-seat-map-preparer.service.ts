@@ -979,20 +979,23 @@ export class JetsSeatMapPreparerService {
         seatCount = (scheme.match(/S/g) ?? []).length;
         const seatType = row.seatType ?? DEFAULT_SEAT_TYPE;
         const [nativeW] = SEAT_SIZE_BY_TYPE[seatType] ?? [100, 100];
-        // React parity: cabin-class widths are computed with `maxRowWidth=0`
-        // (data-preparer.js:164,304-313), which collapses aisleWidth to 0 —
-        // so the native row width is just `seats × nativeW`. The previous
-        // `scheme.length × nativeW` formula counted aisles as full seats and
-        // inflated the deck-scale denominator ~1.3×.
-        nativeRowWidth = seatCount * nativeW;
+        // Native row width counts every scheme element (seats AND aisles) at
+        // full `nativeW` — `_prepareRowNew` (line 230) computes
+        // `remaining = containerWidth - totalSeatRendered` and distributes
+        // `remaining` to aisles, so we MUST leave aisle width in the deck
+        // container; otherwise 3-3/3-4-3 economy collapses into a seamless
+        // strip with no visible centre aisle (DL898 regression).
+        // The displayScale derivation pays a ~1.3× too-small factor for this,
+        // but visible row layout takes priority over pixel-parity contour.
+        nativeRowWidth = scheme.length * nativeW;
       } else {
         const seats = row.seats ?? [];
         const rowSeatType = row.seatType ?? DEFAULT_SEAT_TYPE;
         const [nativeW] = SEAT_SIZE_BY_TYPE[rowSeatType] ?? [100, 100];
+        nativeRowWidth = seats.length * nativeW;
         for (const s of seats) {
           if (this._apiSeatType(s) !== ENTITY_TYPE_MAP.aisle) seatCount++;
         }
-        nativeRowWidth = seatCount * nativeW;
       }
 
       // Pick row with most seats (like React's findBiggestDeckRow sort by S-count)
