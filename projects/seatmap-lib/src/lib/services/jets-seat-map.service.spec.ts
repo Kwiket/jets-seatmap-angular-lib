@@ -200,6 +200,46 @@ describe('JetsSeatMapService', () => {
       const result = service.setAvailabilityHandler(content, availability);
       expect(result[0].rows[0].seats[0].additionalProps).toBeUndefined();
     });
+
+    // ─── onlyForPassengerType → passengerTypes (flat) ──────────────────────
+    // The earlier handler wrapped `source.onlyForPassengerType` in another
+    // array, producing `[["ADT","CHD","INF"]]`. The Select button in the
+    // built-in tooltip then disabled itself because
+    // `passengerTypes.includes(nextPassenger.passengerType)` could never be
+    // true against a nested array. Lock in the flat shape so a future
+    // regression here surfaces as a unit failure instead of a UI-only
+    // "Select grayed out" bug.
+
+    it('should set seat.passengerTypes from availability.onlyForPassengerType as a flat string[]', () => {
+      const seat = makeSeat({ number: '20E' });
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        { label: '20E', price: 33, currency: 'USD', onlyForPassengerType: ['ADT', 'CHD', 'INF'] },
+      ];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      const out = result[0].rows[0].seats[0];
+
+      expect(out.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+      // Guard against the legacy `[["ADT","CHD","INF"]]` nesting — every
+      // element must be a string, none of them an array.
+      expect(out.passengerTypes!.every(v => typeof v === 'string')).toBe(true);
+    });
+
+    it('should keep passengerTypes flat after re-running setAvailabilityHandler (idempotent)', () => {
+      const seat = makeSeat({ number: '20E' });
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        { label: '20E', price: 33, currency: 'USD', onlyForPassengerType: ['ADT', 'CHD', 'INF'] },
+      ];
+
+      const first = service.setAvailabilityHandler(content, availability);
+      const second = service.setAvailabilityHandler(first, availability);
+      const out = second[0].rows[0].seats[0];
+
+      expect(out.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+      expect(out.passengerTypes!.every(v => typeof v === 'string')).toBe(true);
+    });
   });
 
   // ─── setPassengersHandler ─────────────────────────────────────────────────
