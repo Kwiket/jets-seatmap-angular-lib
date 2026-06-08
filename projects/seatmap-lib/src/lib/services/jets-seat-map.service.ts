@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import {
+  IAvailableSeatsData,
   IConfig,
   IDeckData,
   IExistingSeatsLabelsInfo,
@@ -31,6 +32,7 @@ export class JetsSeatMapService {
     content: IDeckData[];
     media?: IMediaData;
     availableCabins: { code: string; title: string }[];
+    availabilityData?: IAvailableSeatsData;
   }> {
     const apiResponse = await this.apiService.getSeatmapData(
       {
@@ -70,7 +72,12 @@ export class JetsSeatMapService {
       content = this.setPassengersHandler(content, withAbbr);
     }
 
-    return { content, media: apiResponse.media, availableCabins };
+    return {
+      content,
+      media: apiResponse.media,
+      availableCabins,
+      availabilityData: apiResponse.availabilityData,
+    };
   }
 
   setAvailabilityHandler(content: IDeckData[], availability: TSeatAvailability): IDeckData[] {
@@ -105,10 +112,7 @@ export class JetsSeatMapService {
           // React parity (service.js:104-119) — entry and wildcard contribute
           // independent additionalProps lists, concatenated entry-first. When
           // only the wildcard matches, just the wildcard's list flows through.
-          const mergedAdditional = [
-            ...(entry?.additionalProps ?? []),
-            ...(wildcard?.additionalProps ?? []),
-          ];
+          const mergedAdditional = [...(entry?.additionalProps ?? []), ...(wildcard?.additionalProps ?? [])];
           const additionalProps = mergedAdditional.length
             ? this.preparer.prepareSeatAdditionalProps(mergedAdditional)
             : undefined;

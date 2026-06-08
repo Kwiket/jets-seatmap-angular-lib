@@ -406,6 +406,25 @@ export interface ITooltipData {
 
 // ─── Events ──────────────────────────────────────────────────────────────────
 /**
+ * A single seat entry inside `IAvailableSeatsData.availableSeats` as returned
+ * by the Quicket API. Mirrors React's `ISeat` (public contract).
+ */
+export interface ISeat {
+  currency: string;
+  label: string;
+  price: number;
+}
+
+/**
+ * Read-only availability bundle returned by the Quicket API as the
+ * `{ id: 'availabilityData', availableSeats: […] }` element of the response
+ * array. Mirrors React's `IAvailableSeatsData`.
+ */
+export interface IAvailableSeatsData {
+  availableSeats: ISeat[];
+}
+
+/**
  * Payload of `seatMapInited` event — initial layout data emitted once the
  * seatmap is rendered for the first time. Matches React's onSeatMapInited.
  */
@@ -419,8 +438,15 @@ export interface IInitialLayoutData {
   currentDeckIndex: number;
   /** Media assets (cabin photos, panoramas) loaded along with the seatmap. */
   media?: IMediaData | null;
-  /** Snapshot of the `availability` Input at the moment of init (mirrors React). */
-  availabilityData?: TSeatAvailability;
+  /**
+   * Read-only seat availability data received from the Quicket API
+   * (`{ availableSeats: [{ label, currency, price }, …] }`). Distinct from the
+   * integrator-provided `availability` Input — that one controls per-seat
+   * status/colour overrides, while this field surfaces what the API itself
+   * reports as available for the requested flight. Mirrors React's
+   * `onSeatMapInited({ availabilityData })`.
+   */
+  availabilityData?: IAvailableSeatsData;
   /** Present only when the seatmap failed to build. Omitted otherwise (React parity). */
   error?: string;
   /** All cabin classes detected in the source data (before any cabin-class filtering). */
@@ -613,6 +639,13 @@ export interface IApiSeatmapResponse {
   seatDetails?: { decks: IApiDeck[] };
   /** Media assets (seat photos, cabin photos) from API */
   media?: IMediaData;
+  /**
+   * Read-only availability data extracted from the
+   * `{ id: 'availabilityData', availableSeats: […] }` element of the API
+   * response array. Read in `JetsSeatMapApiService._postSeatmap`, forwarded
+   * verbatim into the `seatMapInited` payload.
+   */
+  availabilityData?: IAvailableSeatsData;
   /** Flight-level amenities */
   entertainment?: { exists?: boolean; cost?: string; deliveryType?: string; summary?: string };
   wifi?: { exists?: boolean; cost?: string; summary?: string };

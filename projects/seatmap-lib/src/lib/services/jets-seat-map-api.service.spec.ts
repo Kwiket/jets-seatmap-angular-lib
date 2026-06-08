@@ -215,6 +215,45 @@ describe('JetsSeatMapApiService', () => {
     expect(response.wifi).toMatchObject({ exists: true });
   });
 
+  it('should extract availabilityData from the `id: "availabilityData"` array element (React parity)', async () => {
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig());
+    await Promise.resolve();
+    await Promise.resolve();
+    const req = httpMock.expectOne(URL);
+
+    req.flush([
+      { decks: [{ rows: [] }] },
+      {
+        id: 'availabilityData',
+        availableSeats: [
+          { label: '53H', currency: 'EUR', price: 0 },
+          { label: '53J', currency: 'EUR', price: 0 },
+        ],
+      },
+    ]);
+
+    const response = await pending;
+    // The marker `id` is stripped; the rest is surfaced under `availabilityData`.
+    expect(response.availabilityData).toEqual({
+      availableSeats: [
+        { label: '53H', currency: 'EUR', price: 0 },
+        { label: '53J', currency: 'EUR', price: 0 },
+      ],
+    });
+  });
+
+  it('should leave availabilityData undefined when the API does not send the marker element', async () => {
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig());
+    await Promise.resolve();
+    await Promise.resolve();
+    const req = httpMock.expectOne(URL);
+
+    req.flush([{ decks: [{ rows: [] }] }, { id: 'plane:E', cabin: { pitch: 30 } }]);
+
+    const response = await pending;
+    expect(response.availabilityData).toBeUndefined();
+  });
+
   it('should strip undefined/empty fields from the flight payload', async () => {
     const flight = makeFlightRequest({
       passengerType: undefined,

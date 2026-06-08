@@ -695,7 +695,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
         const payload: IInitialLayoutData = {
           ...layout,
           media: this.media,
-          availabilityData: this.availability,
+          // `availabilityData` is the read-only `{availableSeats: […]}` block
+          // surfaced by the Quicket API itself (see
+          // `JetsSeatMapApiService._postSeatmap`). Do not confuse with the
+          // integrator-supplied `availability` Input — that one drives per-
+          // seat status/colour overrides and lives in a different shape.
+          availabilityData: result.availabilityData,
           allCabins: result.availableCabins,
         };
         // React parity: omit the `error` key entirely when there is no error.

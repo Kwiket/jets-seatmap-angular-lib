@@ -104,6 +104,18 @@ export class JetsSeatMapApiService {
           response.media = media;
         }
       }
+
+      // Extract the read-only `availabilityData` payload (React parity —
+      // api.js:101-104): the API surfaces it as a sibling element with
+      // `id: 'availabilityData'`. We strip the marker `id` and keep the rest
+      // (`availableSeats`) so consumers see the same shape as the React lib.
+      for (const item of rawResponse) {
+        if ((item as any).id === 'availabilityData') {
+          const { id: _id, ...rest } = item as any;
+          response.availabilityData = rest;
+          break;
+        }
+      }
     } else {
       response = rawResponse;
     }

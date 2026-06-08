@@ -1331,16 +1331,37 @@ describe('JetsSeatMapComponent', () => {
       expect('availableCabins' in payload).toBe(false);
     });
 
-    it('should emit availabilityData mirroring the availability Input', async () => {
-      const availability: TSeatAvailability = [{ label: '1A', price: 10, currency: 'EUR' }];
-      component.availability = availability;
+    it('should emit availabilityData from the API response (NOT from the availability Input)', async () => {
+      // The `availability` Input controls per-seat status/colour overrides
+      // (see `JetsSeatMapService.setAvailabilityHandler`). The `availabilityData`
+      // emitted on `seatMapInited` is a different beast: it's the read-only
+      // `{ availableSeats: [...] }` block that the Quicket API ships in its
+      // response array (React parity — api.js:101-104). Mixing the two was the
+      // bug behind "Fix: onSeatMapInited object data".
+      const apiAvailabilityData = {
+        availableSeats: [
+          { label: '53H', currency: 'EUR', price: 0 },
+          { label: '53J', currency: 'EUR', price: 0 },
+        ],
+      };
+      mockService.getSeatMapData.mockResolvedValue({
+        content: [makeDeckData()],
+        media: null,
+        availableCabins: [],
+        availabilityData: apiAvailabilityData,
+      });
+
+      // Set the Input too, to prove it does NOT leak into payload.availabilityData.
+      component.availability = [{ label: '1A', price: 10, currency: 'EUR' }] as TSeatAvailability;
 
       const spy = vi.fn();
       component.seatMapInited.subscribe(spy);
       await load();
 
       const payload = spy.mock.calls[0][0];
-      expect(payload.availabilityData).toBe(availability);
+      expect(payload.availabilityData).toBe(apiAvailabilityData);
+      // Sanity: the per-seat Input must not have been smuggled in.
+      expect(payload.availabilityData).not.toEqual(component.availability);
     });
 
     it('should emit heightInPx/widthInPx as native (rendered = value × scaleFactor)', async () => {
