@@ -22,6 +22,7 @@
         [currentDeckIndex]="deckIndexOverride()"
         [seatJumpTo]="seatJumpToOverride()"
         (seatMapInited)="onSeatMapInited($event)"
+        (layoutUpdated)="onLayoutUpdated($event)"
         (seatSelected)="onSeatSelected($event)"
         (seatUnselected)="onSeatUnselected($event)"
         (seatMouseLeave)="onSeatMouseLeave($event)"

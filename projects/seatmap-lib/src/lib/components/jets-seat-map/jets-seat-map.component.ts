@@ -513,6 +513,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     if (changes['currentDeckIndex'] && !changes['currentDeckIndex'].firstChange) {
       this.activeDeckIndex = this.currentDeckIndex;
       this.cdr.markForCheck();
+      this._emitLayoutUpdated();
     }
 
     if (changes['flight'] && !changes['flight'].firstChange) {
@@ -593,6 +594,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
             if (di !== this.activeDeckIndex) {
               this.activeDeckIndex = di;
               this.deckChanged.emit(di);
+              this._emitLayoutUpdated();
             }
             this.cdr.markForCheck();
             // Scroll into view after rendering
@@ -720,14 +722,33 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private _buildLayoutData(): ILayoutData {
-    const rect = this.mapContainer?.nativeElement?.getBoundingClientRect();
+    const container = this.mapContainer?.nativeElement;
+    // heightInPx must reflect the active deck only, not the stacked total (README contract).
+    const activeDeckEl = container?.querySelector(
+      `.deck-wrapper[data-deck-index="${this.activeDeckIndex}"]`
+    ) as HTMLElement | null;
+    const deckRect = activeDeckEl?.getBoundingClientRect();
+    const containerRect = container?.getBoundingClientRect();
     return {
-      heightInPx: rect?.height ?? 0,
-      widthInPx: rect?.width ?? this.resolvedConfig.width,
-      scaleFactor: this.content[0]?.scale ?? 1,
+      heightInPx: deckRect?.height ?? containerRect?.height ?? 0,
+      widthInPx: containerRect?.width ?? this.resolvedConfig.width,
+      scaleFactor: this.content[this.activeDeckIndex]?.scale ?? 1,
       decksCount: this.content.length,
       currentDeckIndex: this.activeDeckIndex,
     };
+  }
+
+  // setTimeout defers to next CD pass so DOM reflects new activeDeckIndex; flightId guards races with flight swap.
+  private _emitLayoutUpdated(): void {
+    const flightId = this._flightId;
+    setTimeout(() => {
+      if (this._flightId !== flightId || !this.isSeatMapInited) return;
+      this.layoutUpdated.emit(this._buildLayoutData());
+    }, 0);
+  }
+
+  getDeckIndex(deck: IDeckData): number {
+    return this.content.indexOf(deck);
   }
 
   private _emitAvailabilityApplied(availability: TSeatAvailability): void {
@@ -997,5 +1018,6 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.activeTooltip = null;
     this.deckChanged.emit(index);
     this.cdr.markForCheck();
+    this._emitLayoutUpdated();
   }
 }

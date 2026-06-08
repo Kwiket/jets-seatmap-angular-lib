@@ -5,6 +5,7 @@ import {
   JetsSeatMapComponent,
   IPassenger,
   IInitialLayoutData,
+  ILayoutData,
   IConfig,
   IExistingSeatsLabelsInfo,
   IFlight,
@@ -242,9 +243,19 @@ export class App {
   }
 
   onSeatMapInited(event: IInitialLayoutData): void {
+    console.log('InitialLayoutData:', event);
     this.addLog(
       'inited',
       `Seatmap loaded. Available seats: ${event.availableSeats.length}, decks: ${event.decksCount}`
+    );
+  }
+
+  onLayoutUpdated(event: ILayoutData): void {
+    console.log('Layout updated:', event);
+    this.addLog(
+      'layout',
+      `Layout updated — deck ${event.currentDeckIndex + 1}/${event.decksCount}, ` +
+        `${event.heightInPx.toFixed(0)}×${event.widthInPx.toFixed(0)}, scale ${event.scaleFactor.toFixed(3)}`
     );
   }
 

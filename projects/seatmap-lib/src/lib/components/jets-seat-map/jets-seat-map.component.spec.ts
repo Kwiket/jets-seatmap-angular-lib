@@ -969,6 +969,73 @@ describe('JetsSeatMapComponent', () => {
       expect(typeof payload.scaleFactor).toBe('number');
     });
 
+    it('should re-emit layoutUpdated on onDeckSelect with the new currentDeckIndex', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: makeMultiDeckData(),
+        media: null,
+        availableCabins: [],
+      });
+      const spy = vi.fn();
+      component.layoutUpdated.subscribe(spy);
+      await load();
+      spy.mockClear();
+
+      component.onDeckSelect(1);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0]).toMatchObject({ currentDeckIndex: 1, decksCount: 2 });
+    });
+
+    it('should re-emit layoutUpdated when currentDeckIndex Input changes', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: makeMultiDeckData(),
+        media: null,
+        availableCabins: [],
+      });
+      const spy = vi.fn();
+      component.layoutUpdated.subscribe(spy);
+      await load();
+      spy.mockClear();
+
+      component.currentDeckIndex = 1;
+      component.ngOnChanges({
+        currentDeckIndex: {
+          previousValue: 0,
+          currentValue: 1,
+          firstChange: false,
+          isFirstChange: () => false,
+        },
+      } as any);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0]).toMatchObject({ currentDeckIndex: 1 });
+    });
+
+    it('should emit layoutUpdated with scaleFactor of active deck (not deck 0)', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: [
+          { ...makeDeckData(), number: 1, scale: 0.5 },
+          { ...makeDeckData(), number: 2, scale: 0.8 },
+        ],
+        media: null,
+        availableCabins: [],
+      });
+      const spy = vi.fn();
+      component.layoutUpdated.subscribe(spy);
+      await load();
+      spy.mockClear();
+
+      component.onDeckSelect(1);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy.mock.calls[0][0].scaleFactor).toBe(0.8);
+    });
+
     it('should emit seatMapInited as IInitialLayoutData with extended fields', async () => {
       const allSeats = [makeSeat()];
       mockService.collectAllSeats.mockReturnValue(allSeats);
