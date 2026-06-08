@@ -32,9 +32,6 @@ export class JetsSeatMapApiService {
       ...(config.apiMetadata ?? {}),
     };
 
-    console.log('[SeatmapAPI] POST', `${config.apiUrl}/flight/features/plane/seatmap`);
-    console.log('[SeatmapAPI] Request body:', JSON.stringify(body, null, 2));
-
     try {
       return await this._postSeatmap(config.apiUrl, body, headers);
     } catch (err: any) {
@@ -111,7 +108,6 @@ export class JetsSeatMapApiService {
       response = rawResponse;
     }
 
-    console.log('[SeatmapAPI] Response:', JSON.stringify(response, null, 2).slice(0, 1000));
     return response;
   }
 
