@@ -829,19 +829,50 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   onSeatClick(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
     const { seat, element, event } = payload;
 
-    // React parity (SeatMap.js:300-309): in hover-tooltip mode on a non-touch
-    // device, an actual click in external-passenger-management mode emits
-    // `seatMouseClick` instead of opening the tooltip — regardless of
-    // `builtInTooltip`. The earlier `!builtInTooltip` guard was a misread of
-    // the React source (the equivalent line is commented out there).
+    // React parity (SeatMap.js:299-325): in hover-tooltip mode on a non-touch
+    // device, an actual click bypasses the tooltip and either delegates to the
+    // integrator (`externalPassengerManagement: true` → emit `seatMouseClick`)
+    // or directly (un)selects the seat internally — regardless of
+    // `builtInTooltip`. The non-hover path keeps opening the tooltip as before.
     const cfg = this.resolvedConfig;
     const shouldSelectOnClick = !!cfg.tooltipOnHover && !getEnvironmentInfo().isTouchDevice;
-    if (shouldSelectOnClick && cfg.externalPassengerManagement) {
-      this.seatMouseClick.emit({ seat, element, event });
+
+    if (shouldSelectOnClick) {
+      if (cfg.externalPassengerManagement) {
+        this.seatMouseClick.emit({ seat, element, event });
+        return;
+      }
+      // Built-in passenger management. Mirrors React's SeatMap.js:311-321:
+      // an occupied seat unselects (unless the occupant is readOnly), an empty
+      // seat selects if there's a compatible next passenger waiting. No
+      // tooltip is opened and no `tooltipRequested` is emitted — that branch
+      // belongs to the non-hover click path only.
+      if (seat.passenger) {
+        if ((seat.passenger as IPassenger & { readOnly?: boolean }).readOnly) return;
+        this.onTooltipUnselect(seat);
+        return;
+      }
+      if (this._isSeatSelectDisabled(seat)) return;
+      this.onTooltipSelect(seat);
       return;
     }
 
     this._showTooltip(payload);
+  }
+
+  /**
+   * React parity for SeatMap.js:416-424. A seat is "select-disabled" when
+   * either there's no next passenger queued, or the next passenger's
+   * `passengerType` is not in the seat's `passengerTypes` whitelist.
+   */
+  private _isSeatSelectDisabled(seat: ISeatData): boolean {
+    const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
+    if (!nextPassenger) return true;
+    return !!(
+      nextPassenger.passengerType &&
+      seat.passengerTypes?.length &&
+      !seat.passengerTypes.includes(nextPassenger.passengerType)
+    );
   }
 
   private _showTooltip(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {

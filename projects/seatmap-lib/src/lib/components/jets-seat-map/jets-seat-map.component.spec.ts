@@ -846,6 +846,204 @@ describe('JetsSeatMapComponent', () => {
     });
   });
 
+  // ─── Click-select in hover mode without external passenger management ──
+  //
+  // React parity (SeatMap.js:299-325): when `tooltipOnHover` is on and
+  // `externalPassengerManagement` is OFF on a non-touch device, a click on
+  // a seat directly (un)selects it without going through the tooltip. This
+  // covers rows 2 and 3 of the configuration table:
+  //   row 2: builtInTooltip:true,  tooltipOnHover:true → hover shows tooltip,
+  //          click selects.
+  //   row 3: builtInTooltip:false, tooltipOnHover:true → no tooltip,
+  //          click selects.
+  describe('seat click select/unselect (tooltipOnHover, internal management)', () => {
+    let savedDescriptor: PropertyDescriptor | undefined;
+    let hadOntouchstart = false;
+
+    beforeEach(() => {
+      resetCachedEnvironmentInfo();
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      hadOntouchstart = Object.prototype.hasOwnProperty.call(proto, 'ontouchstart');
+      if (hadOntouchstart) {
+        savedDescriptor = Object.getOwnPropertyDescriptor(proto, 'ontouchstart');
+        delete proto['ontouchstart'];
+      }
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        configurable: true,
+        get: () => 0,
+      });
+    });
+
+    afterEach(() => {
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      if (hadOntouchstart && savedDescriptor) {
+        Object.defineProperty(proto, 'ontouchstart', savedDescriptor);
+      }
+      resetCachedEnvironmentInfo();
+    });
+
+    async function ready() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    it('row 2 (builtInTooltip:true, tooltipOnHover:true): click selects the seat instead of opening tooltip', async () => {
+      const passenger: IPassenger = { id: 'p1', passengerLabel: 'A' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [{ ...passenger, seat: { price: 0, seatLabel: '1A' } }],
+      });
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      const clickSpy = vi.fn();
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+      component.seatMouseClick.subscribe(clickSpy);
+
+      const seat = makeSeat();
+      component.onSeatClick({ seat, element: document.createElement('div') });
+
+      expect(selectedSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(clickSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+      expect(mockService.selectSeatHandler).toHaveBeenCalled();
+    });
+
+    it('row 3 (builtInTooltip:false, tooltipOnHover:true): click selects the seat with no tooltip', async () => {
+      const passenger: IPassenger = { id: 'p1', passengerLabel: 'A' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [{ ...passenger, seat: { price: 0, seatLabel: '1A' } }],
+      });
+      component.config = makeConfig({
+        builtInTooltip: false,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+
+      expect(selectedSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+    });
+
+    it('click on a seat that already has a passenger unselects it (no tooltipRequested)', async () => {
+      const occupant: IPassenger = { id: 'p0', passengerLabel: 'X' };
+      mockService.unselectSeatHandler.mockReturnValue({ data: [makeDeckData()], passengers: [] });
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const unselectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatUnselected.subscribe(unselectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      const seat = makeSeat({ passenger: occupant });
+      component.onSeatClick({ seat, element: document.createElement('div') });
+
+      expect(unselectedSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(mockService.unselectSeatHandler).toHaveBeenCalled();
+    });
+
+    it('click on a readOnly-passenger seat is a no-op (no select, unselect, or tooltipRequested)', async () => {
+      // React parity: SeatMap.js:312-314 — readOnly passenger blocks unselect.
+      const occupant = { id: 'p0', passengerLabel: 'X', readOnly: true } as IPassenger;
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const unselectedSpy = vi.fn();
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatUnselected.subscribe(unselectedSpy);
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      const seat = makeSeat({ passenger: occupant });
+      component.onSeatClick({ seat, element: document.createElement('div') });
+
+      expect(unselectedSpy).not.toHaveBeenCalled();
+      expect(selectedSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(mockService.unselectSeatHandler).not.toHaveBeenCalled();
+    });
+
+    it('click is a no-op when there is no next passenger to seat (no tooltipRequested either)', async () => {
+      // React's isSeatSelectDisabled returns true when there's nobody to seat —
+      // the click silently aborts. The tooltipRequested fallback must NOT fire.
+      mockService.getNextPassenger.mockReturnValue(null);
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+
+      expect(selectedSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(mockService.selectSeatHandler).not.toHaveBeenCalled();
+    });
+
+    it('click is a no-op when next passenger type does not match seat.passengerTypes', async () => {
+      // React parity: isSeatSelectDisabled also rejects when next passenger's
+      // type isn't allowed on the seat.
+      const passenger: IPassenger = { id: 'p1', passengerLabel: 'A', passengerType: 'INF' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      const seat = makeSeat({ passengerTypes: ['ADT'] });
+      component.onSeatClick({ seat, element: document.createElement('div') });
+
+      expect(selectedSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(mockService.selectSeatHandler).not.toHaveBeenCalled();
+    });
+  });
+
   describe('seatJumpTo @Input tracking', () => {
     function makeSeatJumpToChange(curr: unknown, prev: unknown) {
       return {
