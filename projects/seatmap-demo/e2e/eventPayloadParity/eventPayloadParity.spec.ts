@@ -66,7 +66,7 @@ test('seat event payload — React parity proof', async ({ page }) => {
           return `<svg … fill="${fill}" …>`;
         }
         return v;
-      }),
+      })
     );
   });
 
@@ -75,11 +75,17 @@ test('seat event payload — React parity proof', async ({ page }) => {
     label: expect.any(String),
     classType: expect.any(String),
     passengerTypes: ['ADT', 'CHD', 'INF'],
+    // React-parity: rotation present, defaults to 'n' (north / no-rotation).
+    rotation: 'n',
   });
-  expect(payload).not.toHaveProperty('rotation');
-  expect(payload.features).toEqual(
-    expect.arrayContaining([expect.objectContaining({ key: 'wifi' })]),
-  );
+  // passengerTypes must be a flat string[] — guard against the legacy
+  // [["ADT","CHD","INF"]] nesting that surfaced through the availability
+  // merge before the service.ts:126 fix.
+  expect(Array.isArray(payload.passengerTypes)).toBe(true);
+  for (const item of payload.passengerTypes ?? []) {
+    expect(typeof item).toBe('string');
+  }
+  expect(payload.features).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'wifi' })]));
   for (const f of payload.features ?? []) {
     if (typeof f.icon === 'string') {
       expect(f.icon).toContain('#4f6f8f');
@@ -113,10 +119,10 @@ test('seat event payload — React parity proof', async ({ page }) => {
     const features = (payload.features ?? []) as Array<Record<string, unknown>>;
     const wifiKey = features.find(f => String(f.key).toLowerCase().includes('wifi'))?.key;
     const sampleFeature = features[0] ?? null;
-    const iconFillMatch = sampleFeature?.icon
-      ? /fill="([^"]+)"/.exec(String(sampleFeature.icon))?.[1]
-      : null;
+    const iconFillMatch = sampleFeature?.icon ? /fill="([^"]+)"/.exec(String(sampleFeature.icon))?.[1] : null;
 
+    const passengerTypesFlat =
+      Array.isArray(payload.passengerTypes) && payload.passengerTypes.every(x => typeof x === 'string');
     const checks: Array<{ label: string; pass: boolean; got: string; want: string }> = [
       {
         label: 'passengerTypes default',
@@ -125,10 +131,16 @@ test('seat event payload — React parity proof', async ({ page }) => {
         want: '["ADT","CHD","INF"]',
       },
       {
-        label: 'rotation field absent',
-        pass: !('rotation' in payload),
-        got: 'rotation' in payload ? `present (${JSON.stringify(payload.rotation)})` : 'absent',
-        want: 'absent',
+        label: 'passengerTypes is flat string[]',
+        pass: passengerTypesFlat,
+        got: passengerTypesFlat ? 'flat string[]' : 'nested or wrong type',
+        want: 'flat string[]',
+      },
+      {
+        label: 'rotation default "n"',
+        pass: payload.rotation === 'n',
+        got: JSON.stringify(payload.rotation),
+        want: '"n"',
       },
       {
         label: 'features[].title is the category',
@@ -200,10 +212,7 @@ test('seat event payload — React parity proof', async ({ page }) => {
         overflow: auto;
         color: #d7dee8;
         font-size: 11px;
-      ">${JSON.stringify(payload, null, 2)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')}</pre>
+      ">${JSON.stringify(payload, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
     `;
 
     document.body.appendChild(wrap);
