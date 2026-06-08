@@ -46,10 +46,10 @@
     "@angular/compiler-cli": "^21.2.0",
     "@playwright/test": "^1.60.0",
     "husky": "^9.1.7",
-    "jsdom": "^28.0.0",
+    "jsdom": "^29.1.1",
     "ng-packagr": "^21.2.0",
     "prettier": "^3.8.3",
     "typescript": "~5.9.2",
-    "vitest": "^4.0.8"
+    "vitest": "^4.1.8"
   }
 }
