@@ -314,9 +314,6 @@ describe('JetsSeatMapComponent', () => {
 
   describe('Output events', () => {
     it('should emit seatMapInited after successful load', async () => {
-      const availableSeats = [makeSeat()];
-      mockService.collectAvailableSeats.mockReturnValue(availableSeats);
-
       const spy = vi.fn();
       component.seatMapInited.subscribe(spy);
 
@@ -1276,9 +1273,7 @@ describe('JetsSeatMapComponent', () => {
       expect(spy.mock.calls[0][0].scaleFactor).toBe(0.8);
     });
 
-    it('should emit seatMapInited as IInitialLayoutData with extended fields', async () => {
-      const allSeats = [makeSeat()];
-      mockService.collectAllSeats.mockReturnValue(allSeats);
+    it('should emit seatMapInited with new public contract (allCabins, availabilityData, no legacy fields)', async () => {
       mockService.getSeatMapData.mockResolvedValue({
         content: [makeDeckData()],
         media: { photoData: [] },
@@ -1293,14 +1288,75 @@ describe('JetsSeatMapComponent', () => {
       expect(payload).toMatchObject({
         decksCount: 1,
         currentDeckIndex: 0,
-        allSeats,
-        availableCabins: [{ code: 'E', title: 'Economy' }],
+        allCabins: [{ code: 'E', title: 'Economy' }],
+        media: { photoData: [] },
       });
       expect(typeof payload.heightInPx).toBe('number');
       expect(typeof payload.widthInPx).toBe('number');
       expect(typeof payload.scaleFactor).toBe('number');
-      expect(payload.media).toEqual({ photoData: [] });
-      expect(payload.error).toBeUndefined();
+
+      // availabilityData key is always present (mirrors React); undefined when no Input
+      expect('availabilityData' in payload).toBe(true);
+      expect(payload.availabilityData).toBeUndefined();
+
+      // error key omitted entirely when no error (React parity)
+      expect('error' in payload).toBe(false);
+
+      // Removed legacy Angular-only fields
+      expect('availableSeats' in payload).toBe(false);
+      expect('allSeats' in payload).toBe(false);
+      expect('availableCabins' in payload).toBe(false);
+    });
+
+    it('should emit availabilityData mirroring the availability Input', async () => {
+      const availability: TSeatAvailability = [{ label: '1A', price: 10, currency: 'EUR' }];
+      component.availability = availability;
+
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+      await load();
+
+      const payload = spy.mock.calls[0][0];
+      expect(payload.availabilityData).toBe(availability);
+    });
+
+    it('should emit heightInPx/widthInPx as native (rendered = value × scaleFactor)', async () => {
+      // jsdom's getBoundingClientRect returns zeros; stub it to a known rendered size
+      // so we can assert the inverse-scale calculation. The contract says:
+      //   heightInPx × scaleFactor === rendered pixels
+      const fakeRect: DOMRect = {
+        width: 200,
+        height: 1000,
+        top: 0,
+        left: 0,
+        right: 200,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      };
+      const rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(fakeRect);
+
+      try {
+        mockService.getSeatMapData.mockResolvedValue({
+          content: [{ ...makeDeckData(), scale: 0.5 }],
+          media: null,
+          availableCabins: [],
+        });
+
+        const spy = vi.fn();
+        component.seatMapInited.subscribe(spy);
+        await load();
+
+        const payload = spy.mock.calls[0][0];
+        expect(payload.scaleFactor).toBe(0.5);
+        // 1000 (rendered) / 0.5 (scale) = 2000 (native)
+        expect(payload.heightInPx).toBe(2000);
+        // 200 (rendered) / 0.5 (scale) = 400 (native)
+        expect(payload.widthInPx).toBe(400);
+      } finally {
+        rectSpy.mockRestore();
+      }
     });
 
     it('should NOT emit seatMapInited when load fails', async () => {

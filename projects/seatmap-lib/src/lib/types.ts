@@ -374,21 +374,21 @@ export interface ITooltipData {
  * seatmap is rendered for the first time. Matches React's onSeatMapInited.
  */
 export interface IInitialLayoutData {
+  /** Native (unscaled) height of the active deck. Multiply by `scaleFactor` for actual rendered pixels. */
   heightInPx: number;
+  /** Native (unscaled) plane width. Multiply by `scaleFactor` for actual rendered pixels. */
   widthInPx: number;
   scaleFactor: number;
   decksCount: number;
   currentDeckIndex: number;
   /** Media assets (cabin photos, panoramas) loaded along with the seatmap. */
   media?: IMediaData | null;
-  /** Error message, if seatmap failed to load. */
+  /** Snapshot of the `availability` Input at the moment of init (mirrors React). */
+  availabilityData?: TSeatAvailability;
+  /** Present only when the seatmap failed to build. Omitted otherwise (React parity). */
   error?: string;
-  // Angular extensions (kept on top of the React contract):
-  availableSeats: ISeatData[];
-  /** All seats in the seatmap (regardless of availability status). */
-  allSeats: ISeatData[];
-  /** Available cabin classes detected in the seatmap data (before cabin filtering). */
-  availableCabins: { code: string; title: string }[];
+  /** All cabin classes detected in the source data (before any cabin-class filtering). */
+  allCabins: { code: string; title: string }[];
 }
 
 /** Payload of `layoutUpdated` event — emitted whenever the layout is recomputed. */

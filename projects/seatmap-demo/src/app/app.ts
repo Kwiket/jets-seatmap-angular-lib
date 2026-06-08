@@ -246,7 +246,8 @@ export class App {
     console.log('InitialLayoutData:', event);
     this.addLog(
       'inited',
-      `Seatmap loaded. Available seats: ${event.availableSeats.length}, decks: ${event.decksCount}`
+      `Seatmap loaded. Cabins: ${event.allCabins.length}, decks: ${event.decksCount}, ` +
+        `native ${event.heightInPx.toFixed(0)}×${event.widthInPx.toFixed(0)}, scale ${event.scaleFactor.toFixed(3)}`
     );
   }
 

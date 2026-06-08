@@ -571,20 +571,20 @@ seats:
 
 ```typescript
 interface IInitialLayoutData {
-  heightInPx: number;           // sum of lengths of all plane elements; multiply by `scaleFactor` for actual pixels
-  widthInPx: number;            // outer width of the plane (swapped with height if `horizontal` is true)
+  heightInPx: number;           // native (unscaled) height of the active deck; multiply by `scaleFactor` for actual pixels
+  widthInPx: number;            // native (unscaled) plane width; multiply by `scaleFactor` for actual pixels
   scaleFactor: number;          // scale applied to fit into provided boundaries
   decksCount: number;
   currentDeckIndex: number;
   media: IMediaData | null;     // cabin photos / panoramas, if any
-  error?: string;               // error message if a seatmap could not be built
-
-  // Angular-only convenience fields:
-  availableSeats: ISeatData[];  // seats available for passengers
-  allSeats: ISeatData[];        // every seat on the plane regardless of status
-  availableCabins: { code: string; title: string }[]; // detected cabin classes
+  availabilityData?: TSeatAvailability; // snapshot of the `availability` Input, when provided
+  error?: string;               // present only when a seatmap could not be built (omitted otherwise)
+  allCabins: { code: string; title: string }[]; // all cabin classes detected in the source data (before cabin-class filtering)
 }
 ```
+
+The `heightInPx`/`widthInPx` invariant matches React's contract: `rendered_pixels = heightInPx × scaleFactor`
+(and likewise for width). When `scaleFactor === 1`, the values are the actual rendered pixel sizes.
 
 `IMediaData` shape:
 

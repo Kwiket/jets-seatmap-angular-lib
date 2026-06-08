@@ -688,21 +688,19 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       this._prevLang = this.resolvedConfig.lang;
       this._prevUnits = this.resolvedConfig.units ?? null;
 
-      const availableSeats = this.seatmapService.collectAvailableSeats(content);
-      const allSeats = this.seatmapService.collectAllSeats(content);
-
       // Emit initial layout data after the next tick so DOM size is measurable.
       setTimeout(() => {
         if (this._flightId !== flightId) return;
         const layout = this._buildLayoutData();
-        this.seatMapInited.emit({
+        const payload: IInitialLayoutData = {
           ...layout,
           media: this.media,
-          error: this.error ?? undefined,
-          availableSeats,
-          allSeats,
-          availableCabins: result.availableCabins,
-        });
+          availabilityData: this.availability,
+          allCabins: result.availableCabins,
+        };
+        // React parity: omit the `error` key entirely when there is no error.
+        if (this.error) payload.error = this.error;
+        this.seatMapInited.emit(payload);
         this.layoutUpdated.emit(layout);
       }, 0);
 
@@ -735,10 +733,16 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     ) as HTMLElement | null;
     const deckRect = activeDeckEl?.getBoundingClientRect();
     const containerRect = container?.getBoundingClientRect();
+    const scaleFactor = this.content[this.activeDeckIndex]?.scale ?? 1;
+    const renderedHeight = deckRect?.height ?? containerRect?.height ?? 0;
+    const renderedWidth = containerRect?.width ?? this.resolvedConfig.width;
+    // Public contract: heightInPx/widthInPx are NATIVE (unscaled).
+    // Invariant: native × scaleFactor === actual rendered pixels.
+    // Matches React's data-helper.js (`params.scale = config.width / nativeWidth`).
     return {
-      heightInPx: deckRect?.height ?? containerRect?.height ?? 0,
-      widthInPx: containerRect?.width ?? this.resolvedConfig.width,
-      scaleFactor: this.content[this.activeDeckIndex]?.scale ?? 1,
+      heightInPx: scaleFactor > 0 ? renderedHeight / scaleFactor : renderedHeight,
+      widthInPx: scaleFactor > 0 ? renderedWidth / scaleFactor : renderedWidth,
+      scaleFactor,
       decksCount: this.content.length,
       currentDeckIndex: this.activeDeckIndex,
     };
