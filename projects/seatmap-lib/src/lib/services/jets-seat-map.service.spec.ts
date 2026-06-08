@@ -240,6 +240,50 @@ describe('JetsSeatMapService', () => {
       expect(out.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
       expect(out.passengerTypes!.every(v => typeof v === 'string')).toBe(true);
     });
+
+    // Regression for "works only once": a second SET AVAILABILITY must
+    // replace `seat.passengerTypes` with the new restriction. The earlier
+    // handler preserved the prior whitelist whenever it was truthy, so
+    // tightening the rule from ['ADT','CHD','INF'] to ['ADT','CHD'] was
+    // silently ignored — the tooltip kept showing no restriction line and
+    // the Select-disabled gating against the new whitelist never engaged.
+    it('should replace seat.passengerTypes on every run (React parity: service.js:100-103)', () => {
+      const seat = makeSeat({ number: '20A' });
+      const content = [makeDeck([seat])];
+      const first = service.setAvailabilityHandler(content, [
+        { label: '20A', price: 33, currency: 'USD', onlyForPassengerType: ['ADT', 'CHD', 'INF'] },
+      ]);
+      expect(first[0].rows[0].seats[0].passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+
+      const second = service.setAvailabilityHandler(first, [
+        { label: '20A', price: 33, currency: 'USD', onlyForPassengerType: ['ADT', 'CHD'] },
+      ]);
+      expect(second[0].rows[0].seats[0].passengerTypes).toEqual(['ADT', 'CHD']);
+    });
+
+    // React parity (service.js:100-103): when neither the entry nor a
+    // wildcard carries `onlyForPassengerType`, the seat falls back to the
+    // default ['ADT','CHD','INF']. The earlier handler emitted `undefined`,
+    // which made restrictionsLabel and isSelectDisabled diverge from React.
+    it('should default passengerTypes to [ADT,CHD,INF] when availability omits it', () => {
+      const seat = makeSeat({ number: '20A' });
+      const content = [makeDeck([seat])];
+      const result = service.setAvailabilityHandler(content, [{ label: '20A', price: 33, currency: 'USD' }]);
+      expect(result[0].rows[0].seats[0].passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+    });
+
+    // React parity (service.js:100-103): wildcard `onlyForPassengerType`
+    // applies when the entry lacks one — and a later wildcard-only refresh
+    // still propagates, just like the named-entry case above.
+    it("should fall back to wildcard's onlyForPassengerType when entry has none", () => {
+      const seat = makeSeat({ number: '20A' });
+      const content = [makeDeck([seat])];
+      const result = service.setAvailabilityHandler(content, [
+        { label: '20A', price: 33, currency: 'USD' },
+        { label: '*', price: 0, currency: 'USD', onlyForPassengerType: ['CHD', 'INF'] },
+      ]);
+      expect(result[0].rows[0].seats[0].passengerTypes).toEqual(['CHD', 'INF']);
+    });
   });
 
   // ─── setPassengersHandler ─────────────────────────────────────────────────

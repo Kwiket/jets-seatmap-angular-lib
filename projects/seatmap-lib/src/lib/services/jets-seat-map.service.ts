@@ -136,13 +136,16 @@ export class JetsSeatMapService {
             // we fall back to the seat's originalColor so customSeatColorRanges
             // and per-seat API colours survive the availability merge.
             color: source.color ?? seat.originalColor ?? seat.color,
-            // `source.onlyForPassengerType` is already a `string[]` (e.g.
-            // `['ADT','CHD','INF']`). Wrapping it in another array produced
-            // the [["ADT","CHD","INF"]] nesting reviewer flagged. React keeps
-            // it flat — service.js:100-103 assigns onlyForPassengerType as-is.
-            passengerTypes: seat.passengerTypes?.length
-              ? seat.passengerTypes
-              : (source.onlyForPassengerType ?? undefined),
+            // React parity (service.js:100-103) — each availability pass
+            // replaces the seat's whitelist outright: entry first, wildcard
+            // second, then the `['ADT','CHD','INF']` default. The earlier
+            // "keep seat.passengerTypes when truthy" branch made the field
+            // stick after the first SET AVAILABILITY: a second call with a
+            // tighter `onlyForPassengerType` left the seat with the loose
+            // prior list, so restriction text and Select-disabled gating
+            // both went stale. Stay flat — wrapping in another array is the
+            // separate bug locked down by the spec just below this code.
+            passengerTypes: source.onlyForPassengerType || wildcard?.onlyForPassengerType || ['ADT', 'CHD', 'INF'],
           };
         }),
       })),
