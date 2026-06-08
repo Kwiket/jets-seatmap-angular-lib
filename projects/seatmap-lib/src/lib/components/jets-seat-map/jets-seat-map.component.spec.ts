@@ -372,15 +372,14 @@ describe('JetsSeatMapComponent', () => {
       const el = document.createElement('div');
       component.onSeatClick({ seat, element: el });
 
-      // Public emit shape mirrors the integrator contract:
+      // Public emit shape mirrors the React-parity integrator contract:
       //   - `number → label`, layout-only fields (`id`, `size`, `topOffset`, `leftOffset`,
-      //     `cabinTitle`) stripped.
+      //     `cabinTitle`, `rotation`) stripped.
       //   - `classType` becomes the full word ('Economy', 'Business', …).
       //   - `priceValue` carries the raw number; `price` becomes a formatted string.
       //   - features/measurements default to empty arrays.
+      //   - `passengerTypes` defaults to React's `['ADT', 'CHD', 'INF']`.
       const { id: _id, size: _size, number: _number, ...rest } = seat;
-      // Emit shape: undefined-valued keys (`currency`, `price`, `priceValue`)
-      // are stripped, `passengerTypes` defaults to [] when unset.
       const expectedSeat = {
         ...rest,
         label: seat.number,
@@ -388,7 +387,7 @@ describe('JetsSeatMapComponent', () => {
         classType: 'Economy',
         color: seat.color,
         originalColor: seat.color,
-        passengerTypes: [],
+        passengerTypes: ['ADT', 'CHD', 'INF'],
         features: [],
         measurements: [],
         additionalProps: [],
@@ -450,13 +449,27 @@ describe('JetsSeatMapComponent', () => {
       expect(spy).toHaveBeenCalledWith(event);
     });
 
-    it('should emit seatMouseLeave', () => {
+    it('should emit seatMouseLeave with the enriched (prepared) seat shape', () => {
       const spy = vi.fn();
       component.seatMouseLeave.subscribe(spy);
 
-      const event = { seat: makeSeat(), element: document.createElement('div') };
-      component.onSeatMouseLeave(event);
-      expect(spy).toHaveBeenCalledWith(event);
+      const seat = makeSeat();
+      const element = document.createElement('div');
+      component.onSeatMouseLeave({ seat, element });
+
+      // React-parity: mouseLeave runs through prepareSeatDataForEmit, so the
+      // payload uses the public shape (`label`, full `classType`, default
+      // passengerTypes, empty arrays) — not the raw internal seat.
+      expect(spy).toHaveBeenCalledTimes(1);
+      const arg = spy.mock.calls[0][0];
+      expect(arg.element).toBe(element);
+      expect(arg.seat.label).toBe(seat.number);
+      expect(arg.seat.classType).toBe('Economy');
+      expect(arg.seat.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+      expect(arg.seat.features).toEqual([]);
+      expect(arg.seat).not.toHaveProperty('id');
+      expect(arg.seat).not.toHaveProperty('size');
+      expect(arg.seat).not.toHaveProperty('rotation');
     });
   });
 
@@ -773,7 +786,16 @@ describe('JetsSeatMapComponent', () => {
       component.onSeatClick({ seat, element, event: evt });
 
       expect(clickSpy).toHaveBeenCalledTimes(1);
-      expect(clickSpy.mock.calls[0][0]).toMatchObject({ seat, element, event: evt });
+      // React-parity: seatMouseClick runs through prepareSeatDataForEmit, so
+      // the seat is the public enriched shape (full classType, default
+      // passengerTypes), not the raw internal seat.
+      const arg = clickSpy.mock.calls[0][0];
+      expect(arg.element).toBe(element);
+      expect(arg.event).toBe(evt);
+      expect(arg.seat.label).toBe(seat.number);
+      expect(arg.seat.classType).toBe('Economy');
+      expect(arg.seat.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+      expect(arg.seat).not.toHaveProperty('rotation');
       expect(tooltipSpy).not.toHaveBeenCalled();
       expect(component.activeTooltip).toBeNull();
     });

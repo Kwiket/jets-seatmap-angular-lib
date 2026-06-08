@@ -777,7 +777,13 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onSeatMouseLeave(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
-    this.seatMouseLeave.emit(payload);
+    // Emit the same enriched shape integrators see in tooltipRequested /
+    // seatMouseClick — React-parity (JetsSeat.js routes both hover & click
+    // through prepareSeatDataForEmit). Without this pass, mouseLeave would
+    // hand back the raw internal seat (single-letter classType, numeric
+    // price, missing passengerTypes/additionalProps).
+    const { seat, element, event } = payload;
+    this.seatMouseLeave.emit({ seat: this._prepareSeatForEmit(seat), element, event });
 
     if (this.resolvedConfig.tooltipOnHover && !getEnvironmentInfo().isTouchDevice) {
       // Defer the close so the cursor has time to reach the tooltip body —
@@ -839,7 +845,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
     if (shouldSelectOnClick) {
       if (cfg.externalPassengerManagement) {
-        this.seatMouseClick.emit({ seat, element, event });
+        // React-parity payload contract: route through _prepareSeatForEmit so
+        // integrators receive the same enriched shape that tooltipRequested
+        // and seatMouseLeave do.
+        this.seatMouseClick.emit({ seat: this._prepareSeatForEmit(seat), element, event });
         return;
       }
       // Built-in passenger management. Mirrors React's SeatMap.js:311-321:
@@ -925,6 +934,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       size: _sz,
       id: _id,
       cabinTitle: _ct,
+      // React does not carry a `rotation` field on the emitted seat — its
+      // rotation lives on `seatMap.params`, not the seat itself. Drop the
+      // internal field so integrators don't see Angular-only noise like
+      // `rotation: ""`.
+      rotation: _rotation,
       classCode,
       color,
       originalColor,
@@ -933,7 +947,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       features,
       measurements,
       ...rest
-    } = seat as ISeatData & { cabinTitle?: string };
+    } = seat as ISeatData & { cabinTitle?: string; rotation?: string };
 
     // `classType` becomes the full word ('Business'), `classCode` stays single-letter.
     const code = (classCode || rest.classType || 'E').toString();
@@ -947,22 +961,22 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     const theme = this.resolvedConfig.colorTheme ?? {};
     const resolvedColor = color ?? originalColor ?? theme.seatAvailableColor ?? DEFAULT_COLOR_THEME.seatAvailableColor;
 
-    // Public ISeatFeature requires `title: string` and `value: string`. Internally we
-    // carry `title: null` on negative amenities (with the localized phrase living in
-    // `value`); flatten that to the same string in both slots for the emit shape.
-    const stringifyFeature = (f: ISeatFeature): ISeatFeature => {
-      const value = f.value == null ? '' : String(f.value);
-      return { ...f, title: f.title ?? value, value };
-    };
+    // React-parity feature shape: `title` stays as the localized category
+    // label, `value` stays as either the raw API summary (string) or the
+    // existence flag (`true`). Negative amenities carry `title: null`
+    // internally — collapse those onto `value` so the public ISeatFeature
+    // still has a non-null title, but leave positive amenities' `value`
+    // untouched (don't coerce `true` → `"true"`).
+    const normalizeFeature = (f: ISeatFeature): ISeatFeature =>
+      f.title == null ? { ...f, title: typeof f.value === 'string' ? f.value : '' } : f;
 
     const numericPrice = typeof price === 'number' ? price : undefined;
     const priceStr = numericPrice != null ? `${currency ?? ''}${currency ? ' ' : ''}${numericPrice}` : undefined;
 
-    // `passengerTypes` semantically means "allowed passenger types for this
-    // seat". When the API/availability don't restrict the seat, default to []
-    // ("no restriction = open to all"). Avoids surfacing `undefined` to
-    // integrators, who'd otherwise need to defensive-check before iterating.
-    const passengerTypes = (rest as ISeatData).passengerTypes ?? [];
+    // React-parity: when the API/availability don't restrict the seat, fall
+    // back to DEFAULT_SEAT_PASSENGER_TYPES (`['ADT', 'CHD', 'INF']`) — see
+    // jets-seatmap-react-lib-pub/src/common/constants.js:121 + service.js:100.
+    const passengerTypes = (rest as ISeatData).passengerTypes ?? ['ADT', 'CHD', 'INF'];
 
     const emitted = {
       ...(rest as ISeatData),
@@ -976,9 +990,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       price: priceStr as unknown as number,
       priceValue: numericPrice,
       passengerTypes,
-      features: (features ?? []).map(stringifyFeature),
-      measurements: (measurements ?? []).map(stringifyFeature),
-      additionalProps: ((rest as ISeatData).additionalProps ?? []).map(stringifyFeature),
+      features: (features ?? []).map(normalizeFeature),
+      measurements: (measurements ?? []).map(normalizeFeature),
+      additionalProps: ((rest as ISeatData).additionalProps ?? []).map(normalizeFeature),
     };
 
     // Strip any remaining undefined-valued keys so the payload only carries

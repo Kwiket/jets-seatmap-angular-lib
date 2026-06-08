@@ -268,12 +268,23 @@ describe('JetsSeatMapPreparerService', () => {
 
       const result = service.prepareContent(response, baseConfig);
       const features = result[0].rows[0].seats[0].features ?? [];
-      const titles = features.map(f => f.title);
 
-      expect(titles).toContain('Personal screens');
-      expect(titles.some(t => t?.includes('Wi-Fi'))).toBe(true);
-      // React parity: combined power + USB → 'USB and power plug' (used to be 'AC/USB').
-      expect(titles.some(t => t?.includes('USB and power plug'))).toBe(true);
+      // React-parity (data-preparer.js:91-99): `title` holds the localized
+      // category label, `value` holds the API's free-form `summary` (or `true`
+      // when no summary present). Earlier Angular shape was inverted.
+      const audioVideo = features.find(f => f.key === 'audioVideo');
+      expect(audioVideo?.title).toBe('Audio and video on demand');
+      expect(audioVideo?.value).toBe('Personal screens');
+
+      // React uses `wifi` as the public key (not `wifiEnabled`).
+      const wifi = features.find(f => f.key === 'wifi');
+      expect(wifi?.title).toBe('Wi-Fi');
+      expect(wifi?.value).toBe(true);
+
+      // Combined power + USB → `USB and power plug` (locale['usbPowerPlug']).
+      const power = features.find(f => f.key === 'power');
+      expect(power?.title).toBe('USB and power plug');
+      expect(power?.value).toBe(true);
     });
 
     it('should handle multiple decks', () => {

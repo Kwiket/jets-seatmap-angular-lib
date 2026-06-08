@@ -458,7 +458,10 @@ export class JetsSeatMapPreparerService {
       pushPositive('usbPort', f.usbPort, { iconKey: 'usb', titleKey: 'usbPlug' });
     }
 
-    if (has(f.wifiEnabled)) pushPositive('wifiEnabled', f.wifiEnabled, { iconKey: 'wifi' });
+    // React uses `wifi` as the public feature key (not `wifiEnabled`) — see
+    // jets-seatmap-react-lib-pub/src/common/data-preparer.js:99. The raw API
+    // field is still `wifiEnabled`; only the emitted key/locale lookup change.
+    if (has(f.wifiEnabled)) pushPositive('wifi', f.wifiEnabled, { iconKey: 'wifi' });
     if (has(f.bluetooth)) pushPositive('bluetooth', f.bluetooth);
     if (has(f.extraLegroom)) pushPositive('extraLegroom', f.extraLegroom);
 
@@ -869,13 +872,18 @@ export class JetsSeatMapPreparerService {
     const locale = LOCALES_MAP[lang] ?? LOCALES_MAP['EN'];
     const amenities: ISeatFeature[] = [];
 
+    // React parity (data-preparer.js:87-107 + the seat feature merger): the
+    // localized phrase belongs in `title` (the category label), and the API's
+    // free-form `summary` belongs in `value`. Falling back to `true` when no
+    // summary is present matches React's `cabin[key] = summary` shape after the
+    // subsequent feature mapper turns it into `{ title: locale[key], value: cabin[key] }`.
     if (apiResponse.entertainment?.exists) {
       amenities.push({
         key: 'audioVideo',
         icon: SEAT_FEATURES_ICONS['audioVideo'] ?? '',
-        title: apiResponse.entertainment.summary ?? locale['audioVideo'] ?? 'Free on demand entertainment',
+        title: locale['audioVideo'] ?? 'Audio and video on demand',
         uniqId: genFeatureId(),
-        value: true,
+        value: apiResponse.entertainment.summary ?? true,
       });
     }
 
@@ -886,44 +894,45 @@ export class JetsSeatMapPreparerService {
         amenities.push({
           key: 'power',
           icon: powerIcon,
-          title: pw.summary ?? locale['usbPowerPlug'] ?? 'USB and power plug',
+          title: locale['usbPowerPlug'] ?? 'USB and power plug',
           uniqId: genFeatureId(),
-          value: true,
+          value: pw.summary ?? true,
         });
       } else if (pw.powerOutlet) {
         amenities.push({
           key: 'power',
           icon: powerIcon,
-          title: pw.summary ?? locale['powerPlug'] ?? 'Power plug',
+          title: locale['powerPlug'] ?? 'Power plug',
           uniqId: genFeatureId(),
-          value: true,
+          value: pw.summary ?? true,
         });
       } else if (pw.usbPort) {
         amenities.push({
           key: 'usbPort',
           icon: SEAT_FEATURES_ICONS['usb'] ?? powerIcon,
-          title: pw.summary ?? locale['usbPlug'] ?? 'USB plug',
+          title: locale['usbPlug'] ?? 'USB plug',
           uniqId: genFeatureId(),
-          value: true,
+          value: pw.summary ?? true,
         });
       } else {
         amenities.push({
           key: 'power',
           icon: powerIcon,
-          title: pw.summary ?? locale['power'] ?? 'Power plug',
+          title: locale['power'] ?? 'Power plug',
           uniqId: genFeatureId(),
-          value: true,
+          value: pw.summary ?? true,
         });
       }
     }
 
     if (apiResponse.wifi?.exists) {
+      // React uses `wifi` as the key (not `wifiEnabled`) — see data-preparer.js:99.
       amenities.push({
-        key: 'wifiEnabled',
+        key: 'wifi',
         icon: SEAT_FEATURES_ICONS['wifi'] ?? '',
-        title: apiResponse.wifi.summary ?? locale['wifiEnabled'] ?? 'Wi-Fi enabled',
+        title: locale['wifi'] ?? 'Wi-Fi',
         uniqId: genFeatureId(),
-        value: true,
+        value: apiResponse.wifi.summary ?? true,
       });
     }
 
