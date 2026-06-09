@@ -243,6 +243,7 @@ export class App {
   }
 
   onSeatMapInited(event: IInitialLayoutData): void {
+    console.log('InitialLayoutData:', event);
     // Test seam — mirrors `__lastTooltipRequest`; lets e2e suites assert the
     // public contract of the init payload without subscribing inside Playwright.
     if (typeof window !== 'undefined') {
@@ -260,6 +261,7 @@ export class App {
   }
 
   onLayoutUpdated(event: ILayoutData): void {
+    console.log('Layout updated:', event);
     this.addLog(
       'layout',
       `Layout updated — deck ${event.currentDeckIndex + 1}/${event.decksCount}, ` +
@@ -278,14 +280,17 @@ export class App {
   }
 
   onSeatMouseLeave(data: ISeatMouseLeaveData): void {
+    console.log('Seat mouse leave: ', data);
     this.addLog('mouseLeave', `Mouse leave seat ${data.seat?.number ?? '?'}`);
   }
 
   onSeatMouseClick(data: ISeatMouseClickData): void {
+    console.log('Seat mouse click: ', data);
     this.addLog('mouseClick', `Mouse click seat ${data.seat?.number ?? '?'}`);
   }
 
   onAvailabilityApplied(data: IExistingSeatsLabelsInfo): void {
+    console.log('Availability applied: ', data);
     this.addLog(
       'availability',
       `Availability applied. Existing: ${data.existingSeatLabels.length}, missing: ${data.nonExistingSeatLabels.length}`
@@ -299,6 +304,7 @@ export class App {
    * tooltip — this hook exists solely as a test seam.
    */
   onTooltipRequested(data: ITooltipRequestData): void {
+    console.log('Tooltip requested: ', data);
     if (typeof window !== 'undefined') {
       (window as Window & { __lastTooltipRequest?: unknown }).__lastTooltipRequest = data;
     }
