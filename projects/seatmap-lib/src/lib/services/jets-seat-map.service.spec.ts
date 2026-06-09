@@ -330,16 +330,39 @@ describe('JetsSeatMapService', () => {
   // ─── selectSeatHandler ────────────────────────────────────────────────────
 
   describe('selectSeatHandler', () => {
-    it('should select a seat for the next available passenger', () => {
-      const seat = makeSeat({ number: '5A', price: 100 });
+    it('should select a seat for the next available passenger with React-parity payload', () => {
+      // React parity (service.js:44-63): `passenger.seat` carries the formatted
+      // price string, the numeric `priceValue`, the `currency`, and the
+      // `seatLabel`. The Angular internal seat record stores `price` as a raw
+      // number, so the handler is responsible for promoting it to the same
+      // emitted shape React produces from its already-formatted seat record.
+      const seat = makeSeat({ number: '5A', price: 100, currency: 'USD' });
       const content = [makeDeck([seat])];
       const passengers = [makePassenger()];
 
       const result = service.selectSeatHandler(content, seat, passengers);
 
-      expect(result.passengers[0].seat?.seatLabel).toBe('5A');
-      expect(result.passengers[0].seat?.price).toBe(100);
+      expect(result.passengers[0].seat).toEqual({
+        price: 'USD 100',
+        seatLabel: '5A',
+        currency: 'USD',
+        priceValue: 100,
+      });
       expect(result.data[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.selected);
+    });
+
+    it('should omit currency in the formatted price when seat has no currency', () => {
+      const seat = makeSeat({ number: '5A', price: 100, currency: undefined });
+      const content = [makeDeck([seat])];
+      const passengers = [makePassenger()];
+
+      const result = service.selectSeatHandler(content, seat, passengers);
+
+      expect(result.passengers[0].seat).toEqual({
+        price: '100',
+        seatLabel: '5A',
+        priceValue: 100,
+      });
     });
 
     it('should not select if all passengers have seats', () => {
@@ -351,13 +374,16 @@ describe('JetsSeatMapService', () => {
       expect(result.data[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
     });
 
-    it('should handle seat without price', () => {
+    it('should still attach the seat label when the seat has no price', () => {
       const seat = makeSeat({ number: '6B', price: undefined });
       const content = [makeDeck([seat])];
       const passengers = [makePassenger()];
 
       const result = service.selectSeatHandler(content, seat, passengers);
-      expect(result.passengers[0].seat?.price).toBe(0);
+
+      // React parity: a seat with no `price` still produces `{ seatLabel }` —
+      // there is no synthetic `price: 0` filler.
+      expect(result.passengers[0].seat).toEqual({ seatLabel: '6B' });
     });
   });
 

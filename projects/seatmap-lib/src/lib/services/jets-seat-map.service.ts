@@ -16,6 +16,29 @@ import { JetsSeatMapApiService } from './jets-seat-map-api.service';
 import { JetsSeatMapPreparerService } from './jets-seat-map-preparer.service';
 import { getAvailableCabins, filterDeckByCabin } from '../utils/cabin-utils';
 
+/**
+ * React parity for `passenger.seat` (service.js:44-63). Promotes the Angular
+ * internal seat record (numeric `seat.price`, optional `seat.currency`) into
+ * the public payload: `seatLabel`, formatted `price` string ("USD 33" / "33"),
+ * `priceValue` numeric, and `currency`. Fields that have no source value are
+ * omitted entirely — React skips them implicitly via `undefined` keys; we
+ * strip the same way so integrators see `{ seatLabel }` instead of
+ * `{ seatLabel, price: undefined, ... }`.
+ */
+function buildPassengerSeat(seat: ISeatData): IPassenger['seat'] {
+  const seatLabel = seat.number as string;
+  const numericPrice = typeof seat.price === 'number' ? seat.price : undefined;
+  const currency = seat.currency;
+  const price =
+    numericPrice != null ? `${currency ?? ''}${currency ? ' ' : ''}${numericPrice}` : undefined;
+
+  const payload: NonNullable<IPassenger['seat']> = { seatLabel };
+  if (price !== undefined) payload.price = price;
+  if (currency !== undefined) payload.currency = currency;
+  if (numericPrice !== undefined) payload.priceValue = numericPrice;
+  return payload;
+}
+
 @Injectable({ providedIn: 'root' })
 export class JetsSeatMapService {
   constructor(
@@ -186,12 +209,15 @@ export class JetsSeatMapService {
     const nextPassenger = this.getNextPassenger(passengers);
     if (!nextPassenger || !seat.number) return { data: content, passengers };
 
-    // `seat.price` is loose-typed (number on the lib's internal seat record,
-    // string on the emitted payload). The passenger record only ever stores
-    // the numeric form.
-    const numericPrice = typeof seat.price === 'number' ? seat.price : 0;
+    // React parity (service.js:44-63): `passenger.seat` must mirror the
+    // emitted seat shape — formatted `price` string, raw `priceValue`,
+    // `currency` and `seatLabel`. React reaches this shape because its
+    // `setAvailabilityHandler` already rewrites `seat.price` to a string
+    // and stashes `priceValue`/`currency`. Angular keeps the internal
+    // `seat.price` numeric (and never sets `priceValue`), so the handler
+    // promotes the numeric price into the public payload right here.
     const updatedPassengers = passengers.map(p =>
-      p.id === nextPassenger.id ? { ...p, seat: { price: numericPrice, seatLabel: seat.number! } } : p
+      p.id === nextPassenger.id ? { ...p, seat: buildPassengerSeat(seat) } : p
     );
 
     const data = content.map(deck => ({

@@ -207,7 +207,19 @@ export interface IConfig {
 // ─── Passenger ────────────────────────────────────────────────────────────────
 export interface IPassenger {
   readonly id: string;
-  seat?: { price: number; seatLabel: string };
+  /**
+   * Seat assignment as exposed by the lib. Mirrors React's `passenger.seat`
+   * payload (service.js:44-63):
+   *
+   *   - `seatLabel`  — required, e.g. `'33A'`.
+   *   - `price`      — formatted string (e.g. `'USD 33'`) when the lib emits
+   *                    the value. Loose-typed to also accept a raw `number`
+   *                    so integrator-provided fixtures (which historically
+   *                    only carried a numeric price) keep type-checking.
+   *   - `currency`   — the currency sign carried into the formatted `price`.
+   *   - `priceValue` — the raw numeric price.
+   */
+  seat?: { price?: string | number; seatLabel: string; currency?: string; priceValue?: number };
   passengerType?: TPassengerType;
   passengerLabel?: string;
   passengerColor?: string;
