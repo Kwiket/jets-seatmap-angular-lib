@@ -1275,6 +1275,38 @@ describe('JetsSeatMapComponent', () => {
       expect(spy.mock.calls[0][0]).toMatchObject({ currentDeckIndex: 1 });
     });
 
+    it('should ignore currentDeckIndex Input when out of range (no empty render)', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: makeMultiDeckData(),
+        media: null,
+        availableCabins: [],
+      });
+      const layoutSpy = vi.fn();
+      const deckChangedSpy = vi.fn();
+      component.layoutUpdated.subscribe(layoutSpy);
+      component.deckChanged.subscribe(deckChangedSpy);
+      await load();
+      layoutSpy.mockClear();
+
+      // makeMultiDeckData yields 2 decks → valid indices are 0 and 1; 5 is out of range.
+      component.currentDeckIndex = 5;
+      component.ngOnChanges({
+        currentDeckIndex: {
+          previousValue: 0,
+          currentValue: 5,
+          firstChange: false,
+          isFirstChange: () => false,
+        },
+      } as any);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(component.activeDeckIndex).toBe(0);
+      expect(component.visibleDecks.length).toBe(1);
+      expect(layoutSpy).not.toHaveBeenCalled();
+      expect(deckChangedSpy).not.toHaveBeenCalled();
+    });
+
     it('should emit layoutUpdated with scaleFactor of active deck (not deck 0)', async () => {
       mockService.getSeatMapData.mockResolvedValue({
         content: [

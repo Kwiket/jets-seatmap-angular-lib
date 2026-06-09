@@ -517,9 +517,14 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentDeckIndex'] && !changes['currentDeckIndex'].firstChange) {
-      this.activeDeckIndex = this.currentDeckIndex;
-      this.cdr.markForCheck();
-      this._emitLayoutUpdated();
+      // Ignore out-of-range deck indices so an invalid integrator value doesn't
+      // collapse `visibleDecks` to an empty list and render an empty fuselage.
+      const idx = this.currentDeckIndex;
+      if (Number.isInteger(idx) && idx >= 0 && idx < this.content.length) {
+        this.activeDeckIndex = idx;
+        this.cdr.markForCheck();
+        this._emitLayoutUpdated();
+      }
     }
 
     if (changes['flight'] && !changes['flight'].firstChange) {
