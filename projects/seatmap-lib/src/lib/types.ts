@@ -7,6 +7,7 @@ export type TLang =
   | 'CN'
   | 'DE'
   | 'FR'
+  | 'FR-CA'
   | 'ES'
   | 'IT'
   | 'PT'
