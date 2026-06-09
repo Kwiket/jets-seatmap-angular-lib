@@ -304,6 +304,39 @@ describe('JetsTooltipComponent', () => {
       // The API feature is hidden, but the integrator-defined row stays.
       expect(component.amenities.map(a => a.value)).toEqual(['Custom row']);
     });
+
+    it('should apply additionalProps.cssClass to container, icon and label (README contract)', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({
+          features: [],
+          additionalProps: [
+            { uniqId: 'ap-1', icon: '<svg></svg>', title: '', value: 'Clear air', cssClass: 'clear-air-style' },
+          ],
+        }),
+      });
+      fixture.detectChanges();
+
+      const container = fixture.nativeElement.querySelector('.jets-tooltip--amenity');
+      const icon = fixture.nativeElement.querySelector('.jets-tooltip--amenity-icon');
+      const text = fixture.nativeElement.querySelector('.jets-tooltip--amenity-text');
+      expect(container.classList.contains('clear-air-style')).toBe(true);
+      expect(icon.classList.contains('clear-air-style-icon')).toBe(true);
+      expect(text.classList.contains('clear-air-style-label')).toBe(true);
+    });
+
+    it('should not add cssClass classes when additionalProps.cssClass is omitted', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({
+          features: [],
+          additionalProps: [{ uniqId: 'ap-1', icon: '<svg></svg>', title: '', value: 'No styling' }],
+        }),
+      });
+      fixture.detectChanges();
+
+      const container = fixture.nativeElement.querySelector('.jets-tooltip--amenity');
+      // Only the framework's own classes should be present; no integrator slug.
+      expect([...container.classList].every(c => c.startsWith('jets-tooltip--'))).toBe(true);
+    });
   });
 
   // ─── Dimensions ────────────────────────────────────────────────────────

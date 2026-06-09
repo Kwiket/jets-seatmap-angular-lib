@@ -96,9 +96,21 @@ import { LOCALES_MAP } from '../../constants';
             @if (amenities.length) {
               <div class="jets-tooltip--amenities" [style.direction]="textDirection">
                 @for (amenity of amenities; track amenity.uniqId || amenity.key) {
-                  <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.title === null">
-                    <span class="jets-tooltip--amenity-icon" [innerHTML]="safeSvg(amenity.icon)"></span>
-                    <span class="jets-tooltip--amenity-text">{{ amenityText(amenity) }}</span>
+                  <div
+                    class="jets-tooltip--amenity"
+                    [class.jets-tooltip--amenity-negative]="amenity.title === null"
+                    [class]="amenity.cssClass || ''"
+                  >
+                    <span
+                      class="jets-tooltip--amenity-icon"
+                      [class]="amenity.cssClass ? amenity.cssClass + '-icon' : ''"
+                      [innerHTML]="safeSvg(amenity.icon)"
+                    ></span>
+                    <span
+                      class="jets-tooltip--amenity-text"
+                      [class]="amenity.cssClass ? amenity.cssClass + '-label' : ''"
+                      >{{ amenityText(amenity) }}</span
+                    >
                   </div>
                 }
               </div>
