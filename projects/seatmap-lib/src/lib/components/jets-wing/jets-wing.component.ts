@@ -136,19 +136,19 @@ export class JetsWingComponent {
    * Path data for the LEFT wing.
    * Coordinate system: x=60 is inner (fuselage edge), x=0 is outer (wingtip).
    * Walk: inner-top → outer-top → outer-bottom → inner-bottom → close.
-   * Both top (leading) and bottom (trailing) edges slope away from inner-edge
-   * by `sweep` px, producing a backwards-swept parallelogram wing silhouette.
+   * Only the top (leading) edge slopes — the bottom (trailing) edge is
+   * straight across, matching the React reference silhouette.
    */
   get leftWingPath(): string {
     const s = this.sweep;
     const h = this.viewBoxHeight;
-    return `M60,0 L0,${s} L0,${h} L60,${h - s} Z`;
+    return `M60,0 L0,${s} L0,${h} L60,${h} Z`;
   }
 
   /** Path data for the RIGHT wing — mirrored: x=0 inner, x=60 outer. */
   get rightWingPath(): string {
     const s = this.sweep;
     const h = this.viewBoxHeight;
-    return `M0,0 L60,${s} L60,${h} L0,${h - s} Z`;
+    return `M0,0 L60,${s} L60,${h} L0,${h} Z`;
   }
 }
