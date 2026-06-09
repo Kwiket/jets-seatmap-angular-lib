@@ -191,6 +191,49 @@ describe('JetsTooltipComponent', () => {
       expect(amenities).toBeNull();
     });
 
+    // ─── API summary preference (React parity) ────────────────────────────
+    // React's TooltipGlobal.view.js renders `{value}` — i.e. when the API
+    // provides a free-form `summary` for a flight-level amenity (entertainment,
+    // wifi, power), that backend-localized string is shown instead of the
+    // built-in `audioVideo`/`wifi`/`power` locale label. Angular must do the
+    // same: the localized title is only a fallback for the value=true case.
+    it('should render API summary (value) instead of localized title when summary string is present', () => {
+      component.data = makeTooltipData({
+        lang: 'DE',
+        seat: makeSeat({
+          features: [
+            {
+              key: 'audioVideo',
+              icon: '<svg></svg>',
+              title: 'Audio / Video',
+              value: 'Kostenlose Unterhaltung auf Abruf',
+            },
+            { key: 'wifi', icon: '<svg></svg>', title: 'Wi-Fi', value: 'Wi-Fi ist verfügbar' },
+            { key: 'power', icon: '<svg></svg>', title: 'Steckdose', value: 'Verfügbare Leistung: AC' },
+          ],
+        }),
+      });
+      fixture.detectChanges();
+
+      const rendered = fixture.nativeElement.querySelectorAll('.jets-tooltip--amenity-text');
+      expect(rendered[0].textContent.trim()).toBe('Kostenlose Unterhaltung auf Abruf');
+      expect(rendered[1].textContent.trim()).toBe('Wi-Fi ist verfügbar');
+      expect(rendered[2].textContent.trim()).toBe('Verfügbare Leistung: AC');
+    });
+
+    it('should fall back to localized title when value is boolean true (no summary from API)', () => {
+      component.data = makeTooltipData({
+        lang: 'DE',
+        seat: makeSeat({
+          features: [{ key: 'wifi', icon: '<svg></svg>', title: 'Wi-Fi', value: true }],
+        }),
+      });
+      fixture.detectChanges();
+
+      const rendered = fixture.nativeElement.querySelector('.jets-tooltip--amenity-text');
+      expect(rendered.textContent.trim()).toBe('Wi-Fi');
+    });
+
     // ─── additionalProps merge (React parity) ─────────────────────────────
 
     it('should append additionalProps after API features in the amenities list', () => {

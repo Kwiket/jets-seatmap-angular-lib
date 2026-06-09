@@ -98,7 +98,7 @@ import { LOCALES_MAP } from '../../constants';
                 @for (amenity of amenities; track amenity.uniqId || amenity.key) {
                   <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.title === null">
                     <span class="jets-tooltip--amenity-icon" [innerHTML]="safeSvg(amenity.icon)"></span>
-                    <span class="jets-tooltip--amenity-text">{{ amenity.title || amenity.value }}</span>
+                    <span class="jets-tooltip--amenity-text">{{ amenityText(amenity) }}</span>
                   </div>
                 }
               </div>
@@ -271,6 +271,23 @@ export class JetsTooltipComponent {
 
   private isFeatureHidden(f: ISeatFeature): boolean {
     return !!f.key && this.hiddenSeatFeatures.includes(f.key);
+  }
+
+  /**
+   * React parity: when the API ships a free-form `summary` for a flight-level
+   * amenity (entertainment, wifi, power), that backend-localized text wins
+   * over the built-in locale title. Falls back to `title` only when `value`
+   * is boolean/numeric/null/empty — covers seat-level features whose `value`
+   * is a bare `true` flag with no API summary attached.
+   * Reference: jets-seatmap-react-lib-pub/src/components/TooltipGlobal/TooltipGlobal.view.js:89
+   * (the React view renders `{value}` directly; we add the title fallback so
+   * the boolean-flag case still shows a readable label instead of empty text.)
+   */
+  amenityText(amenity: ISeatFeature): string | null {
+    const v = amenity.value;
+    if (typeof v === 'string' && v.length > 0) return v;
+    if (typeof v === 'number') return String(v);
+    return amenity.title ?? null;
   }
 
   /**
