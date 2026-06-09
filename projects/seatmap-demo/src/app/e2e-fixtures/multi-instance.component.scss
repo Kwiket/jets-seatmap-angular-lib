@@ -1,0 +1,61 @@
+.multi-instance-fixture {
+  min-height: 100vh;
+  background: #f5f7fa;
+  padding: 24px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.mi-header {
+  margin-bottom: 24px;
+}
+
+.mi-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  color: #1a2b3c;
+}
+
+.mi-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #5a6878;
+
+  code {
+    background: #e7ecf2;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+}
+
+.mi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.mi-cell {
+  background: #fff;
+  border: 1px solid #d4dae3;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mi-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2a55a0;
+  background: #e8f0fb;
+  padding: 6px 10px;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+
+.mi-seatmap-wrapper {
+  display: flex;
+  justify-content: center;
+}

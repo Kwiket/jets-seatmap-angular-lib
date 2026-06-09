@@ -16,6 +16,7 @@ import {
 } from '@kwiket/jets-seatmap-angular-lib';
 import { DemoFlight } from './flights.data';
 import { FlightsService } from './flights.service';
+import { MultiInstanceFixtureComponent } from './e2e-fixtures/multi-instance.component';
 
 interface EventLogEntry {
   id: number;
@@ -100,7 +101,7 @@ const DEFAULT_PASSENGERS: IPassenger[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, JetsSeatMapComponent],
+  imports: [CommonModule, FormsModule, JetsSeatMapComponent, MultiInstanceFixtureComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -108,6 +109,9 @@ export class App {
   private readonly flightsService = inject(FlightsService);
   readonly flights = this.flightsService.flights;
   readonly controls = CONTROLS;
+  readonly isMultiInstanceMode =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('multiInstance');
 
   selectedIndex = signal(0);
   eventLog = signal<EventLogEntry[]>([]);
