@@ -45,8 +45,6 @@ export class JetsSeatMapApiService {
         });
         return await this._postSeatmap(config.apiUrl, body, retryHeaders, flightData.id);
       }
-      console.error('[SeatmapAPI] Error status:', err?.status);
-      console.error('[SeatmapAPI] Error body:', JSON.stringify(err?.error, null, 2));
       throw err;
     }
   }

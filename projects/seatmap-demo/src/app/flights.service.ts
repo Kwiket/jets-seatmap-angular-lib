@@ -27,28 +27,22 @@ export class FlightsService {
 
   async loadFlights(): Promise<DemoFlight[]> {
     const url = environment.flightsApiUrl;
-    console.log('[FlightsService] flightsApiUrl:', url || '(empty — using hardcoded)');
     if (!url) {
       this._flights = DEMO_FLIGHTS;
       this._fromSheet = false;
-      console.log('[FlightsService] No API URL, using DEMO_FLIGHTS');
       return this._flights;
     }
 
     try {
-      console.log('[FlightsService] Fetching flights from:', url);
       const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const rows: FlightRow[] = await res.json();
-      console.log('[FlightsService] Response:', rows.length, 'rows', rows);
       if (!Array.isArray(rows) || rows.length === 0) throw new Error('Empty');
 
-      this._flights = rows.map((row) => this.mapRowToFlight(row));
+      this._flights = rows.map(row => this.mapRowToFlight(row));
       this._fromSheet = true;
-      console.log('[FlightsService] Loaded', this._flights.length, 'flights from Google Sheet');
       return this._flights;
-    } catch (err) {
-      console.error('[FlightsService] Failed, falling back to DEMO_FLIGHTS:', err);
+    } catch {
       this._flights = DEMO_FLIGHTS;
       this._fromSheet = false;
       return this._flights;
