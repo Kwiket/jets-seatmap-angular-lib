@@ -7,13 +7,14 @@ import { applyConfigAndReady, setFlight } from '../helpers/demo';
  * `availability` Input ever leaks into it.
  *
  * Setup:
- *   - Hit the real Quicket sandbox (v1.1) so the API actually returns the
- *     `{ id: 'availabilityData', availableSeats: [...] }` marker element.
- *     Pinned to EK 2 LHR→DXB (id "1111") — the flight whose sandbox response
- *     is known to carry that block. Other demo defaults don't, which would
- *     make the spec flaky against API drift rather than testing the contract.
+ *   - Intercept the Quicket sandbox seatmap POST and graft an
+ *     `{ id: 'availabilityData', availableSeats: [...] }` marker element onto
+ *     whatever the API returns. We previously pinned to EK 2 LHR→DXB because
+ *     the sandbox used to emit that block for that flight, but the sandbox
+ *     no longer does and the spec lost its anchor. Mocking the marker keeps
+ *     the test deterministic regardless of upstream drift.
  *   - Also feed the demo a deliberately unfakeable `availability` Input with
- *     marker values that the API will never emit (negative price, non-ISO
+ *     marker values that the API mock will never emit (negative price, non-ISO
  *     currency code, etc.). Any accidental merge would surface them inside
  *     the captured payload.
  *
@@ -42,7 +43,37 @@ const FAKE_AVAILABILITY_INPUT = [
   },
 ];
 
+/**
+ * API-sourced marker block grafted into the live response. Values must NOT
+ * collide with any INPUT_MARKER field — otherwise the leak-detection assertion
+ * below could falsely pass.
+ */
+const MOCK_AVAILABILITY_BLOCK = {
+  id: 'availabilityData',
+  availableSeats: [
+    { number: '6A', currency: 'USD', price: 75, label: '6A' },
+    { number: '6B', currency: 'EUR', price: 80, label: '6B' },
+  ],
+};
+
 test('availabilityData is read-only and never merges the Input', async ({ page }) => {
+  // Intercept the seatmap POST and append the `availabilityData` sibling
+  // element. The real sandbox no longer surfaces it for the flight this spec
+  // used to pin to; mocking keeps the parity contract assertable.
+  await page.route('**/flight/features/plane/seatmap', async route => {
+    const upstream = await route.fetch();
+    const upstreamJson = (await upstream.json()) as unknown[];
+    if (!Array.isArray(upstreamJson)) {
+      await route.fulfill({ response: upstream });
+      return;
+    }
+    const augmented = [...upstreamJson, MOCK_AVAILABILITY_BLOCK];
+    await route.fulfill({
+      response: upstream,
+      json: augmented,
+    });
+  });
+
   await page.goto('/');
 
   await setFlight(page, {
