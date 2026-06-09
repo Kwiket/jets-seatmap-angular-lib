@@ -21,7 +21,7 @@ export class JetsSeatMapApiService {
       Authorization: `${scheme} ${token}`,
     });
 
-    // API expects { flight: {...}, lang, units, supportedSeatTypesCount, ...metadata } — not flat
+    // API expects { flight: {...}, lang, units, supportedSeatTypesCount, metadata? } — React parity (api.js:64)
     const { lang, units, ...flightFields } = flightData;
     const supportedSeatTypesCount = SEAT_SIZE_BY_TYPE.length - 1; // Exclude zero index
     const body: Record<string, unknown> = {
@@ -29,7 +29,7 @@ export class JetsSeatMapApiService {
       lang,
       units,
       supportedSeatTypesCount,
-      ...(config.apiMetadata ?? {}),
+      ...(config.apiMetadata ? { metadata: config.apiMetadata } : {}),
     };
 
     try {

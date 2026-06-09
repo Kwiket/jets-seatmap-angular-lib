@@ -103,7 +103,7 @@ describe('JetsSeatMapApiService', () => {
     await pending;
   });
 
-  it('should merge apiMetadata into the request body at the top level', async () => {
+  it('should nest apiMetadata under the `metadata` key in the request body', async () => {
     const pending = service.getSeatmapData(
       makeFlightRequest(),
       makeConfig({ apiMetadata: { traceId: 'X', segment: 'test' } })
@@ -111,9 +111,20 @@ describe('JetsSeatMapApiService', () => {
     await Promise.resolve();
     await Promise.resolve();
     const req = httpMock.expectOne(URL);
-    expect(req.request.body.traceId).toBe('X');
-    expect(req.request.body.segment).toBe('test');
+    expect(req.request.body.metadata).toEqual({ traceId: 'X', segment: 'test' });
+    expect(req.request.body.traceId).toBeUndefined();
+    expect(req.request.body.segment).toBeUndefined();
     expect(req.request.body.flight).toBeDefined();
+    req.flush({});
+    await pending;
+  });
+
+  it('should omit the `metadata` key entirely when apiMetadata is not provided', async () => {
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig());
+    await Promise.resolve();
+    await Promise.resolve();
+    const req = httpMock.expectOne(URL);
+    expect('metadata' in req.request.body).toBe(false);
     req.flush({});
     await pending;
   });
