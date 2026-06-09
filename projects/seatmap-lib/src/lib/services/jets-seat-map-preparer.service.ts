@@ -396,7 +396,7 @@ export class JetsSeatMapPreparerService {
       measurements.push({
         key: 'pitch',
         icon: SEAT_MEASUREMENTS_ICONS['pitch'] ?? '',
-        title: locale['pitchShort'] ?? locale['pitch'] ?? 'Pitch',
+        title: locale['pitch'] ?? 'Pitch',
         uniqId: genFeatureId(),
         value: this._convertUnit(pitch, units),
       });
@@ -404,7 +404,7 @@ export class JetsSeatMapPreparerService {
       measurements.push({
         key: 'width',
         icon: SEAT_MEASUREMENTS_ICONS['width'] ?? '',
-        title: locale['widthShort'] ?? locale['width'] ?? 'Width',
+        title: locale['width'] ?? 'Width',
         uniqId: genFeatureId(),
         value: this._convertUnit(width, units),
       });
@@ -412,7 +412,7 @@ export class JetsSeatMapPreparerService {
       measurements.push({
         key: 'recline',
         icon: SEAT_MEASUREMENTS_ICONS['recline'] ?? '',
-        title: locale['reclineShort'] ?? locale['recline'] ?? 'Recline',
+        title: locale['recline'] ?? 'Recline',
         uniqId: genFeatureId(),
         value: this._convertUnit(recline, units),
       });
@@ -762,7 +762,7 @@ export class JetsSeatMapPreparerService {
       measurements.push({
         key: 'pitch',
         icon: SEAT_MEASUREMENTS_ICONS['pitch'] ?? '',
-        title: locale['pitchShort'] ?? locale['pitch'] ?? 'Pitch',
+        title: locale['pitch'] ?? 'Pitch',
         uniqId: genFeatureId(),
         value: this._convertUnit(pitch, units),
       });
@@ -770,7 +770,7 @@ export class JetsSeatMapPreparerService {
       measurements.push({
         key: 'width',
         icon: SEAT_MEASUREMENTS_ICONS['width'] ?? '',
-        title: locale['widthShort'] ?? locale['width'] ?? 'Width',
+        title: locale['width'] ?? 'Width',
         uniqId: genFeatureId(),
         value: this._convertUnit(width, units),
       });
@@ -778,7 +778,7 @@ export class JetsSeatMapPreparerService {
       measurements.push({
         key: 'recline',
         icon: SEAT_MEASUREMENTS_ICONS['recline'] ?? '',
-        title: locale['reclineShort'] ?? locale['recline'] ?? 'Recline',
+        title: locale['recline'] ?? 'Recline',
         uniqId: genFeatureId(),
         value: this._convertUnit(recline, units),
       });

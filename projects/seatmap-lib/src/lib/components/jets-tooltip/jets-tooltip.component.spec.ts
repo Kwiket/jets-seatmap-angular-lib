@@ -426,8 +426,9 @@ describe('JetsTooltipComponent', () => {
       component.data = makeTooltipData({ lang: 'RU' as any });
       fixture.detectChanges();
 
+      // React parity (i18n.languages.js LOCALE_RU): cancel === 'Закрыть'.
       const cancelBtn = fixture.nativeElement.querySelector('.jets-cancel-btn');
-      expect(cancelBtn?.textContent?.trim()).toBe('Отмена');
+      expect(cancelBtn?.textContent?.trim()).toBe('Закрыть');
     });
 
     it('should show German labels when lang is DE', () => {
