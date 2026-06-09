@@ -413,17 +413,49 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
-   * Gap (px) from deck-floor edge to fuselage edge on each side.
-   * Used to push cabin labels outward so they appear at the fuselage, not at the floor.
+   * Distance (px) the cabin label is pushed outward from its in-flow
+   * anchor (the deck-floor right/left edge).
+   *
+   * Two independent contributions are summed:
+   *
+   *  - **Narrow-deck adjustment** — when the deck-floor is narrower than the
+   *    widest deck (e.g. A380 upper) we push the label outward by the gap
+   *    between deck-floor edge and fuselage edge so the label still appears
+   *    at the fuselage, not at the deck floor.
+   *
+   *  - **`cabinTitlesWidth` push** — the consumer-controlled `cabinTitlesWidth`
+   *    sets aside `cabinTitlesWidth*scale` px of side space outside the
+   *    fuselage. Without this push the label would hug the fuselage edge and
+   *    the consumer would see no visual effect from increasing
+   *    `cabinTitlesWidth` (a React-parity regression: in the React lib a
+   *    bigger `cabinTitlesWidth` clearly increases the gap between the label
+   *    and the body). The push moves the label so its outer edge lands near
+   *    the seatmap wrapper edge, leaving the cabin-title gutter visibly empty
+   *    between the body and the label.
    */
   getDeckCabinLabelGap(deck: IDeckData): number {
     const maxNative = this.maxNativeDeckWidth;
     const deckNative = deck.nativeDeckWidth ?? maxNative;
-    if (deckNative >= maxNative) return 0;
-    const floorRatio = deckNative / maxNative;
-    // Total fuselage body width (excluding side margins); floor = floorRatio * bodyWidth
-    // Gap on each side = (bodyWidth - floor) / 2
-    return (this.fuselageBodyWidth * (1 - floorRatio)) / 2;
+    const floorRatio = deckNative >= maxNative ? 1 : deckNative / maxNative;
+    const narrowDeckGap = (this.fuselageBodyWidth * (1 - floorRatio)) / 2;
+
+    // `cabinTitlesWidth*scale` is the rendered cabin-title gutter width on
+    // each side. The label is `LABEL_WIDTH` px wide and we want it to sit
+    // `OUTER_INSET` px inside the wrapper edge, so the gap between the body
+    // and the label is whatever is left over — directly proportional to the
+    // consumer-set `cabinTitlesWidth`. Clamped to 0 so a small
+    // cabinTitlesWidth (or one dominated by a larger wingsWidth) doesn't
+    // pull the label INSIDE the body. The existing 8 px constant in the
+    // label's CSS `right: calc(100% + 8px + …)` cancels out the deck-floor
+    // border offset; it does NOT contribute to the outward push, so we do
+    // not subtract it here.
+    const scale = this.content.length ? (this.content[0].scale ?? 1) : 1;
+    const cabinTitlesPx = (this.resolvedConfig.colorTheme?.cabinTitlesWidth ?? 0) * scale;
+    const LABEL_WIDTH = 20;
+    const OUTER_INSET = 4;
+    const cabinTitlesPush = Math.max(0, cabinTitlesPx - LABEL_WIDTH - OUTER_INSET);
+
+    return narrowDeckGap + cabinTitlesPush;
   }
 
   /**
