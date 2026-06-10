@@ -370,12 +370,13 @@ describe('JetsSeatMapComponent', () => {
       component.onSeatClick({ seat, element: el });
 
       // Public emit shape mirrors the React-parity integrator contract:
-      //   - `number → label`, layout-only fields (`id`, `size`, `topOffset`, `leftOffset`,
-      //     `cabinTitle`, `rotation`) stripped.
+      //   - `number → label`, layout-only fields (`id`, `size`, `topOffset`,
+      //     `leftOffset`, `cabinTitle`) stripped.
       //   - `classType` becomes the full word ('Economy', 'Business', …).
       //   - `priceValue` carries the raw number; `price` becomes a formatted string.
       //   - features/measurements default to empty arrays.
       //   - `passengerTypes` defaults to React's `['ADT', 'CHD', 'INF']`.
+      //   - `rotation` is present and defaults to 'n' (React fixtures).
       const { id: _id, size: _size, number: _number, ...rest } = seat;
       const expectedSeat = {
         ...rest,
@@ -385,6 +386,7 @@ describe('JetsSeatMapComponent', () => {
         color: seat.color,
         originalColor: seat.color,
         passengerTypes: ['ADT', 'CHD', 'INF'],
+        rotation: 'n',
         features: [],
         measurements: [],
         additionalProps: [],
@@ -426,6 +428,25 @@ describe('JetsSeatMapComponent', () => {
 
       component.onTooltipUnselect(makeSeat());
       expect(spy).toHaveBeenCalledWith(updatedPassengers);
+    });
+
+    it('onTooltipUnselect is a no-op when the occupant is readOnly (React parity)', async () => {
+      // React parity: TooltipGlobal.view.js disables the Unselect button, and
+      // the SeatMap container itself never reaches unselectSeatHandler for a
+      // readOnly passenger. This test guards the container path: even if a
+      // viewOverride dispatched the click, we must not unseat the passenger.
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const spy = vi.fn();
+      component.seatUnselected.subscribe(spy);
+
+      const readOnlyOccupant: IPassenger = { id: 'p0', passengerLabel: 'Alex', readOnly: true };
+      component.onTooltipUnselect(makeSeat({ passenger: readOnlyOccupant }));
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(mockService.unselectSeatHandler).not.toHaveBeenCalled();
     });
 
     it('should emit deckChanged on deck selection', () => {
@@ -473,7 +494,8 @@ describe('JetsSeatMapComponent', () => {
       expect(arg.seat.features).toEqual([]);
       expect(arg.seat).not.toHaveProperty('id');
       expect(arg.seat).not.toHaveProperty('size');
-      expect(arg.seat).not.toHaveProperty('rotation');
+      // React-parity: rotation is present with 'n' (north / no-rotation) default.
+      expect(arg.seat.rotation).toBe('n');
     });
 
     it('should NOT emit seatMouseLeave when tooltipOnHover is unset/false', () => {
@@ -812,7 +834,8 @@ describe('JetsSeatMapComponent', () => {
       expect(arg.seat.label).toBe(seat.number);
       expect(arg.seat.classType).toBe('Economy');
       expect(arg.seat.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
-      expect(arg.seat).not.toHaveProperty('rotation');
+      // React-parity: rotation default 'n' is part of the emit shape.
+      expect(arg.seat.rotation).toBe('n');
       expect(tooltipSpy).not.toHaveBeenCalled();
       expect(component.activeTooltip).toBeNull();
     });
@@ -1252,6 +1275,38 @@ describe('JetsSeatMapComponent', () => {
       expect(spy.mock.calls[0][0]).toMatchObject({ currentDeckIndex: 1 });
     });
 
+    it('should ignore currentDeckIndex Input when out of range (no empty render)', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: makeMultiDeckData(),
+        media: null,
+        availableCabins: [],
+      });
+      const layoutSpy = vi.fn();
+      const deckChangedSpy = vi.fn();
+      component.layoutUpdated.subscribe(layoutSpy);
+      component.deckChanged.subscribe(deckChangedSpy);
+      await load();
+      layoutSpy.mockClear();
+
+      // makeMultiDeckData yields 2 decks → valid indices are 0 and 1; 5 is out of range.
+      component.currentDeckIndex = 5;
+      component.ngOnChanges({
+        currentDeckIndex: {
+          previousValue: 0,
+          currentValue: 5,
+          firstChange: false,
+          isFirstChange: () => false,
+        },
+      } as any);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(component.activeDeckIndex).toBe(0);
+      expect(component.visibleDecks.length).toBe(1);
+      expect(layoutSpy).not.toHaveBeenCalled();
+      expect(deckChangedSpy).not.toHaveBeenCalled();
+    });
+
     it('should emit layoutUpdated with scaleFactor of active deck (not deck 0)', async () => {
       mockService.getSeatMapData.mockResolvedValue({
         content: [
@@ -1308,16 +1363,37 @@ describe('JetsSeatMapComponent', () => {
       expect('availableCabins' in payload).toBe(false);
     });
 
-    it('should emit availabilityData mirroring the availability Input', async () => {
-      const availability: TSeatAvailability = [{ label: '1A', price: 10, currency: 'EUR' }];
-      component.availability = availability;
+    it('should emit availabilityData from the API response (NOT from the availability Input)', async () => {
+      // The `availability` Input controls per-seat status/colour overrides
+      // (see `JetsSeatMapService.setAvailabilityHandler`). The `availabilityData`
+      // emitted on `seatMapInited` is a different beast: it's the read-only
+      // `{ availableSeats: [...] }` block that the Quicket API ships in its
+      // response array (React parity — api.js:101-104). Mixing the two was the
+      // bug behind "Fix: onSeatMapInited object data".
+      const apiAvailabilityData = {
+        availableSeats: [
+          { label: '53H', currency: 'EUR', price: 0 },
+          { label: '53J', currency: 'EUR', price: 0 },
+        ],
+      };
+      mockService.getSeatMapData.mockResolvedValue({
+        content: [makeDeckData()],
+        media: null,
+        availableCabins: [],
+        availabilityData: apiAvailabilityData,
+      });
+
+      // Set the Input too, to prove it does NOT leak into payload.availabilityData.
+      component.availability = [{ label: '1A', price: 10, currency: 'EUR' }] as TSeatAvailability;
 
       const spy = vi.fn();
       component.seatMapInited.subscribe(spy);
       await load();
 
       const payload = spy.mock.calls[0][0];
-      expect(payload.availabilityData).toBe(availability);
+      expect(payload.availabilityData).toBe(apiAvailabilityData);
+      // Sanity: the per-seat Input must not have been smuggled in.
+      expect(payload.availabilityData).not.toEqual(component.availability);
     });
 
     it('should emit heightInPx/widthInPx as native (rendered = value × scaleFactor)', async () => {
@@ -1359,7 +1435,37 @@ describe('JetsSeatMapComponent', () => {
       }
     });
 
-    it('should NOT emit seatMapInited when load fails', async () => {
+    it('should emit seatMapInited with error payload when load fails (React parity)', async () => {
+      mockService.getSeatMapData.mockRejectedValue({
+        status: 400,
+        error: {
+          statusCode: 400,
+          message: 'arrival must be shorter than or equal to 3 characters',
+          error: 'Bad Request',
+        },
+        message: 'Http failure response',
+      });
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const payload = spy.mock.calls[0][0];
+      // React format: `postData: {status} - {message}`
+      expect(payload.error).toBe('postData: 400 - arrival must be shorter than or equal to 3 characters');
+      // Layout fields are undefined for error payload (React parity — see screenshot of React lib)
+      expect(payload.heightInPx).toBeUndefined();
+      expect(payload.widthInPx).toBeUndefined();
+      expect(payload.scaleFactor).toBeUndefined();
+      expect(payload.decksCount).toBeUndefined();
+      expect(payload.currentDeckIndex).toBeUndefined();
+    });
+
+    it('should fall back to err.message when API body has no message', async () => {
       mockService.getSeatMapData.mockRejectedValue({ status: 500, message: 'oops' });
       const spy = vi.fn();
       component.seatMapInited.subscribe(spy);
@@ -1369,7 +1475,40 @@ describe('JetsSeatMapComponent', () => {
       fixture.detectChanges();
       await new Promise(r => setTimeout(r, 0));
 
-      expect(spy).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0].error).toBe('postData: 500 - oops');
+    });
+
+    it('should still emit loadError on API failure (backwards compatibility)', async () => {
+      mockService.getSeatMapData.mockRejectedValue({
+        status: 400,
+        error: { message: 'arrival must be shorter than or equal to 3 characters' },
+      });
+      const spy = vi.fn();
+      component.loadError.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0]).toBe('postData: 400 - arrival must be shorter than or equal to 3 characters');
+    });
+
+    it('should emit seatMapInited error payload for non-HTTP throws', async () => {
+      mockService.getSeatMapData.mockRejectedValue(new Error('boom'));
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      // No status → '?'; falls back to err.message
+      expect(spy.mock.calls[0][0].error).toBe('postData: ? - boom');
     });
 
     it('should propagate DOM event in tooltipRequested payload', async () => {

@@ -1,3 +1,6 @@
+@if (isMultiInstanceMode) {
+<app-multi-instance-fixture />
+} @else {
 <div class="demo-app">
   <header class="demo-header">
     <h1 class="demo-title">&#9992; Angular Seatmap Demo</h1>
@@ -67,3 +70,4 @@
     </div>
   </div>
 </div>
+}

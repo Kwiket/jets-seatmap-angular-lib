@@ -10,45 +10,31 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="jets-wings" [style.top.px]="scaledTop" [style.width.px]="containerWidth" [style.height.px]="wingHeight">
-      <!-- Left wing: rectangle body -->
+      <!-- Left wing: trapezoid with swept leading (top) and trailing (bottom) edges.
+           Inner edge (right=fuselage) runs full height; outer edge (left=wingtip)
+           is tapered, producing a real wing silhouette instead of a flat rectangle. -->
       <svg
         class="jets-wing jets-wing--left"
         [attr.width]="wingWidth"
         [attr.height]="wingHeight"
-        viewBox="0 0 60 200"
+        [attr.viewBox]="'0 0 60 ' + viewBoxHeight"
         xmlns="http://www.w3.org/2000/svg"
         preserveAspectRatio="none"
       >
-        <path [attr.fill]="hullColor" [attr.stroke]="strokeColor" stroke-width="1.5" d="M60,0 L0,0 L0,200 L60,200 Z" />
+        <path [attr.fill]="hullColor" [attr.stroke]="strokeColor" stroke-width="1.5" [attr.d]="leftWingPath" />
       </svg>
 
-      <!-- Left wing-leading (triangular mask at top) -->
-      <div
-        class="wing-leading wing-leading--left"
-        [style.width.px]="wingWidth + 8"
-        [style.height.px]="leadingHeight"
-        [style.background]="bgColor"
-      ></div>
-
-      <!-- Right wing: rectangle body -->
+      <!-- Right wing: mirror image of left -->
       <svg
         class="jets-wing jets-wing--right"
         [attr.width]="wingWidth"
         [attr.height]="wingHeight"
-        viewBox="0 0 60 200"
+        [attr.viewBox]="'0 0 60 ' + viewBoxHeight"
         xmlns="http://www.w3.org/2000/svg"
         preserveAspectRatio="none"
       >
-        <path [attr.fill]="hullColor" [attr.stroke]="strokeColor" stroke-width="1.5" d="M0,0 L60,0 L60,200 L0,200 Z" />
+        <path [attr.fill]="hullColor" [attr.stroke]="strokeColor" stroke-width="1.5" [attr.d]="rightWingPath" />
       </svg>
-
-      <!-- Right wing-leading (triangular mask at top) -->
-      <div
-        class="wing-leading wing-leading--right"
-        [style.width.px]="wingWidth + 8"
-        [style.height.px]="leadingHeight"
-        [style.background]="bgColor"
-      ></div>
     </div>
   `,
   styles: [
@@ -78,26 +64,6 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
       .jets-wing--right {
         left: 100%;
         margin-left: -1px;
-      }
-
-      .wing-leading {
-        position: absolute;
-        top: -3px;
-        overflow: hidden;
-        z-index: 1;
-        pointer-events: none;
-      }
-
-      .wing-leading--left {
-        right: 100%;
-        margin-right: -4px;
-        clip-path: polygon(100% 10%, 0% 100%, 0% 0%);
-      }
-
-      .wing-leading--right {
-        left: 100%;
-        margin-left: -4px;
-        clip-path: polygon(100% 0%, 100% 100%, -10% 0%);
       }
     `,
   ],
@@ -140,13 +106,49 @@ export class JetsWingComponent {
     return this.colorTheme?.fuselageStrokeColor ?? DEFAULT_COLOR_THEME.fuselageStrokeColor;
   }
 
-  /** Height of the wing-leading triangle overlay (matches React's 30px native) */
-  get leadingHeight(): number {
-    return Math.max(6, Math.round(30 * this.scale));
+  /**
+   * SVG viewBox height matched to the rendered wing in pixels so 1 viewBox
+   * unit ≈ 1 rendered pixel. Without this the path's sweep offset (also in
+   * viewBox units) would be stretched by the rectangle's aspect ratio —
+   * a 30-unit slope on a 1:45 rectangle would render as ~100 px instead of 30.
+   */
+  get viewBoxHeight(): number {
+    return Math.max(60, this.wingHeight);
   }
 
-  /** Background color for the wing-leading mask (hides the wing corner) */
-  get bgColor(): string {
-    return this.colorTheme?.seatMapBackgroundColor || '#fff';
+  /**
+   * Sweep offset in viewBox Y-units. With viewBoxHeight === wingHeight, this
+   * is also the slope in rendered pixels — the leading edge slants from
+   * inner-top to outer-top by `sweep` px, the trailing edge slants the same
+   * amount from outer-bottom to inner-bottom. Capped so very short wings
+   * don't collapse to zero visible area on the outer side.
+   */
+  get sweep(): number {
+    // ~tan(30°) * wingWidth gives a natural-looking swept-back wing.
+    const sweepNative = Math.round(0.55 * this.wingWidth);
+    // Never consume more than 40 % of the wing height per edge so the outer
+    // tip still has a recognisable wingtip surface visible.
+    const maxSweep = Math.floor(this.viewBoxHeight * 0.4);
+    return Math.min(maxSweep, sweepNative);
+  }
+
+  /**
+   * Path data for the LEFT wing.
+   * Coordinate system: x=60 is inner (fuselage edge), x=0 is outer (wingtip).
+   * Walk: inner-top → outer-top → outer-bottom → inner-bottom → close.
+   * Only the top (leading) edge slopes — the bottom (trailing) edge is
+   * straight across, matching the React reference silhouette.
+   */
+  get leftWingPath(): string {
+    const s = this.sweep;
+    const h = this.viewBoxHeight;
+    return `M60,0 L0,${s} L0,${h} L60,${h} Z`;
+  }
+
+  /** Path data for the RIGHT wing — mirrored: x=0 inner, x=60 outer. */
+  get rightWingPath(): string {
+    const s = this.sweep;
+    const h = this.viewBoxHeight;
+    return `M0,0 L60,${s} L60,${h} L0,${h} Z`;
   }
 }

@@ -43,7 +43,7 @@ export class FlightsService {
       console.log('[FlightsService] Response:', rows.length, 'rows', rows);
       if (!Array.isArray(rows) || rows.length === 0) throw new Error('Empty');
 
-      this._flights = rows.map((row) => this.mapRowToFlight(row));
+      this._flights = rows.map(row => this.mapRowToFlight(row));
       this._fromSheet = true;
       console.log('[FlightsService] Loaded', this._flights.length, 'flights from Google Sheet');
       return this._flights;

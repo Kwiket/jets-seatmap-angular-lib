@@ -413,17 +413,49 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
-   * Gap (px) from deck-floor edge to fuselage edge on each side.
-   * Used to push cabin labels outward so they appear at the fuselage, not at the floor.
+   * Distance (px) the cabin label is pushed outward from its in-flow
+   * anchor (the deck-floor right/left edge).
+   *
+   * Two independent contributions are summed:
+   *
+   *  - **Narrow-deck adjustment** — when the deck-floor is narrower than the
+   *    widest deck (e.g. A380 upper) we push the label outward by the gap
+   *    between deck-floor edge and fuselage edge so the label still appears
+   *    at the fuselage, not at the deck floor.
+   *
+   *  - **`cabinTitlesWidth` push** — the consumer-controlled `cabinTitlesWidth`
+   *    sets aside `cabinTitlesWidth*scale` px of side space outside the
+   *    fuselage. Without this push the label would hug the fuselage edge and
+   *    the consumer would see no visual effect from increasing
+   *    `cabinTitlesWidth` (a React-parity regression: in the React lib a
+   *    bigger `cabinTitlesWidth` clearly increases the gap between the label
+   *    and the body). The push moves the label so its outer edge lands near
+   *    the seatmap wrapper edge, leaving the cabin-title gutter visibly empty
+   *    between the body and the label.
    */
   getDeckCabinLabelGap(deck: IDeckData): number {
     const maxNative = this.maxNativeDeckWidth;
     const deckNative = deck.nativeDeckWidth ?? maxNative;
-    if (deckNative >= maxNative) return 0;
-    const floorRatio = deckNative / maxNative;
-    // Total fuselage body width (excluding side margins); floor = floorRatio * bodyWidth
-    // Gap on each side = (bodyWidth - floor) / 2
-    return (this.fuselageBodyWidth * (1 - floorRatio)) / 2;
+    const floorRatio = deckNative >= maxNative ? 1 : deckNative / maxNative;
+    const narrowDeckGap = (this.fuselageBodyWidth * (1 - floorRatio)) / 2;
+
+    // `cabinTitlesWidth*scale` is the rendered cabin-title gutter width on
+    // each side. The label is `LABEL_WIDTH` px wide and we want it to sit
+    // `OUTER_INSET` px inside the wrapper edge, so the gap between the body
+    // and the label is whatever is left over — directly proportional to the
+    // consumer-set `cabinTitlesWidth`. Clamped to 0 so a small
+    // cabinTitlesWidth (or one dominated by a larger wingsWidth) doesn't
+    // pull the label INSIDE the body. The existing 8 px constant in the
+    // label's CSS `right: calc(100% + 8px + …)` cancels out the deck-floor
+    // border offset; it does NOT contribute to the outward push, so we do
+    // not subtract it here.
+    const scale = this.content.length ? (this.content[0].scale ?? 1) : 1;
+    const cabinTitlesPx = (this.resolvedConfig.colorTheme?.cabinTitlesWidth ?? 0) * scale;
+    const LABEL_WIDTH = 20;
+    const OUTER_INSET = 4;
+    const cabinTitlesPush = Math.max(0, cabinTitlesPx - LABEL_WIDTH - OUTER_INSET);
+
+    return narrowDeckGap + cabinTitlesPush;
   }
 
   /**
@@ -517,9 +549,14 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentDeckIndex'] && !changes['currentDeckIndex'].firstChange) {
-      this.activeDeckIndex = this.currentDeckIndex;
-      this.cdr.markForCheck();
-      this._emitLayoutUpdated();
+      // Ignore out-of-range deck indices so an invalid integrator value doesn't
+      // collapse `visibleDecks` to an empty list and render an empty fuselage.
+      const idx = this.currentDeckIndex;
+      if (Number.isInteger(idx) && idx >= 0 && idx < this.content.length) {
+        this.activeDeckIndex = idx;
+        this.cdr.markForCheck();
+        this._emitLayoutUpdated();
+      }
     }
 
     if (changes['flight'] && !changes['flight'].firstChange) {
@@ -695,7 +732,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
         const payload: IInitialLayoutData = {
           ...layout,
           media: this.media,
-          availabilityData: this.availability,
+          // `availabilityData` is the read-only `{availableSeats: […]}` block
+          // surfaced by the Quicket API itself (see
+          // `JetsSeatMapApiService._postSeatmap`). Do not confuse with the
+          // integrator-supplied `availability` Input — that one drives per-
+          // seat status/colour overrides and lives in a different shape.
+          availabilityData: result.availabilityData,
           allCabins: result.availableCabins,
         };
         // React parity: omit the `error` key entirely when there is no error.
@@ -714,12 +756,29 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       }
     } catch (err: any) {
       if (this._flightId !== flightId) return;
-      const httpBody = err?.error ? JSON.stringify(err.error) : '';
-      const msg = `HTTP ${err?.status ?? '?'}: ${err?.message ?? ''}${httpBody ? ' | ' + httpBody : ''}`;
+      // React parity: `postData: {status} - {message}` — see jets-seatmap React lib.
+      // Prefer the API body message (HttpErrorResponse.error.message) over the
+      // generic transport message ('Http failure response …') so callers see
+      // the actual validation failure surfaced by the backend.
+      const status = err?.status ?? '?';
+      const message = err?.error?.message ?? err?.message ?? '';
+      const msg = `postData: ${status} - ${message}`;
       this.error = msg;
       this.isLoading = false;
       this.isSeatMapInited = true;
       this.loadError.emit(msg);
+      // React parity: emit `seatMapInited` with `error` and undefined layout
+      // fields, so consumers wiring only onSeatMapInited still receive errors.
+      // Keys are present with `undefined` values to mirror React's payload
+      // shape (visible in the React lib's console.log output).
+      this.seatMapInited.emit({
+        heightInPx: undefined,
+        widthInPx: undefined,
+        scaleFactor: undefined,
+        decksCount: undefined,
+        currentDeckIndex: undefined,
+        error: msg,
+      });
     } finally {
       this.cdr.markForCheck();
     }
@@ -873,7 +932,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       // tooltip is opened and no `tooltipRequested` is emitted — that branch
       // belongs to the non-hover click path only.
       if (seat.passenger) {
-        if ((seat.passenger as IPassenger & { readOnly?: boolean }).readOnly) return;
+        if (seat.passenger.readOnly) return;
         this.onTooltipUnselect(seat);
         return;
       }
@@ -950,11 +1009,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       size: _sz,
       id: _id,
       cabinTitle: _ct,
-      // React does not carry a `rotation` field on the emitted seat — its
-      // rotation lives on `seatMap.params`, not the seat itself. Drop the
-      // internal field so integrators don't see Angular-only noise like
-      // `rotation: ""`.
-      rotation: _rotation,
+      rotation,
       classCode,
       color,
       originalColor,
@@ -963,7 +1018,14 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       features,
       measurements,
       ...rest
-    } = seat as ISeatData & { cabinTitle?: string; rotation?: string };
+    } = seat as ISeatData & { cabinTitle?: string };
+
+    // React-parity: every emitted seat carries `rotation` with `'n'` (north /
+    // no-rotation) as the default — see Seat/__fixtures__/seatData.js. The
+    // earlier "drop the field" approach matched the wrong seat (an unrotated
+    // 70E) and was a regression for any integrator inspecting the payload
+    // shape. Normalise the legacy empty-string to `'n'` here.
+    const emittedRotation = !rotation || (rotation as string) === '' ? 'n' : rotation;
 
     // `classType` becomes the full word ('Business'), `classCode` stays single-letter.
     const code = (classCode || rest.classType || 'E').toString();
@@ -1006,6 +1068,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       price: priceStr as unknown as number,
       priceValue: numericPrice,
       passengerTypes,
+      rotation: emittedRotation,
       features: (features ?? []).map(normalizeFeature),
       measurements: (measurements ?? []).map(normalizeFeature),
       additionalProps: ((rest as ISeatData).additionalProps ?? []).map(normalizeFeature),
@@ -1034,6 +1097,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onTooltipUnselect(seat: ISeatData): void {
+    // React parity: readOnly occupants cannot be unseated through the built-in
+    // tooltip path. The Unselect button is rendered disabled, but we guard the
+    // handler too in case a viewOverride bypasses the disabled attribute or the
+    // call arrives from the side-panel delegation path.
+    if (seat.passenger?.readOnly) return;
     const { data, passengers } = this.seatmapService.unselectSeatHandler(this.content, seat, this.passengersList);
     this.content = data;
     this.passengersList = passengers;

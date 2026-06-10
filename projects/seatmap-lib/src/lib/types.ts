@@ -7,6 +7,7 @@ export type TLang =
   | 'CN'
   | 'DE'
   | 'FR'
+  | 'FR-CA'
   | 'ES'
   | 'IT'
   | 'PT'
@@ -25,7 +26,12 @@ export type TUnits = 'metric' | 'imperials';
 // ─── Seat types ───────────────────────────────────────────────────────────────
 export type TSeatType = 'seat' | 'aisle' | 'empty' | 'index';
 export type TSeatStatus = 'available' | 'unavailable' | 'selected' | 'preferred' | 'extra' | 'disabled';
-export type TSeatRotation = 'nw' | 'nw45' | 'ne' | 'ne45' | 's' | 'se' | 'sw' | '';
+// `'n'` (north / no-rotation) is the React default for unrotated seats —
+// see jets-seatmap-react-lib-pub/src/components/Seat/__fixtures__/seatData.js.
+// `''` is the internal carry-over for "no rotation" from older API payloads;
+// both render identically (default branch in jets-seat.component.ts's
+// _computeRotation switch). The publicly emitted shape always normalises '' → 'n'.
+export type TSeatRotation = 'n' | 'nw' | 'nw45' | 'ne' | 'ne45' | 's' | 'se' | 'sw' | '';
 
 // ─── Flight ───────────────────────────────────────────────────────────────────
 export interface IFlight {
@@ -197,16 +203,49 @@ export interface IConfig {
   customCabinTitles?: Record<string, string>;
   hiddenSeatFeatures?: string[];
   componentOverrides?: IComponentOverrides;
+  /**
+   * Minimum gap (in native API coordinate units) inserted between a row's
+   * physical bbox and a neighbouring bulk (galley/lavatory partition) when the
+   * source API places them with overlap. The preparer only adjusts a bulk when
+   * it actually overlaps a row — already-spaced layouts pass through untouched.
+   *
+   * Default is `4` (≈2–3 px at typical deck scale). Pass `0` to disable the
+   * collision pass and use the raw API coordinates verbatim. Increase to grow
+   * the visible separation between seats and partitions; the algorithm will
+   * silently skip a bulk whose adjustment would shrink it below half its
+   * original height.
+   */
+  partitionGap?: number;
 }
 
 // ─── Passenger ────────────────────────────────────────────────────────────────
 export interface IPassenger {
   readonly id: string;
-  seat?: { price: number; seatLabel: string };
+  /**
+   * Seat assignment as exposed by the lib. Mirrors React's `passenger.seat`
+   * payload (service.js:44-63):
+   *
+   *   - `seatLabel`  — required, e.g. `'33A'`.
+   *   - `price`      — formatted string (e.g. `'USD 33'`) when the lib emits
+   *                    the value. Loose-typed to also accept a raw `number`
+   *                    so integrator-provided fixtures (which historically
+   *                    only carried a numeric price) keep type-checking.
+   *   - `currency`   — the currency sign carried into the formatted `price`.
+   *   - `priceValue` — the raw numeric price.
+   */
+  seat?: { price?: string | number; seatLabel: string; currency?: string; priceValue?: number };
   passengerType?: TPassengerType;
   passengerLabel?: string;
   passengerColor?: string;
   abbr?: string;
+  /**
+   * When true, the built-in passenger management treats the assignment as
+   * frozen: the tooltip's Unselect button is disabled, the seat-click path
+   * is a no-op, and the passenger is never returned as the "next" candidate
+   * for a new seat. React parity: TooltipGlobal.view.js:133 (disabled),
+   * SeatMap.js:312 (click no-op), service.js:198 (skipped in getNextPassenger).
+   */
+  readOnly?: boolean;
 }
 
 // ─── Availability ─────────────────────────────────────────────────────────────
@@ -215,8 +254,25 @@ export type TSeatAvailability = Array<{
   price: number;
   currency: string;
   color?: string;
-  onlyForPassengerType?: string;
-  additionalProps?: Array<{ type: string; cssClass?: string }>;
+  // `string[]` — React's availability item passes the whole array straight
+  // through to `seat.passengerTypes`. Older Angular code over-wrapped this
+  // value into a 2-D array (`[["ADT","CHD","INF"]]`); the type was the
+  // single-string carry-over from an even older shape that no real caller
+  // (demo or sandbox API) ever produced.
+  onlyForPassengerType?: string[];
+  /**
+   * Integrator-defined extra rows rendered alongside the seat's amenities in the
+   * tooltip (e.g. "Priority boarding", "Free meal"). React parity: the demo and
+   * tests use `{ label, icon, cssClass }`; `icon` is a key into
+   * `SEAT_FEATURES_ICONS` (e.g. 'wifi', 'power'). `null` falls back to the dot
+   * icon. Items from a per-seat entry and from the wildcard (`label: '*'`) are
+   * concatenated, entry first.
+   */
+  additionalProps?: Array<{
+    label: string;
+    icon?: string | null;
+    cssClass?: string;
+  }>;
 }>;
 
 // ─── Seat feature ─────────────────────────────────────────────────────────────
@@ -237,6 +293,12 @@ export interface ISeatFeature {
   title: string | null;
   value?: string | number | boolean | null;
   uniqId?: string;
+  /**
+   * Optional CSS class — carried by integrator-defined `additionalProps` items
+   * (`availability[].additionalProps[].cssClass`). API-derived features and
+   * measurements never set it.
+   */
+  cssClass?: string;
 }
 
 // ─── Rendered seat ────────────────────────────────────────────────────────────
@@ -370,25 +432,54 @@ export interface ITooltipData {
 
 // ─── Events ──────────────────────────────────────────────────────────────────
 /**
+ * A single seat entry inside `IAvailableSeatsData.availableSeats` as returned
+ * by the Quicket API. Mirrors React's `ISeat` (public contract).
+ */
+export interface ISeat {
+  currency: string;
+  label: string;
+  price: number;
+}
+
+/**
+ * Read-only availability bundle returned by the Quicket API as the
+ * `{ id: 'availabilityData', availableSeats: […] }` element of the response
+ * array. Mirrors React's `IAvailableSeatsData`.
+ */
+export interface IAvailableSeatsData {
+  availableSeats: ISeat[];
+}
+
+/**
  * Payload of `seatMapInited` event — initial layout data emitted once the
  * seatmap is rendered for the first time. Matches React's onSeatMapInited.
+ *
+ * When the seatmap fails to load, `seatMapInited` still fires (React parity):
+ * `error` carries the message and the layout fields are `undefined`.
  */
 export interface IInitialLayoutData {
-  /** Native (unscaled) height of the active deck. Multiply by `scaleFactor` for actual rendered pixels. */
-  heightInPx: number;
-  /** Native (unscaled) plane width. Multiply by `scaleFactor` for actual rendered pixels. */
-  widthInPx: number;
-  scaleFactor: number;
-  decksCount: number;
-  currentDeckIndex: number;
+  /** Native (unscaled) height of the active deck. Multiply by `scaleFactor` for actual rendered pixels. `undefined` on error. */
+  heightInPx?: number;
+  /** Native (unscaled) plane width. Multiply by `scaleFactor` for actual rendered pixels. `undefined` on error. */
+  widthInPx?: number;
+  scaleFactor?: number;
+  decksCount?: number;
+  currentDeckIndex?: number;
   /** Media assets (cabin photos, panoramas) loaded along with the seatmap. */
   media?: IMediaData | null;
-  /** Snapshot of the `availability` Input at the moment of init (mirrors React). */
-  availabilityData?: TSeatAvailability;
+  /**
+   * Read-only seat availability data received from the Quicket API
+   * (`{ availableSeats: [{ label, currency, price }, …] }`). Distinct from the
+   * integrator-provided `availability` Input — that one controls per-seat
+   * status/colour overrides, while this field surfaces what the API itself
+   * reports as available for the requested flight. Mirrors React's
+   * `onSeatMapInited({ availabilityData })`.
+   */
+  availabilityData?: IAvailableSeatsData;
   /** Present only when the seatmap failed to build. Omitted otherwise (React parity). */
   error?: string;
-  /** All cabin classes detected in the source data (before any cabin-class filtering). */
-  allCabins: { code: string; title: string }[];
+  /** All cabin classes detected in the source data (before any cabin-class filtering). `undefined` on error. */
+  allCabins?: { code: string; title: string }[];
 }
 
 /** Payload of `layoutUpdated` event — emitted whenever the layout is recomputed. */
@@ -577,6 +668,13 @@ export interface IApiSeatmapResponse {
   seatDetails?: { decks: IApiDeck[] };
   /** Media assets (seat photos, cabin photos) from API */
   media?: IMediaData;
+  /**
+   * Read-only availability data extracted from the
+   * `{ id: 'availabilityData', availableSeats: […] }` element of the API
+   * response array. Read in `JetsSeatMapApiService._postSeatmap`, forwarded
+   * verbatim into the `seatMapInited` payload.
+   */
+  availabilityData?: IAvailableSeatsData;
   /** Flight-level amenities */
   entertainment?: { exists?: boolean; cost?: string; deliveryType?: string; summary?: string };
   wifi?: { exists?: boolean; cost?: string; summary?: string };

@@ -85,6 +85,10 @@ import { LOCALES_MAP } from '../../constants';
                 <div class="jets-tooltip--header-passenger">
                   {{ data.seat.passenger!.passengerLabel }}
                 </div>
+              } @else if (restrictionsLabel) {
+                <div class="jets-tooltip--header-passenger">
+                  {{ restrictionsLabel }}
+                </div>
               }
             </div>
 
@@ -92,9 +96,21 @@ import { LOCALES_MAP } from '../../constants';
             @if (amenities.length) {
               <div class="jets-tooltip--amenities" [style.direction]="textDirection">
                 @for (amenity of amenities; track amenity.uniqId || amenity.key) {
-                  <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.title === null">
-                    <span class="jets-tooltip--amenity-icon" [innerHTML]="safeSvg(amenity.icon)"></span>
-                    <span class="jets-tooltip--amenity-text">{{ amenity.title ?? amenity.value }}</span>
+                  <div
+                    class="jets-tooltip--amenity"
+                    [class.jets-tooltip--amenity-negative]="amenity.title === null"
+                    [class]="amenity.cssClass || ''"
+                  >
+                    <span
+                      class="jets-tooltip--amenity-icon"
+                      [class]="amenity.cssClass ? amenity.cssClass + '-icon' : ''"
+                      [innerHTML]="safeSvg(amenity.icon)"
+                    ></span>
+                    <span
+                      class="jets-tooltip--amenity-text"
+                      [class]="amenity.cssClass ? amenity.cssClass + '-label' : ''"
+                      >{{ amenityText(amenity) }}</span
+                    >
                   </div>
                 }
               </div>
@@ -131,6 +147,7 @@ import { LOCALES_MAP } from '../../constants';
                   class="jets-btn jets-tooltip--btn jets-select-btn"
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
                   [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
+                  [disabled]="!!data.seat.passenger.readOnly"
                   (click)="unselect.emit(data.seat)"
                 >
                   {{ locale['unselect'] }}
@@ -218,13 +235,71 @@ export class JetsTooltipComponent {
     return (this.data.seat.measurements || []).filter(f => !this.isFeatureHidden(f));
   }
 
-  /** Amenities (audioVideo, power, wifi, nearGalley, …) — comes pre-split from the preparer. */
+  /**
+   * Cap on the combined `features + additionalProps` list rendered in the
+   * tooltip. Mirrors React's `DEFAULT_FEATURES_RENDER_LIMIT`
+   * (`jets-seatmap-react-lib-pub/src/common/constants.js:123`).
+   */
+  private static readonly FEATURES_RENDER_LIMIT = 12;
+
+  /**
+   * Passenger types eligible to be rendered as a seat-restriction line
+   * ("The seat is only for: …"). Mirrors React's `DEFAULT_SEAT_PASSENGER_TYPES`
+   * (`jets-seatmap-react-lib-pub/src/common/constants.js:121`) and
+   * `TooltipGlobal.js#restrictionsLabel`.
+   */
+  private static readonly DEFAULT_PASSENGER_TYPES = ['ADT', 'CHD', 'INF'];
+
+  /**
+   * Seat-restriction line shown under the header when the seat is reserved
+   * for a subset of `DEFAULT_PASSENGER_TYPES` (e.g. "The seat is only for:
+   * adults"). Empty when all default types are allowed or none of the seat's
+   * `passengerTypes` overlap with them. React parity: `TooltipGlobal.js:147-154`.
+   * The slot is shared with `data.seat.passenger.passengerLabel` — when a
+   * passenger is assigned, the label wins (React `passengerLabel || restrictionsLabel`).
+   */
+  get restrictionsLabel(): string {
+    const passengerTypes = this.data?.seat?.passengerTypes;
+    if (!passengerTypes?.length) return '';
+    const allowed = JetsTooltipComponent.DEFAULT_PASSENGER_TYPES;
+    const filtered = passengerTypes.filter(t => allowed.includes(t));
+    if (filtered.length >= allowed.length) return '';
+    const typeStrings = filtered.map(t => this.locale[t] || t);
+    return `${this.locale['seatRestrictions']}: ${typeStrings.join(', ')}`;
+  }
+
+  /**
+   * Amenities (audioVideo, power, wifi, nearGalley, …) — comes pre-split from
+   * the preparer. Integrator-defined `availability.additionalProps` are
+   * appended after the API amenities, matching React's
+   * `TooltipGlobal.js#finalListOfFeatures`. `hiddenSeatFeatures` filters API
+   * features only — React does not apply it to additionalProps either.
+   */
   get amenities(): ISeatFeature[] {
-    return (this.data.seat.features || []).filter(f => !this.isFeatureHidden(f));
+    const features = (this.data.seat.features ?? []).filter(f => !this.isFeatureHidden(f));
+    const additional = this.data.seat.additionalProps ?? [];
+    return [...features, ...additional].slice(0, JetsTooltipComponent.FEATURES_RENDER_LIMIT);
   }
 
   private isFeatureHidden(f: ISeatFeature): boolean {
     return !!f.key && this.hiddenSeatFeatures.includes(f.key);
+  }
+
+  /**
+   * React parity: when the API ships a free-form `summary` for a flight-level
+   * amenity (entertainment, wifi, power), that backend-localized text wins
+   * over the built-in locale title. Falls back to `title` only when `value`
+   * is boolean/numeric/null/empty — covers seat-level features whose `value`
+   * is a bare `true` flag with no API summary attached.
+   * Reference: jets-seatmap-react-lib-pub/src/components/TooltipGlobal/TooltipGlobal.view.js:89
+   * (the React view renders `{value}` directly; we add the title fallback so
+   * the boolean-flag case still shows a readable label instead of empty text.)
+   */
+  amenityText(amenity: ISeatFeature): string | null {
+    const v = amenity.value;
+    if (typeof v === 'string' && v.length > 0) return v;
+    if (typeof v === 'number') return String(v);
+    return amenity.title ?? null;
   }
 
   /**

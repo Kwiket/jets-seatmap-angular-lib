@@ -550,12 +550,179 @@ describe('JetsSeatMapPreparerService', () => {
       expect(service.prepareSeatAdditionalProps([])).toEqual([]);
     });
 
-    it('should map additional props to features', () => {
-      const props = [{ type: 'info', icon: 'dot', label: 'Priority boarding', cssClass: 'priority' }];
+    it('should map additional props with title="" and uniqId', () => {
+      const props = [{ icon: 'dot', label: 'Priority boarding', cssClass: 'priority' }];
       const result = service.prepareSeatAdditionalProps(props);
       expect(result).toHaveLength(1);
       expect(result[0].value).toBe('Priority boarding');
-      expect(result[0].title).toBeNull();
+      // title is '' (not null) so the tooltip's negative-amenity styling does
+      // not fire on integrator-defined rows. React parity.
+      expect(result[0].title).toBe('');
+      expect(typeof result[0].uniqId).toBe('string');
+      expect(result[0].uniqId!.length).toBeGreaterThan(0);
+      expect(result[0].cssClass).toBe('priority');
+      expect(result[0].icon).toBeTypeOf('string');
+      expect(result[0].icon!.length).toBeGreaterThan(0);
+    });
+
+    it('should fall back to the dot icon when icon is null', () => {
+      const dotResult = service.prepareSeatAdditionalProps([{ icon: null, label: 'Test' }]);
+      const fallbackResult = service.prepareSeatAdditionalProps([{ label: 'Test' }]);
+      expect(dotResult[0].icon).toBe(fallbackResult[0].icon);
+      expect(dotResult[0].icon!.length).toBeGreaterThan(0);
+    });
+
+    it('should fall back to empty string for an unknown icon key', () => {
+      const result = service.prepareSeatAdditionalProps([{ icon: 'does-not-exist', label: 'Test' }]);
+      expect(result[0].icon).toBe('');
+    });
+
+    it('should give each item a distinct uniqId', () => {
+      const result = service.prepareSeatAdditionalProps([
+        { label: 'A' },
+        { label: 'B' },
+        { label: 'C' },
+      ]);
+      const ids = result.map(r => r.uniqId);
+      expect(new Set(ids).size).toBe(3);
+    });
+  });
+
+  // ─── Bulk / row overlap resolution ──────────────────────────────────────────
+  //
+  // The preparer post-processes deck.extras.bulks so a bulk that is physically
+  // overlapped by a row above/below gets nudged out of the way. The tests below
+  // build minimal API decks and assert the resulting bulk geometry. seatType=0
+  // (default) gives a 100×100-unit native seat — easy arithmetic. bulkId='26'
+  // has BULK_SCALE_BY_ID=1, so bulk.height equals its native height directly.
+
+  describe('partition / bulk overlap resolution', () => {
+    const oneSeatRow = (topOffset: number) => ({
+      topOffset,
+      seats: [{ letter: 'A', seatNumber: `${topOffset}A`, type: 0, seatType: 0, available: true }],
+    });
+
+    it('shifts a bulk down when the row above overlaps its top edge', () => {
+      // Row bbox [0, 100], bulk bbox [80, 130]. Row.bottom (100) bites 20 into the bulk.
+      // Expected: bulk.topOffset shifts to 100 + 4 (gap) = 104, height shrinks by 24 to 26.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [oneSeatRow(0)],
+            bulks: [{ id: '26', topOffset: 80, height: 50, width: 40 }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, baseConfig);
+      const bulks = result[0].extras?.bulks ?? [];
+      expect(bulks).toHaveLength(1);
+      expect(bulks[0].topOffset).toBe(104);
+      expect(bulks[0].height).toBe(26);
+    });
+
+    it('shrinks a bulk from below when the row below overlaps its bottom edge', () => {
+      // Row bbox [120, 220], bulk bbox [100, 150]. Row.top (120) bites 30 into the bulk's bottom.
+      // Expected: bulk.topOffset stays 100, height clamps to (120 - 4) - 100 = 16.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [oneSeatRow(120)],
+            bulks: [{ id: '26', topOffset: 100, height: 50, width: 40 }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, baseConfig);
+      const bulks = result[0].extras?.bulks ?? [];
+      expect(bulks[0].topOffset).toBe(100);
+      expect(bulks[0].height).toBe(16);
+    });
+
+    it('silently keeps the original geometry when both rows overlap (degenerate sliver)', () => {
+      // Rows [0,100] and [110,210] sandwich a bulk at [80,130]. After top fix bulk is
+      // [104,130]; the bottom fix would chop it to height 2 (below MIN_BULK_NATIVE_HEIGHT=8),
+      // so the preparer reverts to the input values.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [oneSeatRow(0), oneSeatRow(110)],
+            bulks: [{ id: '26', topOffset: 80, height: 50, width: 40 }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, baseConfig);
+      const bulks = result[0].extras?.bulks ?? [];
+      expect(bulks[0].topOffset).toBe(80);
+      expect(bulks[0].height).toBe(50);
+    });
+
+    it('is a no-op when partitionGap = 0, even with a visible overlap', () => {
+      // Same overlap as the first test but the consumer opts out — the bulk
+      // must come through with its raw API coordinates intact so callers can
+      // compare against pre-fix renderings.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [oneSeatRow(0)],
+            bulks: [{ id: '26', topOffset: 80, height: 50, width: 40 }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, { ...baseConfig, partitionGap: 0 });
+      const bulks = result[0].extras?.bulks ?? [];
+      expect(bulks[0].topOffset).toBe(80);
+      expect(bulks[0].height).toBe(50);
+    });
+
+    it('leaves a bulk untouched when no row overlaps it', () => {
+      // Row [0,100], bulk [200,250] — clean gap of 100 units. Algorithm must not budge.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [oneSeatRow(0)],
+            bulks: [{ id: '26', topOffset: 200, height: 50, width: 40 }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, baseConfig);
+      const bulks = result[0].extras?.bulks ?? [];
+      expect(bulks[0].topOffset).toBe(200);
+      expect(bulks[0].height).toBe(50);
+    });
+
+    it('accounts for BULK_SCALE_BY_ID when measuring the bulk native bbox', () => {
+      // Default bulk (no id => DEFAULT_BULK_SCALE=0.7). API height=100 → native bbox spans 70.
+      // Row [0,100], bulk topOffset=80, native bbox [80, 150]. Row.bottom (100) bites 20.
+      // Expected new top = 100 + 4 = 104, native height = 70 - 24 = 46 → API height = 46 / 0.7 ≈ 65.71.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [oneSeatRow(0)],
+            bulks: [{ topOffset: 80, height: 100, width: 40 }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, baseConfig);
+      const bulk = result[0].extras?.bulks?.[0];
+      expect(bulk?.topOffset).toBe(104);
+      // API-space height divides out the same bulkScale that jets-bulk applies at render time,
+      // so the rendered pixel height equals the corrected native height.
+      expect(bulk?.height).toBeCloseTo(46 / 0.7, 5);
+    });
+
+    it('respects a custom partitionGap larger than the default', () => {
+      // Row [0,100], bulk [80,130], gap=20 → new top = 100 + 20 = 120, height = 50 - 40 = 10.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [oneSeatRow(0)],
+            bulks: [{ id: '26', topOffset: 80, height: 50, width: 40 }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, { ...baseConfig, partitionGap: 20 });
+      const bulks = result[0].extras?.bulks ?? [];
+      expect(bulks[0].topOffset).toBe(120);
+      expect(bulks[0].height).toBe(10);
     });
   });
 });

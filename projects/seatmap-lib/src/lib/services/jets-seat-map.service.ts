@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import {
+  IAvailableSeatsData,
   IConfig,
   IDeckData,
   IExistingSeatsLabelsInfo,
@@ -14,6 +15,29 @@ import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../constants';
 import { JetsSeatMapApiService } from './jets-seat-map-api.service';
 import { JetsSeatMapPreparerService } from './jets-seat-map-preparer.service';
 import { getAvailableCabins, filterDeckByCabin } from '../utils/cabin-utils';
+
+/**
+ * React parity for `passenger.seat` (service.js:44-63). Promotes the Angular
+ * internal seat record (numeric `seat.price`, optional `seat.currency`) into
+ * the public payload: `seatLabel`, formatted `price` string ("USD 33" / "33"),
+ * `priceValue` numeric, and `currency`. Fields that have no source value are
+ * omitted entirely — React skips them implicitly via `undefined` keys; we
+ * strip the same way so integrators see `{ seatLabel }` instead of
+ * `{ seatLabel, price: undefined, ... }`.
+ */
+function buildPassengerSeat(seat: ISeatData): IPassenger['seat'] {
+  const seatLabel = seat.number as string;
+  const numericPrice = typeof seat.price === 'number' ? seat.price : undefined;
+  const currency = seat.currency;
+  const price =
+    numericPrice != null ? `${currency ?? ''}${currency ? ' ' : ''}${numericPrice}` : undefined;
+
+  const payload: NonNullable<IPassenger['seat']> = { seatLabel };
+  if (price !== undefined) payload.price = price;
+  if (currency !== undefined) payload.currency = currency;
+  if (numericPrice !== undefined) payload.priceValue = numericPrice;
+  return payload;
+}
 
 @Injectable({ providedIn: 'root' })
 export class JetsSeatMapService {
@@ -31,6 +55,7 @@ export class JetsSeatMapService {
     content: IDeckData[];
     media?: IMediaData;
     availableCabins: { code: string; title: string }[];
+    availabilityData?: IAvailableSeatsData;
   }> {
     const apiResponse = await this.apiService.getSeatmapData(
       {
@@ -70,7 +95,12 @@ export class JetsSeatMapService {
       content = this.setPassengersHandler(content, withAbbr);
     }
 
-    return { content, media: apiResponse.media, availableCabins };
+    return {
+      content,
+      media: apiResponse.media,
+      availableCabins,
+      availabilityData: apiResponse.availabilityData,
+    };
   }
 
   setAvailabilityHandler(content: IDeckData[], availability: TSeatAvailability): IDeckData[] {
@@ -102,11 +132,20 @@ export class JetsSeatMapService {
             return { ...seat, status: ENTITY_STATUS_MAP.unavailable };
           }
 
+          // React parity (service.js:104-119) — entry and wildcard contribute
+          // independent additionalProps lists, concatenated entry-first. When
+          // only the wildcard matches, just the wildcard's list flows through.
+          const mergedAdditional = [...(entry?.additionalProps ?? []), ...(wildcard?.additionalProps ?? [])];
+          const additionalProps = mergedAdditional.length
+            ? this.preparer.prepareSeatAdditionalProps(mergedAdditional)
+            : undefined;
+
           return {
             ...seat,
             status: ENTITY_STATUS_MAP.available,
             price: source.price,
             currency: source.currency,
+            additionalProps,
             // Availability colour wins when set; otherwise preserve the seat's
             // existing colour (e.g. score-based tint) instead of clobbering it
             // to undefined. The earlier `color: source.color` lost the
@@ -120,11 +159,16 @@ export class JetsSeatMapService {
             // we fall back to the seat's originalColor so customSeatColorRanges
             // and per-seat API colours survive the availability merge.
             color: source.color ?? seat.originalColor ?? seat.color,
-            passengerTypes: seat.passengerTypes?.length
-              ? seat.passengerTypes
-              : source.onlyForPassengerType
-                ? [source.onlyForPassengerType]
-                : undefined,
+            // React parity (service.js:100-103) — each availability pass
+            // replaces the seat's whitelist outright: entry first, wildcard
+            // second, then the `['ADT','CHD','INF']` default. The earlier
+            // "keep seat.passengerTypes when truthy" branch made the field
+            // stick after the first SET AVAILABILITY: a second call with a
+            // tighter `onlyForPassengerType` left the seat with the loose
+            // prior list, so restriction text and Select-disabled gating
+            // both went stale. Stay flat — wrapping in another array is the
+            // separate bug locked down by the spec just below this code.
+            passengerTypes: source.onlyForPassengerType || wildcard?.onlyForPassengerType || ['ADT', 'CHD', 'INF'],
           };
         }),
       })),
@@ -165,12 +209,15 @@ export class JetsSeatMapService {
     const nextPassenger = this.getNextPassenger(passengers);
     if (!nextPassenger || !seat.number) return { data: content, passengers };
 
-    // `seat.price` is loose-typed (number on the lib's internal seat record,
-    // string on the emitted payload). The passenger record only ever stores
-    // the numeric form.
-    const numericPrice = typeof seat.price === 'number' ? seat.price : 0;
+    // React parity (service.js:44-63): `passenger.seat` must mirror the
+    // emitted seat shape — formatted `price` string, raw `priceValue`,
+    // `currency` and `seatLabel`. React reaches this shape because its
+    // `setAvailabilityHandler` already rewrites `seat.price` to a string
+    // and stashes `priceValue`/`currency`. Angular keeps the internal
+    // `seat.price` numeric (and never sets `priceValue`), so the handler
+    // promotes the numeric price into the public payload right here.
     const updatedPassengers = passengers.map(p =>
-      p.id === nextPassenger.id ? { ...p, seat: { price: numericPrice, seatLabel: seat.number! } } : p
+      p.id === nextPassenger.id ? { ...p, seat: buildPassengerSeat(seat) } : p
     );
 
     const data = content.map(deck => ({
@@ -215,7 +262,9 @@ export class JetsSeatMapService {
   }
 
   getNextPassenger(passengers: IPassenger[]): IPassenger | null {
-    return passengers.find(p => !p.seat) ?? null;
+    // React parity (SeatMap/service.js:198): readOnly passengers never bid for
+    // the next free seat — they're considered terminally placed.
+    return passengers.find(p => !p.seat && !p.readOnly) ?? null;
   }
 
   addAbbrToPassengers(passengers: IPassenger[] | undefined): IPassenger[] {

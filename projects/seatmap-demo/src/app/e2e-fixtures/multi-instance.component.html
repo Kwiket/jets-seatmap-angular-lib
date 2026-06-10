@@ -1,0 +1,23 @@
+<div class="multi-instance-fixture">
+  <header class="mi-header">
+    <h1 class="mi-title">Multi-instance smoke-test</h1>
+    <p class="mi-subtitle">4 independent <code>&lt;sm-jets-seat-map&gt;</code> instances on a single page</p>
+  </header>
+
+  <div class="mi-grid">
+    @for (cfg of configs; track $index; let i = $index) {
+    <section class="mi-cell" [attr.data-instance-idx]="i">
+      <div class="mi-badge">{{ cfg.title }}</div>
+      <div class="mi-seatmap-wrapper">
+        <sm-jets-seat-map
+          [flight]="cfg.flight"
+          [config]="cfg.config"
+          [passengers]="cfg.passengers"
+          (seatMapInited)="onInited(i, $event)"
+          (seatSelected)="onSelected(i, $event)"
+        />
+      </div>
+    </section>
+    }
+  </div>
+</div>

@@ -324,6 +324,7 @@ interface IPassenger {
   passengerType?: TPassengerType;
   passengerLabel?: string;
   passengerColor?: string;
+  readOnly?: boolean;
 }
 
 interface ISeat {

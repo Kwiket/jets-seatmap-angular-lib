@@ -117,6 +117,173 @@ describe('JetsSeatMapService', () => {
       expect(result[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
       expect(result[0].rows[0].seats[0].price).toBe(25);
     });
+
+    // ─── additionalProps wiring (React parity) ──────────────────────────────
+    // React's service.js#setAvailabilityHandler concatenates entry+wildcard
+    // additionalProps and runs them through prepareSeatAdditionalProps before
+    // attaching to the seat. The Angular handler used to ignore the field
+    // entirely; these specs lock in the parity.
+
+    it('should attach additionalProps from a matching availability entry', () => {
+      const seat = makeSeat();
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        {
+          label: '1A',
+          price: 50,
+          currency: 'USD',
+          additionalProps: [
+            { label: 'Priority boarding', icon: null },
+            { label: 'Free Wi-Fi', icon: 'wifi' },
+          ],
+        },
+      ];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      const props = result[0].rows[0].seats[0].additionalProps;
+      expect(props).toHaveLength(2);
+      expect(props![0].value).toBe('Priority boarding');
+      expect(props![1].value).toBe('Free Wi-Fi');
+      // Prepared shape: title='' (not null), uniqId set, icon resolved to SVG.
+      expect(props!.every(p => p.title === '')).toBe(true);
+      expect(props!.every(p => typeof p.uniqId === 'string' && p.uniqId.length > 0)).toBe(true);
+    });
+
+    it('should attach wildcard additionalProps when there is no per-seat entry', () => {
+      const seat = makeSeat({ number: '9X' });
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        {
+          label: '*',
+          price: 10,
+          currency: 'USD',
+          additionalProps: [{ label: 'Wildcard prop', icon: null }],
+        },
+      ];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      const props = result[0].rows[0].seats[0].additionalProps;
+      expect(props).toHaveLength(1);
+      expect(props![0].value).toBe('Wildcard prop');
+    });
+
+    it('should concatenate entry then wildcard additionalProps when both are set', () => {
+      const seat = makeSeat();
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        {
+          label: '1A',
+          price: 50,
+          currency: 'USD',
+          additionalProps: [{ label: 'Entry prop', icon: null }],
+        },
+        {
+          label: '*',
+          price: 10,
+          currency: 'USD',
+          additionalProps: [{ label: 'Wildcard prop', icon: null }],
+        },
+      ];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      const props = result[0].rows[0].seats[0].additionalProps;
+      expect(props).toHaveLength(2);
+      expect(props![0].value).toBe('Entry prop');
+      expect(props![1].value).toBe('Wildcard prop');
+    });
+
+    it('should leave additionalProps undefined when neither entry nor wildcard supplies any', () => {
+      const seat = makeSeat();
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [{ label: '1A', price: 50, currency: 'USD' }];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      expect(result[0].rows[0].seats[0].additionalProps).toBeUndefined();
+    });
+
+    // ─── onlyForPassengerType → passengerTypes (flat) ──────────────────────
+    // The earlier handler wrapped `source.onlyForPassengerType` in another
+    // array, producing `[["ADT","CHD","INF"]]`. The Select button in the
+    // built-in tooltip then disabled itself because
+    // `passengerTypes.includes(nextPassenger.passengerType)` could never be
+    // true against a nested array. Lock in the flat shape so a future
+    // regression here surfaces as a unit failure instead of a UI-only
+    // "Select grayed out" bug.
+
+    it('should set seat.passengerTypes from availability.onlyForPassengerType as a flat string[]', () => {
+      const seat = makeSeat({ number: '20E' });
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        { label: '20E', price: 33, currency: 'USD', onlyForPassengerType: ['ADT', 'CHD', 'INF'] },
+      ];
+
+      const result = service.setAvailabilityHandler(content, availability);
+      const out = result[0].rows[0].seats[0];
+
+      expect(out.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+      // Guard against the legacy `[["ADT","CHD","INF"]]` nesting — every
+      // element must be a string, none of them an array.
+      expect(out.passengerTypes!.every(v => typeof v === 'string')).toBe(true);
+    });
+
+    it('should keep passengerTypes flat after re-running setAvailabilityHandler (idempotent)', () => {
+      const seat = makeSeat({ number: '20E' });
+      const content = [makeDeck([seat])];
+      const availability: TSeatAvailability = [
+        { label: '20E', price: 33, currency: 'USD', onlyForPassengerType: ['ADT', 'CHD', 'INF'] },
+      ];
+
+      const first = service.setAvailabilityHandler(content, availability);
+      const second = service.setAvailabilityHandler(first, availability);
+      const out = second[0].rows[0].seats[0];
+
+      expect(out.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+      expect(out.passengerTypes!.every(v => typeof v === 'string')).toBe(true);
+    });
+
+    // Regression for "works only once": a second SET AVAILABILITY must
+    // replace `seat.passengerTypes` with the new restriction. The earlier
+    // handler preserved the prior whitelist whenever it was truthy, so
+    // tightening the rule from ['ADT','CHD','INF'] to ['ADT','CHD'] was
+    // silently ignored — the tooltip kept showing no restriction line and
+    // the Select-disabled gating against the new whitelist never engaged.
+    it('should replace seat.passengerTypes on every run (React parity: service.js:100-103)', () => {
+      const seat = makeSeat({ number: '20A' });
+      const content = [makeDeck([seat])];
+      const first = service.setAvailabilityHandler(content, [
+        { label: '20A', price: 33, currency: 'USD', onlyForPassengerType: ['ADT', 'CHD', 'INF'] },
+      ]);
+      expect(first[0].rows[0].seats[0].passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+
+      const second = service.setAvailabilityHandler(first, [
+        { label: '20A', price: 33, currency: 'USD', onlyForPassengerType: ['ADT', 'CHD'] },
+      ]);
+      expect(second[0].rows[0].seats[0].passengerTypes).toEqual(['ADT', 'CHD']);
+    });
+
+    // React parity (service.js:100-103): when neither the entry nor a
+    // wildcard carries `onlyForPassengerType`, the seat falls back to the
+    // default ['ADT','CHD','INF']. The earlier handler emitted `undefined`,
+    // which made restrictionsLabel and isSelectDisabled diverge from React.
+    it('should default passengerTypes to [ADT,CHD,INF] when availability omits it', () => {
+      const seat = makeSeat({ number: '20A' });
+      const content = [makeDeck([seat])];
+      const result = service.setAvailabilityHandler(content, [{ label: '20A', price: 33, currency: 'USD' }]);
+      expect(result[0].rows[0].seats[0].passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+    });
+
+    // React parity (service.js:100-103): wildcard `onlyForPassengerType`
+    // applies when the entry lacks one — and a later wildcard-only refresh
+    // still propagates, just like the named-entry case above.
+    it("should fall back to wildcard's onlyForPassengerType when entry has none", () => {
+      const seat = makeSeat({ number: '20A' });
+      const content = [makeDeck([seat])];
+      const result = service.setAvailabilityHandler(content, [
+        { label: '20A', price: 33, currency: 'USD' },
+        { label: '*', price: 0, currency: 'USD', onlyForPassengerType: ['CHD', 'INF'] },
+      ]);
+      expect(result[0].rows[0].seats[0].passengerTypes).toEqual(['CHD', 'INF']);
+    });
   });
 
   // ─── setPassengersHandler ─────────────────────────────────────────────────
@@ -163,16 +330,39 @@ describe('JetsSeatMapService', () => {
   // ─── selectSeatHandler ────────────────────────────────────────────────────
 
   describe('selectSeatHandler', () => {
-    it('should select a seat for the next available passenger', () => {
-      const seat = makeSeat({ number: '5A', price: 100 });
+    it('should select a seat for the next available passenger with React-parity payload', () => {
+      // React parity (service.js:44-63): `passenger.seat` carries the formatted
+      // price string, the numeric `priceValue`, the `currency`, and the
+      // `seatLabel`. The Angular internal seat record stores `price` as a raw
+      // number, so the handler is responsible for promoting it to the same
+      // emitted shape React produces from its already-formatted seat record.
+      const seat = makeSeat({ number: '5A', price: 100, currency: 'USD' });
       const content = [makeDeck([seat])];
       const passengers = [makePassenger()];
 
       const result = service.selectSeatHandler(content, seat, passengers);
 
-      expect(result.passengers[0].seat?.seatLabel).toBe('5A');
-      expect(result.passengers[0].seat?.price).toBe(100);
+      expect(result.passengers[0].seat).toEqual({
+        price: 'USD 100',
+        seatLabel: '5A',
+        currency: 'USD',
+        priceValue: 100,
+      });
       expect(result.data[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.selected);
+    });
+
+    it('should omit currency in the formatted price when seat has no currency', () => {
+      const seat = makeSeat({ number: '5A', price: 100, currency: undefined });
+      const content = [makeDeck([seat])];
+      const passengers = [makePassenger()];
+
+      const result = service.selectSeatHandler(content, seat, passengers);
+
+      expect(result.passengers[0].seat).toEqual({
+        price: '100',
+        seatLabel: '5A',
+        priceValue: 100,
+      });
     });
 
     it('should not select if all passengers have seats', () => {
@@ -184,13 +374,16 @@ describe('JetsSeatMapService', () => {
       expect(result.data[0].rows[0].seats[0].status).toBe(ENTITY_STATUS_MAP.available);
     });
 
-    it('should handle seat without price', () => {
+    it('should still attach the seat label when the seat has no price', () => {
       const seat = makeSeat({ number: '6B', price: undefined });
       const content = [makeDeck([seat])];
       const passengers = [makePassenger()];
 
       const result = service.selectSeatHandler(content, seat, passengers);
-      expect(result.passengers[0].seat?.price).toBe(0);
+
+      // React parity: a seat with no `price` still produces `{ seatLabel }` —
+      // there is no synthetic `price: 0` filler.
+      expect(result.passengers[0].seat).toEqual({ seatLabel: '6B' });
     });
   });
 
@@ -238,6 +431,22 @@ describe('JetsSeatMapService', () => {
 
     it('should return null for empty passengers array', () => {
       expect(service.getNextPassenger([])).toBeNull();
+    });
+
+    it('should skip readOnly passengers and pick the next regular one (React parity)', () => {
+      // React parity: service.js:198 — `!passenger.seat?.seatLabel && !passenger.readOnly`.
+      const p1 = makePassenger({ id: 'p1', seat: { price: 0, seatLabel: '1A' } });
+      const p2 = makePassenger({ id: 'p2', readOnly: true });
+      const p3 = makePassenger({ id: 'p3' });
+
+      expect(service.getNextPassenger([p1, p2, p3])?.id).toBe('p3');
+    });
+
+    it('should return null when the only seatless passenger is readOnly', () => {
+      const p1 = makePassenger({ id: 'p1', seat: { price: 0, seatLabel: '1A' } });
+      const p2 = makePassenger({ id: 'p2', readOnly: true });
+
+      expect(service.getNextPassenger([p1, p2])).toBeNull();
     });
   });
 

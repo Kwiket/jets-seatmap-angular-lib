@@ -16,6 +16,7 @@ import {
 } from '@kwiket/jets-seatmap-angular-lib';
 import { DemoFlight } from './flights.data';
 import { FlightsService } from './flights.service';
+import { MultiInstanceFixtureComponent } from './e2e-fixtures/multi-instance.component';
 
 interface EventLogEntry {
   id: number;
@@ -100,7 +101,7 @@ const DEFAULT_PASSENGERS: IPassenger[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, JetsSeatMapComponent],
+  imports: [CommonModule, FormsModule, JetsSeatMapComponent, MultiInstanceFixtureComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -108,6 +109,9 @@ export class App {
   private readonly flightsService = inject(FlightsService);
   readonly flights = this.flightsService.flights;
   readonly controls = CONTROLS;
+  readonly isMultiInstanceMode =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('multiInstance');
 
   selectedIndex = signal(0);
   eventLog = signal<EventLogEntry[]>([]);
@@ -249,10 +253,14 @@ export class App {
     if (typeof window !== 'undefined') {
       (window as Window & { __lastSeatMapInited?: unknown }).__lastSeatMapInited = event;
     }
+    if (event.error) {
+      this.addLog('error', `Seatmap init failed: ${event.error}`);
+      return;
+    }
     this.addLog(
       'inited',
-      `Seatmap loaded. Cabins: ${event.allCabins.length}, decks: ${event.decksCount}, ` +
-        `native ${event.heightInPx.toFixed(0)}×${event.widthInPx.toFixed(0)}, scale ${event.scaleFactor.toFixed(3)}`
+      `Seatmap loaded. Cabins: ${event.allCabins?.length ?? 0}, decks: ${event.decksCount}, ` +
+        `native ${event.heightInPx?.toFixed(0)}×${event.widthInPx?.toFixed(0)}, scale ${event.scaleFactor?.toFixed(3)}`
     );
   }
 

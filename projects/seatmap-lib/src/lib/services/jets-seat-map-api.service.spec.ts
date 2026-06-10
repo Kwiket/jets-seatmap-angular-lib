@@ -103,7 +103,7 @@ describe('JetsSeatMapApiService', () => {
     await pending;
   });
 
-  it('should merge apiMetadata into the request body at the top level', async () => {
+  it('should nest apiMetadata under the `metadata` key in the request body', async () => {
     const pending = service.getSeatmapData(
       makeFlightRequest(),
       makeConfig({ apiMetadata: { traceId: 'X', segment: 'test' } })
@@ -111,9 +111,20 @@ describe('JetsSeatMapApiService', () => {
     await Promise.resolve();
     await Promise.resolve();
     const req = httpMock.expectOne(URL);
-    expect(req.request.body.traceId).toBe('X');
-    expect(req.request.body.segment).toBe('test');
+    expect(req.request.body.metadata).toEqual({ traceId: 'X', segment: 'test' });
+    expect(req.request.body.traceId).toBeUndefined();
+    expect(req.request.body.segment).toBeUndefined();
     expect(req.request.body.flight).toBeDefined();
+    req.flush({});
+    await pending;
+  });
+
+  it('should omit the `metadata` key entirely when apiMetadata is not provided', async () => {
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig());
+    await Promise.resolve();
+    await Promise.resolve();
+    const req = httpMock.expectOne(URL);
+    expect('metadata' in req.request.body).toBe(false);
     req.flush({});
     await pending;
   });
@@ -213,6 +224,70 @@ describe('JetsSeatMapApiService', () => {
     });
     expect(response.entertainment).toMatchObject({ exists: true });
     expect(response.wifi).toMatchObject({ exists: true });
+  });
+
+  it('should extract availabilityData from the `id: "availabilityData"` array element (React parity)', async () => {
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig());
+    await Promise.resolve();
+    await Promise.resolve();
+    const req = httpMock.expectOne(URL);
+
+    req.flush([
+      { decks: [{ rows: [] }] },
+      {
+        id: 'availabilityData',
+        availableSeats: [
+          { label: '53H', currency: 'EUR', price: 0 },
+          { label: '53J', currency: 'EUR', price: 0 },
+        ],
+      },
+    ]);
+
+    const response = await pending;
+    // The marker `id` is stripped; the rest is surfaced under `availabilityData`.
+    expect(response.availabilityData).toEqual({
+      availableSeats: [
+        { label: '53H', currency: 'EUR', price: 0 },
+        { label: '53J', currency: 'EUR', price: 0 },
+      ],
+    });
+  });
+
+  it('should throw with the API-provided error string when the response array carries `{id, error}` for our flight (React parity)', async () => {
+    // The Quicket API returns HTTP 200 with a per-class `error` array when a
+    // flight is unrecoverable (e.g. invalid departure IATA — every element
+    // looks like `{id: "ua953", error: "schedule is not found for the flight"}`
+    // / `{id: "ua953:F", error: "..."}`). Mirrors React `api.js:80-83`, which
+    // detects the matching item and `throw new Error(item.error)`. Without
+    // this Angular silently picked `rawResponse[0]` and the host app received
+    // `seatMapInited({error: undefined})` instead of the actual reason.
+    const flight = makeFlightRequest({ id: 'ua953', departure: 'XYZ' });
+    const pending = service.getSeatmapData(flight, makeConfig());
+    await Promise.resolve();
+    await Promise.resolve();
+    const req = httpMock.expectOne(URL);
+
+    req.flush([
+      { id: 'ua953', error: 'schedule is not found for the flight' },
+      { id: 'ua953:F', error: 'schedule is not found for the flight' },
+      { id: 'ua953:B', error: 'schedule is not found for the flight' },
+      { id: 'ua953:P', error: 'schedule is not found for the flight' },
+      { id: 'ua953:E', error: 'schedule is not found for the flight' },
+    ]);
+
+    await expect(pending).rejects.toThrow('schedule is not found for the flight');
+  });
+
+  it('should leave availabilityData undefined when the API does not send the marker element', async () => {
+    const pending = service.getSeatmapData(makeFlightRequest(), makeConfig());
+    await Promise.resolve();
+    await Promise.resolve();
+    const req = httpMock.expectOne(URL);
+
+    req.flush([{ decks: [{ rows: [] }] }, { id: 'plane:E', cabin: { pitch: 30 } }]);
+
+    const response = await pending;
+    expect(response.availabilityData).toBeUndefined();
   });
 
   it('should strip undefined/empty fields from the flight payload', async () => {
