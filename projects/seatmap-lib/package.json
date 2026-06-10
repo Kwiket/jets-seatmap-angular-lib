@@ -24,7 +24,8 @@
   },
   "homepage": "https://github.com/Kwiket/jets-seatmap-angular-lib#readme",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "peerDependencies": {
     "@angular/common": "^21.2.0",
