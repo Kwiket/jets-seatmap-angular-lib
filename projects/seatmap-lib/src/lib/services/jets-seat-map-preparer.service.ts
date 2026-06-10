@@ -32,6 +32,30 @@ import {
   ENTITY_STATUS_MAP,
   ENTITY_TYPE_MAP,
 } from '../constants';
+import { BULK_SCALE_BY_ID, DEFAULT_BULK_SCALE } from './bulk-template.service';
+import { getNativeRowHeight } from '../utils/cabin-utils';
+
+/**
+ * Default native-unit gap inserted between a row's physical bbox and a
+ * neighbouring bulk when the source API data places them with overlap. A few
+ * native units render as 2-3 px at the typical deck scale — small enough not
+ * to redraw correct layouts (the algorithm short-circuits when no overlap is
+ * detected) but large enough to visibly separate the seat and the partition.
+ * Override via `IConfig.partitionGap`; pass `0` to disable.
+ */
+const DEFAULT_PARTITION_GAP = 4;
+
+/**
+ * Floor for a bulk's native height after the collision pass. If the algorithm
+ * would shrink the bulk below either of these limits, the change is reverted
+ * (silent skip — keep the visible overlap rather than render a degenerate
+ * partition). The fraction floor stays low (20 %) on purpose: with the default
+ * 4-unit gap a real-world overlap shrinks the bulk by at most a few percent,
+ * and we'd rather a heavily-eaten partition still render trimmed than fall
+ * back to a visible row/bulk collision.
+ */
+const MIN_BULK_NATIVE_HEIGHT = 8;
+const MIN_BULK_HEIGHT_FRACTION = 0.2;
 
 /**
  * Per-item identifier for prepared feature/measurement entries.
@@ -171,6 +195,10 @@ export class JetsSeatMapPreparerService {
     }
 
     const extras = this._buildExtras(deck, noseType);
+
+    if (extras.bulks?.length) {
+      extras.bulks = this._resolveBulkOverlaps(renderedRows, extras.bulks, this._resolvePartitionGap(config));
+    }
 
     return {
       rows: renderedRows,
@@ -507,6 +535,109 @@ export class JetsSeatMapPreparerService {
     return { exits, bulks, wingsInfo, noseType };
   }
 
+  // ─── Bulk / row overlap resolution ──────────────────────────────────────────
+
+  private _resolvePartitionGap(config: IConfig): number {
+    const raw = config.partitionGap;
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return DEFAULT_PARTITION_GAP;
+    return raw;
+  }
+
+  /**
+   * Shift / shrink bulks that physically overlap the rows above or below them.
+   *
+   * Why this exists — the renderer uses two independent coordinate systems:
+   * rows flow with a CSS `margin-top` derived from `(row.topOffset - prev) * scale - prevRowHeight`,
+   * while bulks are absolutely positioned with `bulk.topOffset * scale + topAdjust`.
+   * When the source API places a row whose native height (max seat height from
+   * SEAT_SIZE_BY_TYPE) is larger than the slot between its topOffset and the
+   * neighbouring bulk's topOffset, the seat visually overlaps the partition
+   * (UA953 ORD→MUC row 5 over the fish lavatory; row 22/30 over the divider).
+   *
+   * The fix runs only when an actual native overlap is detected — same-or-adjacent
+   * boxes are left alone, so the algorithm is a no-op for already-correct layouts.
+   * When a row above bites into the bulk's top, the bulk is pushed down (and its
+   * height shrunk by the same amount). When a row below bites into the bulk's
+   * bottom, the bulk's height is trimmed. If either adjustment would shrink the
+   * bulk below `MIN_BULK_NATIVE_HEIGHT` or below half its original height, the
+   * change is reverted — better to keep the overlap than render a degenerate
+   * sliver. Pass `gap = 0` to disable the fix; the source-data semantics are
+   * never mutated, only the rendered bulk geometry.
+   *
+   * Both axes are in native (unscaled) API units. Bulk visual height comes from
+   * `bulk.height * bulkScale` (see `jets-bulk.component.ts` line 186), so the
+   * native bbox of a bulk is `[topOffset, topOffset + height * bulkScale]`.
+   * The returned `height` is divided by `bulkScale` so that the renderer's
+   * `height * bulkScale * scale` still produces the desired pixel height.
+   */
+  private _resolveBulkOverlaps(rows: IRowData[], bulks: IBulkData[], gap: number): IBulkData[] {
+    // gap <= 0 is the documented opt-out: skip the pass entirely so the
+    // rendered geometry matches the pre-fix behaviour bit-for-bit.
+    if (!bulks.length || !rows.length || gap <= 0) return bulks;
+
+    const rowBoxes: Array<{ top: number; bottom: number }> = [];
+    for (const r of rows) {
+      if (r.topOffset == null) continue;
+      const h = getNativeRowHeight(r);
+      if (h <= 0) continue;
+      rowBoxes.push({ top: r.topOffset, bottom: r.topOffset + h });
+    }
+    if (!rowBoxes.length) return bulks;
+
+    return bulks.map(b => {
+      if (b.topOffset == null || b.height == null || b.height <= 0) return b;
+
+      const idStr = String(b.id ?? '0');
+      const bulkScale = BULK_SCALE_BY_ID[idStr] ?? DEFAULT_BULK_SCALE;
+      if (bulkScale <= 0) return b;
+
+      const originalTop = b.topOffset;
+      const originalNativeH = b.height * bulkScale;
+      if (originalNativeH <= 0) return b;
+
+      let top = originalTop;
+      let nativeH = originalNativeH;
+
+      // Row whose bottom edge bites into the bulk's top (row sits above and overlaps).
+      let maxRowBottomAbove = -Infinity;
+      for (const rb of rowBoxes) {
+        if (rb.top < top && rb.bottom > top) {
+          if (rb.bottom > maxRowBottomAbove) maxRowBottomAbove = rb.bottom;
+        }
+      }
+      if (maxRowBottomAbove > -Infinity) {
+        const delta = maxRowBottomAbove + gap - top;
+        if (delta > 0) {
+          top += delta;
+          nativeH -= delta;
+        }
+      }
+
+      // Row whose top edge bites into the bulk's bottom (row sits below and overlaps).
+      const bottom = top + nativeH;
+      let minRowTopBelow = Infinity;
+      for (const rb of rowBoxes) {
+        if (rb.bottom > bottom && rb.top < bottom) {
+          if (rb.top < minRowTopBelow) minRowTopBelow = rb.top;
+        }
+      }
+      if (minRowTopBelow < Infinity) {
+        const newHeight = minRowTopBelow - gap - top;
+        if (newHeight < nativeH) nativeH = newHeight;
+      }
+
+      // No change vs original — keep the input reference so caller can spot a no-op cheaply.
+      if (top === originalTop && nativeH === originalNativeH) return b;
+
+      // Silent skip if the adjustment would degrade the bulk below the safety floor.
+      if (nativeH < MIN_BULK_NATIVE_HEIGHT || nativeH < originalNativeH * MIN_BULK_HEIGHT_FRACTION) {
+        return b;
+      }
+
+      return { ...b, topOffset: top, height: nativeH / bulkScale };
+    });
+  }
+
   // ─── Legacy API format (seatScheme strings) ─────────────────────────────────
 
   private _getBiggestRowSizeLegacy(decks: IApiDeck[]): number {
@@ -583,10 +714,20 @@ export class JetsSeatMapPreparerService {
       preparedRows.push(rendered);
     }
 
+    const legacyExtras = this._buildExtras(deck, noseType);
+
+    if (legacyExtras.bulks?.length) {
+      legacyExtras.bulks = this._resolveBulkOverlaps(
+        preparedRows,
+        legacyExtras.bulks,
+        this._resolvePartitionGap(config)
+      );
+    }
+
     return {
       rows: preparedRows,
       number: deck.number ?? deckIndex + 1,
-      extras: this._buildExtras(deck, noseType),
+      extras: legacyExtras,
       scale,
       deckWidth,
       nativeDeckWidth,

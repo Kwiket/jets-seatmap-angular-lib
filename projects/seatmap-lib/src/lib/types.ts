@@ -203,6 +203,19 @@ export interface IConfig {
   customCabinTitles?: Record<string, string>;
   hiddenSeatFeatures?: string[];
   componentOverrides?: IComponentOverrides;
+  /**
+   * Minimum gap (in native API coordinate units) inserted between a row's
+   * physical bbox and a neighbouring bulk (galley/lavatory partition) when the
+   * source API places them with overlap. The preparer only adjusts a bulk when
+   * it actually overlaps a row — already-spaced layouts pass through untouched.
+   *
+   * Default is `4` (≈2–3 px at typical deck scale). Pass `0` to disable the
+   * collision pass and use the raw API coordinates verbatim. Increase to grow
+   * the visible separation between seats and partitions; the algorithm will
+   * silently skip a bulk whose adjustment would shrink it below half its
+   * original height.
+   */
+  partitionGap?: number;
 }
 
 // ─── Passenger ────────────────────────────────────────────────────────────────
