@@ -1,0 +1,103 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  # Manual fallback for re-publishing if the release-triggered run fails.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.1.0)'
+        required: true
+        type: string
+
+# Default read-only. id-token is widened on the job for OIDC exchange with npm.
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish @seatmaps.com/angular-lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Approval gate. Reviewers are configured in Settings -> Environments -> npm-publish.
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/@seatmaps.com/angular-lib
+
+    permissions:
+      contents: read
+      id-token: write # required for OIDC exchange with npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          # workflow_dispatch: check out the explicit tag input.
+          # release event: check out the release ref (default).
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - name: Upgrade npm to >= 11.5.1 (required by Trusted Publishing)
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: Verify package.json version matches release tag
+        run: |
+          # Tag name comes from the release event (github.ref_name = 'v0.1.0')
+          # or from the workflow_dispatch input.
+          TAG_NAME="${{ inputs.tag || github.ref_name }}"
+          TAG_VERSION="${TAG_NAME#v}"
+          PKG_VERSION=$(node -p "require('./projects/seatmap-lib/package.json').version")
+          echo "Tag version:     $TAG_VERSION"
+          echo "Package version: $PKG_VERSION"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::projects/seatmap-lib/package.json version ($PKG_VERSION) does not match release tag ($TAG_VERSION). Bump the library version and re-tag."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build library
+        # build:lib already copies LICENSE into dist/seatmap-lib (see commit e903dec).
+        run: npm run build:lib
+
+      - name: Guard - no API secrets in the dist artifact
+        working-directory: dist/seatmap-lib
+        run: |
+          # Print the exact file list npm would publish (recorded in CI logs
+          # for forensic review of every release).
+          npm pack --dry-run
+
+          # SEATMAP_API_* are consumed only by the demo (env-config.js) and
+          # e2e suite, not by the library, but a future refactor could leak
+          # them through the compiled bundle. Fail loudly here rather than
+          # risk a public-package leak.
+          #
+          # README.md and LICENSE are excluded: the README documents these
+          # field names as placeholders (e.g. API_APP_ID=your_app_id) and
+          # would otherwise trigger a false positive.
+          if grep -rIEn \
+              --exclude='README.md' \
+              --exclude='LICENSE' \
+              'SEATMAP_API|API_APP_ID|API_KEY|APP_ID|APP_KEY|env-config\.js' .; then
+            echo "::error::Secret-bearing token found in built artifact; refusing to publish."
+            exit 1
+          fi
+
+      - name: Publish to npm with provenance
+        # --provenance mirrors publishConfig.provenance to defend against
+        # divergent local .npmrc settings; --access public makes the scoped
+        # package public explicitly. npm CLI (>= 11.5.1) picks up OIDC from
+        # ACTIONS_ID_TOKEN_REQUEST_TOKEN / _URL env vars automatically.
+        run: npm publish --provenance --access public
+        working-directory: dist/seatmap-lib
