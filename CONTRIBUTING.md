@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for taking the time to contribute to `@kwiket/jets-seatmap-angular-lib`.
+Thanks for taking the time to contribute to `@seatmaps.com/angular-lib`.
 
 ## Getting started
 

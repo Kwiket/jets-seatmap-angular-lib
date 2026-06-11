@@ -11,7 +11,7 @@ shapes, same configuration keys. A developer who has worked with the React versi
 framework conventions differ (`@Input()` / `@Output()` instead of props/callbacks).
 
 > **Repository layout**
-> - **`projects/seatmap-lib/`** — the publishable Angular library (`@kwiket/jets-seatmap-angular-lib`).
+> - **`projects/seatmap-lib/`** — the publishable Angular library (`@seatmaps.com/angular-lib`).
 > - **`projects/seatmap-demo/`** — a minimal demo app used during library development. Not published.
 
 &nbsp;
@@ -20,13 +20,13 @@ framework conventions differ (`@Input()` / `@Output()` instead of props/callback
 
 There are 2 ways to install the lib:
 
-- using npm [version](https://www.npmjs.com/package/@kwiket/jets-seatmap-angular-lib)
+- using npm [version](https://www.npmjs.com/package/@seatmaps.com/angular-lib)
 - using a self-hosted version
 
 ### npm version
 
 ```bash
-npm install @kwiket/jets-seatmap-angular-lib
+npm install @seatmaps.com/angular-lib
 ```
 
 ### Self-hosted version
@@ -70,7 +70,7 @@ npm install name-of-your-lib-variation
 or include this string into your `package.json` dependencies if you use the GitHub repo:
 
 ```json
-"@kwiket/jets-seatmap-angular-lib": "git+ssh://git@github.com/path-to-your-repo.git#branch"
+"@seatmaps.com/angular-lib": "git+ssh://git@github.com/path-to-your-repo.git#branch"
 ```
 
 &nbsp;
@@ -93,7 +93,7 @@ import {
   IInitialLayoutData,
   ILayoutData,
   ITooltipRequestData,
-} from '@kwiket/jets-seatmap-angular-lib';
+} from '@seatmaps.com/angular-lib';
 
 @Component({
   selector: 'app-root',
