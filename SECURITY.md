@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-The latest minor release line of `@kwiket/jets-seatmap-angular-lib` receives
+The latest minor release line of `@seatmaps.com/angular-lib` receives
 security updates. Older lines may receive critical fixes at the maintainers'
 discretion.
 

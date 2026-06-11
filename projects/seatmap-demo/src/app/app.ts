@@ -13,7 +13,7 @@ import {
   ISeatMouseLeaveData,
   ITooltipRequestData,
   TSeatAvailability,
-} from '@kwiket/jets-seatmap-angular-lib';
+} from '@seatmaps.com/angular-lib';
 import { DemoFlight } from './flights.data';
 import { FlightsService } from './flights.service';
 import { MultiInstanceFixtureComponent } from './e2e-fixtures/multi-instance.component';
@@ -110,8 +110,7 @@ export class App {
   readonly flights = this.flightsService.flights;
   readonly controls = CONTROLS;
   readonly isMultiInstanceMode =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).has('multiInstance');
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('multiInstance');
 
   selectedIndex = signal(0);
   eventLog = signal<EventLogEntry[]>([]);

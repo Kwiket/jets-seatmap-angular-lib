@@ -8,7 +8,7 @@
  * state bleed between `providedIn: 'root'` services across instances.
  */
 
-import { IConfig, IFlight, IPassenger } from '@kwiket/jets-seatmap-angular-lib';
+import { IConfig, IFlight, IPassenger } from '@seatmaps.com/angular-lib';
 import { BASE_CONFIG, DEMO_FLIGHTS } from '../flights.data';
 
 export interface MultiInstanceConfig {

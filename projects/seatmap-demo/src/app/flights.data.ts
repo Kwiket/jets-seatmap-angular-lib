@@ -1,4 +1,4 @@
-import { IConfig, IFlight, IPassenger, TSeatAvailability } from '@kwiket/jets-seatmap-angular-lib';
+import { IConfig, IFlight, IPassenger, TSeatAvailability } from '@seatmaps.com/angular-lib';
 import { environment } from '../environments/environment';
 
 export interface DemoFlight {

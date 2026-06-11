@@ -1,10 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {
-  IInitialLayoutData,
-  IPassenger,
-  JetsSeatMapComponent,
-} from '@kwiket/jets-seatmap-angular-lib';
+import { IInitialLayoutData, IPassenger, JetsSeatMapComponent } from '@seatmaps.com/angular-lib';
 import { getMultiInstanceConfigs, MultiInstanceConfig } from './multi-instance-configs';
 
 declare global {
