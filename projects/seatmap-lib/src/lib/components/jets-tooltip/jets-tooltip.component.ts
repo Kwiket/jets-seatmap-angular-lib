@@ -13,7 +13,7 @@ import {
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
-import { LOCALES_MAP, CLASS_CODE_MAP, SEAT_MEASUREMENTS_ICONS, SEAT_FEATURES_ICONS } from '../../constants';
+import { LOCALES_MAP } from '../../constants';
 
 /**
  * Structured "why is Select disabled" payload, surfaced to AT (3.3.1 Error
@@ -95,20 +95,16 @@ let _tooltipDialogUid = 0;
                 <span [id]="headerTitleId"
                   >{{ data.seat.name || data.seat.rowName || getClassType() }} {{ data.seat.number }}</span
                 >
-                @if (data.seat.price != null && data.seat.price > 0) {
+                @if (hasNumericPrice() && getNumericPrice() > 0) {
                   <span class="jets-tooltip--header-price"
-                    >{{ resolvedCurrency }}{{ currencySeparator }}{{ data.seat.price }}</span
+                    >{{ resolvedCurrency }}{{ currencySeparator }}{{ getNumericPrice() }}</span
                   >
                 }
-                @if (data.seat.price === 0) {
+                @if (getNumericPrice() === 0) {
                   <span class="jets-tooltip--header-price">Free</span>
                 }
                 @if (!sidePanel) {
-                  <button
-                    class="jets-tooltip--close-btn"
-                    (click)="close.emit()"
-                    [attr.aria-label]="closeLabel"
-                  >
+                  <button class="jets-tooltip--close-btn" (click)="close.emit()" [attr.aria-label]="closeLabel">
                     <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
                       <line
                         x1="1"
@@ -136,24 +132,33 @@ let _tooltipDialogUid = 0;
                 <div class="jets-tooltip--header-passenger">
                   {{ data.seat.passenger!.passengerLabel }}
                 </div>
+              } @else if (restrictionsLabel) {
+                <div class="jets-tooltip--header-passenger">
+                  {{ restrictionsLabel }}
+                </div>
               }
             </div>
 
             <!-- Amenities list -->
             @if (amenities.length) {
-              <div
-                class="jets-tooltip--amenities"
-                [id]="amenitiesId"
-                [style.direction]="textDirection"
-              >
-                @for (amenity of amenities; track amenity.title) {
-                  <div class="jets-tooltip--amenity" [class.jets-tooltip--amenity-negative]="amenity.negative">
+              <div class="jets-tooltip--amenities" [id]="amenitiesId" [style.direction]="textDirection">
+                @for (amenity of amenities; track amenity.uniqId || amenity.key) {
+                  <div
+                    class="jets-tooltip--amenity"
+                    [class.jets-tooltip--amenity-negative]="amenity.title === null"
+                    [class]="amenity.cssClass || ''"
+                  >
                     <span
                       class="jets-tooltip--amenity-icon"
+                      [class]="amenity.cssClass ? amenity.cssClass + '-icon' : ''"
                       aria-hidden="true"
-                      [innerHTML]="getAmenityIcon(amenity)"
+                      [innerHTML]="safeSvg(amenity.icon)"
                     ></span>
-                    <span class="jets-tooltip--amenity-text">{{ amenity.title }}</span>
+                    <span
+                      class="jets-tooltip--amenity-text"
+                      [class]="amenity.cssClass ? amenity.cssClass + '-label' : ''"
+                      >{{ amenityText(amenity) }}</span
+                    >
                   </div>
                 }
               </div>
@@ -162,10 +167,10 @@ let _tooltipDialogUid = 0;
             <!-- Seat dimensions (pitch / width / recline) -->
             @if (dimensions.length) {
               <div class="jets-tooltip--dimensions" [id]="dimensionsId">
-                @for (dim of dimensions; track dim.title) {
+                @for (dim of dimensions; track dim.uniqId || dim.key) {
                   <div class="jets-tooltip--dimension">
-                    <div class="jets-tooltip--dim-icon" aria-hidden="true" [innerHTML]="getDimIcon(dim)"></div>
-                    <div class="jets-tooltip--dim-label">{{ getDimLabel(dim) }}</div>
+                    <div class="jets-tooltip--dim-icon" aria-hidden="true" [innerHTML]="safeSvg(dim.icon)"></div>
+                    <div class="jets-tooltip--dim-label">{{ dim.title }}</div>
                     <div class="jets-tooltip--dim-value">{{ dim.value }}</div>
                   </div>
                 }
@@ -191,6 +196,7 @@ let _tooltipDialogUid = 0;
                   class="jets-btn jets-tooltip--btn jets-select-btn"
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
                   [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
+                  [disabled]="!!data.seat.passenger.readOnly"
                   (click)="unselect.emit(data.seat)"
                 >
                   {{ locale['unselect'] }}
@@ -213,11 +219,7 @@ let _tooltipDialogUid = 0;
             </div>
             @let _bottomReason = data.seat.passenger ? null : getSelectDisabledReason();
             @if (_bottomReason && _bottomReason.disabled && _bottomReason.message) {
-              <p
-                class="jets-tooltip--select-reason"
-                [id]="selectReasonId"
-                [style.direction]="textDirection"
-              >
+              <p class="jets-tooltip--select-reason" [id]="selectReasonId" [style.direction]="textDirection">
                 {{ _bottomReason.message }}
               </p>
             }
@@ -256,11 +258,6 @@ export class JetsTooltipComponent implements AfterViewInit {
   @Input() showActions = true;
   @Input() rightToLeft = false;
   /**
-   * Feature keys (e.g. 'nearGalley', 'audioVideo') to omit from the tooltip's
-   * amenities/dimensions lists. Mirrors React's `params.hiddenSeatFeatures`.
-   */
-  @Input() hiddenSeatFeatures: string[] = [];
-  /**
    * Global currency override (from `config.currencySign`). When set, the
    * tooltip header shows this string instead of the per-seat `data.seat.currency`,
    * mirroring the behaviour of the per-seat price pill.
@@ -283,6 +280,12 @@ export class JetsTooltipComponent implements AfterViewInit {
   get currencySeparator(): string {
     return this.resolvedCurrency.length > 1 ? ' ' : '';
   }
+
+  /**
+   * Feature keys (e.g. 'nearGalley', 'audioVideo') to omit from the tooltip's
+   * amenities/dimensions lists. Mirrors React's `params.hiddenSeatFeatures`.
+   */
+  @Input() hiddenSeatFeatures: string[] = [];
   @Output() select = new EventEmitter<ISeatData>();
   @Output() unselect = new EventEmitter<ISeatData>();
   @Output() close = new EventEmitter<void>();
@@ -346,51 +349,99 @@ export class JetsTooltipComponent implements AfterViewInit {
     return this.rightToLeft ? 'rtl' : 'ltr';
   }
 
-  /** Features that have a numeric/text value (pitch, width, recline) */
+  /** Seat dimensions (pitch, width, recline) — comes pre-split from the preparer. */
   get dimensions(): ISeatFeature[] {
-    return (this.data.seat.features || []).filter(f => f.value != null && !this.isFeatureHidden(f));
+    return (this.data.seat.measurements || []).filter(f => !this.isFeatureHidden(f));
   }
 
-  /** Features that are amenities (icon-based, no numeric value) */
+  /**
+   * Cap on the combined `features + additionalProps` list rendered in the
+   * tooltip. Mirrors React's `DEFAULT_FEATURES_RENDER_LIMIT`
+   * (`jets-seatmap-react-lib-pub/src/common/constants.js:123`).
+   */
+  private static readonly FEATURES_RENDER_LIMIT = 12;
+
+  /**
+   * Passenger types eligible to be rendered as a seat-restriction line
+   * ("The seat is only for: …"). Mirrors React's `DEFAULT_SEAT_PASSENGER_TYPES`
+   * (`jets-seatmap-react-lib-pub/src/common/constants.js:121`) and
+   * `TooltipGlobal.js#restrictionsLabel`.
+   */
+  private static readonly DEFAULT_PASSENGER_TYPES = ['ADT', 'CHD', 'INF'];
+
+  /**
+   * Seat-restriction line shown under the header when the seat is reserved
+   * for a subset of `DEFAULT_PASSENGER_TYPES` (e.g. "The seat is only for:
+   * adults"). Empty when all default types are allowed or none of the seat's
+   * `passengerTypes` overlap with them. React parity: `TooltipGlobal.js:147-154`.
+   * The slot is shared with `data.seat.passenger.passengerLabel` — when a
+   * passenger is assigned, the label wins (React `passengerLabel || restrictionsLabel`).
+   */
+  get restrictionsLabel(): string {
+    const passengerTypes = this.data?.seat?.passengerTypes;
+    if (!passengerTypes?.length) return '';
+    const allowed = JetsTooltipComponent.DEFAULT_PASSENGER_TYPES;
+    const filtered = passengerTypes.filter(t => allowed.includes(t));
+    if (filtered.length >= allowed.length) return '';
+    const typeStrings = filtered.map(t => this.locale[t] || t);
+    return `${this.locale['seatRestrictions']}: ${typeStrings.join(', ')}`;
+  }
+
+  /**
+   * Amenities (audioVideo, power, wifi, nearGalley, …) — comes pre-split from
+   * the preparer. Integrator-defined `availability.additionalProps` are
+   * appended after the API amenities, matching React's
+   * `TooltipGlobal.js#finalListOfFeatures`. `hiddenSeatFeatures` filters API
+   * features only — React does not apply it to additionalProps either.
+   */
   get amenities(): ISeatFeature[] {
-    return (this.data.seat.features || []).filter(f => f.value == null && !this.isFeatureHidden(f));
+    const features = (this.data.seat.features ?? []).filter(f => !this.isFeatureHidden(f));
+    const additional = this.data.seat.additionalProps ?? [];
+    return [...features, ...additional].slice(0, JetsTooltipComponent.FEATURES_RENDER_LIMIT);
   }
 
   private isFeatureHidden(f: ISeatFeature): boolean {
     return !!f.key && this.hiddenSeatFeatures.includes(f.key);
   }
 
+  /**
+   * React parity: when the API ships a free-form `summary` for a flight-level
+   * amenity (entertainment, wifi, power), that backend-localized text wins
+   * over the built-in locale title. Falls back to `title` only when `value`
+   * is boolean/numeric/null/empty — covers seat-level features whose `value`
+   * is a bare `true` flag with no API summary attached.
+   * Reference: jets-seatmap-react-lib-pub/src/components/TooltipGlobal/TooltipGlobal.view.js:89
+   * (the React view renders `{value}` directly; we add the title fallback so
+   * the boolean-flag case still shows a readable label instead of empty text.)
+   */
+  amenityText(amenity: ISeatFeature): string | null {
+    const v = amenity.value;
+    if (typeof v === 'string' && v.length > 0) return v;
+    if (typeof v === 'number') return String(v);
+    return amenity.title ?? null;
+  }
+
+  /**
+   * `ISeatData.price` is loose-typed (`number | string`) because the public
+   * emit payload replaces it with a formatted string. Internally — inside the
+   * built-in tooltip — only the numeric form is meaningful.
+   */
+  hasNumericPrice(): boolean {
+    return typeof this.data?.seat?.price === 'number';
+  }
+  getNumericPrice(): number {
+    const p = this.data?.seat?.price;
+    return typeof p === 'number' ? p : NaN;
+  }
+
+  /** `icon` field already holds a full SVG string — wrap it for `[innerHTML]`. */
+  safeSvg(svg: string | undefined): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(svg ?? '');
+  }
+
   getClassType(): string {
     if (!this.data?.seat) return '';
     return this.data.seat.classType || 'Seat';
-  }
-
-  getAmenityIcon(amenity: ISeatFeature): SafeHtml {
-    const iconKey = amenity.icon || '';
-    let svg: string;
-    if (amenity.negative) {
-      svg = SEAT_FEATURES_ICONS['-'] || '';
-    } else if (SEAT_FEATURES_ICONS[iconKey]) {
-      svg = SEAT_FEATURES_ICONS[iconKey];
-    } else {
-      // Default: green checkmark for positive features
-      svg = SEAT_FEATURES_ICONS['+'] || '';
-    }
-    return this.sanitizer.bypassSecurityTrustHtml(svg);
-  }
-
-  getDimIcon(dim: ISeatFeature): SafeHtml {
-    const key = dim.key || '';
-    const svg = SEAT_MEASUREMENTS_ICONS[key] || '';
-    return this.sanitizer.bypassSecurityTrustHtml(svg);
-  }
-
-  getDimLabel(dim: ISeatFeature): string {
-    const loc = this.locale;
-    if (dim.key) {
-      return loc[dim.key + 'Short'] ?? loc[dim.key] ?? dim.title;
-    }
-    return dim.title ?? '';
   }
 
   /**

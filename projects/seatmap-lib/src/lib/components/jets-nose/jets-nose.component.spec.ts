@@ -36,4 +36,19 @@ describe('JetsNoseComponent', () => {
     fixture.detectChanges();
     expect(component.width).toBe(480);
   });
+
+  it('should paint the nose with fuselageFillColor', () => {
+    fixture.componentRef.setInput('colorTheme', { fuselageFillColor: '#abcdef' });
+    fixture.detectChanges();
+    const html: string = fixture.nativeElement.innerHTML;
+    expect(html).toContain('#abcdef');
+  });
+
+  it('should scale stroke-width by fuselageStrokeWidth', () => {
+    fixture.componentRef.setInput('width', 200);
+    fixture.componentRef.setInput('colorTheme', { fuselageStrokeWidth: 18 });
+    fixture.detectChanges();
+    const html: string = fixture.nativeElement.innerHTML;
+    expect(html).toContain('stroke-width:18');
+  });
 });

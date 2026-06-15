@@ -5,6 +5,7 @@ import {
   JetsSeatMapComponent,
   IPassenger,
   IInitialLayoutData,
+  ILayoutData,
   IConfig,
   IExistingSeatsLabelsInfo,
   IFlight,
@@ -12,9 +13,10 @@ import {
   ISeatMouseLeaveData,
   ITooltipRequestData,
   TSeatAvailability,
-} from '@kwiket/jets-seatmap-angular-lib';
+} from '@seatmaps.com/angular-lib';
 import { DemoFlight } from './flights.data';
 import { FlightsService } from './flights.service';
+import { MultiInstanceFixtureComponent } from './e2e-fixtures/multi-instance.component';
 
 interface EventLogEntry {
   id: number;
@@ -99,7 +101,7 @@ const DEFAULT_PASSENGERS: IPassenger[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, JetsSeatMapComponent],
+  imports: [CommonModule, FormsModule, JetsSeatMapComponent, MultiInstanceFixtureComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -107,6 +109,8 @@ export class App {
   private readonly flightsService = inject(FlightsService);
   readonly flights = this.flightsService.flights;
   readonly controls = CONTROLS;
+  readonly isMultiInstanceMode =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('multiInstance');
 
   selectedIndex = signal(0);
   eventLog = signal<EventLogEntry[]>([]);
@@ -242,9 +246,29 @@ export class App {
   }
 
   onSeatMapInited(event: IInitialLayoutData): void {
+    console.log('InitialLayoutData:', event);
+    // Test seam — mirrors `__lastTooltipRequest`; lets e2e suites assert the
+    // public contract of the init payload without subscribing inside Playwright.
+    if (typeof window !== 'undefined') {
+      (window as Window & { __lastSeatMapInited?: unknown }).__lastSeatMapInited = event;
+    }
+    if (event.error) {
+      this.addLog('error', `Seatmap init failed: ${event.error}`);
+      return;
+    }
     this.addLog(
       'inited',
-      `Seatmap loaded. Available seats: ${event.availableSeats.length}, decks: ${event.decksCount}`
+      `Seatmap loaded. Cabins: ${event.allCabins?.length ?? 0}, decks: ${event.decksCount}, ` +
+        `native ${event.heightInPx?.toFixed(0)}×${event.widthInPx?.toFixed(0)}, scale ${event.scaleFactor?.toFixed(3)}`
+    );
+  }
+
+  onLayoutUpdated(event: ILayoutData): void {
+    console.log('Layout updated:', event);
+    this.addLog(
+      'layout',
+      `Layout updated — deck ${event.currentDeckIndex + 1}/${event.decksCount}, ` +
+        `${event.heightInPx.toFixed(0)}×${event.widthInPx.toFixed(0)}, scale ${event.scaleFactor.toFixed(3)}`
     );
   }
 
@@ -276,8 +300,17 @@ export class App {
     );
   }
 
+  /**
+   * Exposes the latest `tooltipRequested` payload on `window.__lastTooltipRequest`
+   * so the e2e suite can introspect the data the lib hands to integrators when
+   * they want to render a custom tooltip. The actual demo never builds its own
+   * tooltip — this hook exists solely as a test seam.
+   */
   onTooltipRequested(data: ITooltipRequestData): void {
     console.log('Tooltip requested: ', data);
+    if (typeof window !== 'undefined') {
+      (window as Window & { __lastTooltipRequest?: unknown }).__lastTooltipRequest = data;
+    }
     this.addLog('tooltip', `Tooltip requested for seat ${data.seat?.number ?? '?'}`);
   }
 

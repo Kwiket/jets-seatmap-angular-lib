@@ -1,4 +1,4 @@
-import { IConfig, IFlight, IPassenger, TSeatAvailability } from '@kwiket/jets-seatmap-angular-lib';
+import { IConfig, IFlight, IPassenger, TSeatAvailability } from '@seatmaps.com/angular-lib';
 import { environment } from '../environments/environment';
 
 export interface DemoFlight {
@@ -24,6 +24,7 @@ const CABIN_THEME = {
   bulkBaseColor: 'dimgrey',
   bulkCutColor: 'lightgrey',
   bulkIconColor: 'darkslategray',
+  fuselageStrokeWidth: 10,
   fuselageFillColor: 'lightgrey',
   fuselageStrokeColor: 'darkgrey',
   fuselageWindowsColor: 'darkgrey',

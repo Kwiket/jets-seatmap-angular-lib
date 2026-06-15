@@ -315,9 +315,6 @@ describe('JetsSeatMapComponent', () => {
 
   describe('Output events', () => {
     it('should emit seatMapInited after successful load', async () => {
-      const availableSeats = [makeSeat()];
-      mockService.collectAvailableSeats.mockReturnValue(availableSeats);
-
       const spy = vi.fn();
       component.seatMapInited.subscribe(spy);
 
@@ -373,7 +370,29 @@ describe('JetsSeatMapComponent', () => {
       const el = document.createElement('div');
       component.onSeatClick({ seat, element: el });
 
-      expect(spy).toHaveBeenCalledWith({ seat, element: el });
+      // Public emit shape mirrors the React-parity integrator contract:
+      //   - `number → label`, layout-only fields (`id`, `size`, `topOffset`,
+      //     `leftOffset`, `cabinTitle`) stripped.
+      //   - `classType` becomes the full word ('Economy', 'Business', …).
+      //   - `priceValue` carries the raw number; `price` becomes a formatted string.
+      //   - features/measurements default to empty arrays.
+      //   - `passengerTypes` defaults to React's `['ADT', 'CHD', 'INF']`.
+      //   - `rotation` is present and defaults to 'n' (React fixtures).
+      const { id: _id, size: _size, number: _number, ...rest } = seat;
+      const expectedSeat = {
+        ...rest,
+        label: seat.number,
+        classCode: 'E',
+        classType: 'Economy',
+        color: seat.color,
+        originalColor: seat.color,
+        passengerTypes: ['ADT', 'CHD', 'INF'],
+        rotation: 'n',
+        features: [],
+        measurements: [],
+        additionalProps: [],
+      };
+      expect(spy).toHaveBeenCalledWith({ seat: expectedSeat, element: el, event: undefined });
     });
 
     it('should emit seatSelected after seat selection', async () => {
@@ -412,6 +431,25 @@ describe('JetsSeatMapComponent', () => {
       expect(spy).toHaveBeenCalledWith(updatedPassengers);
     });
 
+    it('onTooltipUnselect is a no-op when the occupant is readOnly (React parity)', async () => {
+      // React parity: TooltipGlobal.view.js disables the Unselect button, and
+      // the SeatMap container itself never reaches unselectSeatHandler for a
+      // readOnly passenger. This test guards the container path: even if a
+      // viewOverride dispatched the click, we must not unseat the passenger.
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const spy = vi.fn();
+      component.seatUnselected.subscribe(spy);
+
+      const readOnlyOccupant: IPassenger = { id: 'p0', passengerLabel: 'Alex', readOnly: true };
+      component.onTooltipUnselect(makeSeat({ passenger: readOnlyOccupant }));
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(mockService.unselectSeatHandler).not.toHaveBeenCalled();
+    });
+
     it('should emit deckChanged on deck selection', () => {
       const spy = vi.fn();
       component.deckChanged.subscribe(spy);
@@ -430,13 +468,48 @@ describe('JetsSeatMapComponent', () => {
       expect(spy).toHaveBeenCalledWith(event);
     });
 
-    it('should emit seatMouseLeave', () => {
+    // React parity (JetsSeat.js:128-129, SeatMap.js:408-414): the outward
+    // `onSeatMouseLeave` callback only fires through `onTooltipClose`, and the
+    // DOM mouseleave listener that calls it is attached only when
+    // `tooltipOnHover === true`. The React test
+    // `JetsSeat.integration.test.js:38-54` codifies this — "should not trigger
+    // onMouseEnter and onMouseLeave handlers by default".
+    it('should emit seatMouseLeave with the enriched (prepared) seat shape when tooltipOnHover=true', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
       const spy = vi.fn();
       component.seatMouseLeave.subscribe(spy);
 
-      const event = { seat: makeSeat(), element: document.createElement('div') };
-      component.onSeatMouseLeave(event);
-      expect(spy).toHaveBeenCalledWith(event);
+      const seat = makeSeat();
+      const element = document.createElement('div');
+      component.onSeatMouseLeave({ seat, element });
+
+      // React-parity: mouseLeave runs through prepareSeatDataForEmit, so the
+      // payload uses the public shape (`label`, full `classType`, default
+      // passengerTypes, empty arrays) — not the raw internal seat.
+      expect(spy).toHaveBeenCalledTimes(1);
+      const arg = spy.mock.calls[0][0];
+      expect(arg.element).toBe(element);
+      expect(arg.seat.label).toBe(seat.number);
+      expect(arg.seat.classType).toBe('Economy');
+      expect(arg.seat.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+      expect(arg.seat.features).toEqual([]);
+      expect(arg.seat).not.toHaveProperty('id');
+      expect(arg.seat).not.toHaveProperty('size');
+      // React-parity: rotation is present with 'n' (north / no-rotation) default.
+      expect(arg.seat.rotation).toBe('n');
+    });
+
+    it('should NOT emit seatMouseLeave when tooltipOnHover is unset/false', () => {
+      // Default config has no tooltipOnHover — emit must be suppressed.
+      const spy = vi.fn();
+      component.seatMouseLeave.subscribe(spy);
+
+      component.onSeatMouseLeave({ seat: makeSeat(), element: document.createElement('div') });
+      expect(spy).not.toHaveBeenCalled();
+
+      component.config = makeConfig({ tooltipOnHover: false });
+      component.onSeatMouseLeave({ seat: makeSeat(), element: document.createElement('div') });
+      expect(spy).not.toHaveBeenCalled();
     });
   });
 
@@ -795,7 +868,17 @@ describe('JetsSeatMapComponent', () => {
       component.onSeatClick({ seat, element, event: evt });
 
       expect(clickSpy).toHaveBeenCalledTimes(1);
-      expect(clickSpy.mock.calls[0][0]).toMatchObject({ seat, element, event: evt });
+      // React-parity: seatMouseClick runs through prepareSeatDataForEmit, so
+      // the seat is the public enriched shape (full classType, default
+      // passengerTypes), not the raw internal seat.
+      const arg = clickSpy.mock.calls[0][0];
+      expect(arg.element).toBe(element);
+      expect(arg.event).toBe(evt);
+      expect(arg.seat.label).toBe(seat.number);
+      expect(arg.seat.classType).toBe('Economy');
+      expect(arg.seat.passengerTypes).toEqual(['ADT', 'CHD', 'INF']);
+      // React-parity: rotation default 'n' is part of the emit shape.
+      expect(arg.seat.rotation).toBe('n');
       expect(tooltipSpy).not.toHaveBeenCalled();
       expect(component.activeTooltip).toBeNull();
     });
@@ -865,6 +948,204 @@ describe('JetsSeatMapComponent', () => {
 
       expect(clickSpy).not.toHaveBeenCalled();
       expect(tooltipSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ─── Click-select in hover mode without external passenger management ──
+  //
+  // React parity (SeatMap.js:299-325): when `tooltipOnHover` is on and
+  // `externalPassengerManagement` is OFF on a non-touch device, a click on
+  // a seat directly (un)selects it without going through the tooltip. This
+  // covers rows 2 and 3 of the configuration table:
+  //   row 2: builtInTooltip:true,  tooltipOnHover:true → hover shows tooltip,
+  //          click selects.
+  //   row 3: builtInTooltip:false, tooltipOnHover:true → no tooltip,
+  //          click selects.
+  describe('seat click select/unselect (tooltipOnHover, internal management)', () => {
+    let savedDescriptor: PropertyDescriptor | undefined;
+    let hadOntouchstart = false;
+
+    beforeEach(() => {
+      resetCachedEnvironmentInfo();
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      hadOntouchstart = Object.prototype.hasOwnProperty.call(proto, 'ontouchstart');
+      if (hadOntouchstart) {
+        savedDescriptor = Object.getOwnPropertyDescriptor(proto, 'ontouchstart');
+        delete proto['ontouchstart'];
+      }
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        configurable: true,
+        get: () => 0,
+      });
+    });
+
+    afterEach(() => {
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      if (hadOntouchstart && savedDescriptor) {
+        Object.defineProperty(proto, 'ontouchstart', savedDescriptor);
+      }
+      resetCachedEnvironmentInfo();
+    });
+
+    async function ready() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    it('row 2 (builtInTooltip:true, tooltipOnHover:true): click selects the seat instead of opening tooltip', async () => {
+      const passenger: IPassenger = { id: 'p1', passengerLabel: 'A' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [{ ...passenger, seat: { price: 0, seatLabel: '1A' } }],
+      });
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      const clickSpy = vi.fn();
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+      component.seatMouseClick.subscribe(clickSpy);
+
+      const seat = makeSeat();
+      component.onSeatClick({ seat, element: document.createElement('div') });
+
+      expect(selectedSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(clickSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+      expect(mockService.selectSeatHandler).toHaveBeenCalled();
+    });
+
+    it('row 3 (builtInTooltip:false, tooltipOnHover:true): click selects the seat with no tooltip', async () => {
+      const passenger: IPassenger = { id: 'p1', passengerLabel: 'A' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [{ ...passenger, seat: { price: 0, seatLabel: '1A' } }],
+      });
+      component.config = makeConfig({
+        builtInTooltip: false,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+
+      expect(selectedSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(component.activeTooltip).toBeNull();
+    });
+
+    it('click on a seat that already has a passenger unselects it (no tooltipRequested)', async () => {
+      const occupant: IPassenger = { id: 'p0', passengerLabel: 'X' };
+      mockService.unselectSeatHandler.mockReturnValue({ data: [makeDeckData()], passengers: [] });
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const unselectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatUnselected.subscribe(unselectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      const seat = makeSeat({ passenger: occupant });
+      component.onSeatClick({ seat, element: document.createElement('div') });
+
+      expect(unselectedSpy).toHaveBeenCalledTimes(1);
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(mockService.unselectSeatHandler).toHaveBeenCalled();
+    });
+
+    it('click on a readOnly-passenger seat is a no-op (no select, unselect, or tooltipRequested)', async () => {
+      // React parity: SeatMap.js:312-314 — readOnly passenger blocks unselect.
+      const occupant = { id: 'p0', passengerLabel: 'X', readOnly: true } as IPassenger;
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const unselectedSpy = vi.fn();
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatUnselected.subscribe(unselectedSpy);
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      const seat = makeSeat({ passenger: occupant });
+      component.onSeatClick({ seat, element: document.createElement('div') });
+
+      expect(unselectedSpy).not.toHaveBeenCalled();
+      expect(selectedSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(mockService.unselectSeatHandler).not.toHaveBeenCalled();
+    });
+
+    it('click is a no-op when there is no next passenger to seat (no tooltipRequested either)', async () => {
+      // React's isSeatSelectDisabled returns true when there's nobody to seat —
+      // the click silently aborts. The tooltipRequested fallback must NOT fire.
+      mockService.getNextPassenger.mockReturnValue(null);
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
+
+      expect(selectedSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(mockService.selectSeatHandler).not.toHaveBeenCalled();
+    });
+
+    it('click is a no-op when next passenger type does not match seat.passengerTypes', async () => {
+      // React parity: isSeatSelectDisabled also rejects when next passenger's
+      // type isn't allowed on the seat.
+      const passenger: IPassenger = { id: 'p1', passengerLabel: 'A', passengerType: 'INF' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      component.config = makeConfig({
+        builtInTooltip: true,
+        tooltipOnHover: true,
+        externalPassengerManagement: false,
+      });
+      await ready();
+
+      const selectedSpy = vi.fn();
+      const tooltipSpy = vi.fn();
+      component.seatSelected.subscribe(selectedSpy);
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      const seat = makeSeat({ passengerTypes: ['ADT'] });
+      component.onSeatClick({ seat, element: document.createElement('div') });
+
+      expect(selectedSpy).not.toHaveBeenCalled();
+      expect(tooltipSpy).not.toHaveBeenCalled();
+      expect(mockService.selectSeatHandler).not.toHaveBeenCalled();
     });
   });
 
@@ -991,9 +1272,106 @@ describe('JetsSeatMapComponent', () => {
       expect(typeof payload.scaleFactor).toBe('number');
     });
 
-    it('should emit seatMapInited as IInitialLayoutData with extended fields', async () => {
-      const allSeats = [makeSeat()];
-      mockService.collectAllSeats.mockReturnValue(allSeats);
+    it('should re-emit layoutUpdated on onDeckSelect with the new currentDeckIndex', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: makeMultiDeckData(),
+        media: null,
+        availableCabins: [],
+      });
+      const spy = vi.fn();
+      component.layoutUpdated.subscribe(spy);
+      await load();
+      spy.mockClear();
+
+      component.onDeckSelect(1);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0]).toMatchObject({ currentDeckIndex: 1, decksCount: 2 });
+    });
+
+    it('should re-emit layoutUpdated when currentDeckIndex Input changes', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: makeMultiDeckData(),
+        media: null,
+        availableCabins: [],
+      });
+      const spy = vi.fn();
+      component.layoutUpdated.subscribe(spy);
+      await load();
+      spy.mockClear();
+
+      component.currentDeckIndex = 1;
+      component.ngOnChanges({
+        currentDeckIndex: {
+          previousValue: 0,
+          currentValue: 1,
+          firstChange: false,
+          isFirstChange: () => false,
+        },
+      } as any);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0]).toMatchObject({ currentDeckIndex: 1 });
+    });
+
+    it('should ignore currentDeckIndex Input when out of range (no empty render)', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: makeMultiDeckData(),
+        media: null,
+        availableCabins: [],
+      });
+      const layoutSpy = vi.fn();
+      const deckChangedSpy = vi.fn();
+      component.layoutUpdated.subscribe(layoutSpy);
+      component.deckChanged.subscribe(deckChangedSpy);
+      await load();
+      layoutSpy.mockClear();
+
+      // makeMultiDeckData yields 2 decks → valid indices are 0 and 1; 5 is out of range.
+      component.currentDeckIndex = 5;
+      component.ngOnChanges({
+        currentDeckIndex: {
+          previousValue: 0,
+          currentValue: 5,
+          firstChange: false,
+          isFirstChange: () => false,
+        },
+      } as any);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(component.activeDeckIndex).toBe(0);
+      expect(component.visibleDecks.length).toBe(1);
+      expect(layoutSpy).not.toHaveBeenCalled();
+      expect(deckChangedSpy).not.toHaveBeenCalled();
+    });
+
+    it('should emit layoutUpdated with scaleFactor of active deck (not deck 0)', async () => {
+      mockService.getSeatMapData.mockResolvedValue({
+        content: [
+          { ...makeDeckData(), number: 1, scale: 0.5 },
+          { ...makeDeckData(), number: 2, scale: 0.8 },
+        ],
+        media: null,
+        availableCabins: [],
+      });
+      const spy = vi.fn();
+      component.layoutUpdated.subscribe(spy);
+      await load();
+      spy.mockClear();
+
+      component.onDeckSelect(1);
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy.mock.calls[0][0].scaleFactor).toBe(0.8);
+    });
+
+    it('should emit seatMapInited with new public contract (allCabins, availabilityData, no legacy fields)', async () => {
       mockService.getSeatMapData.mockResolvedValue({
         content: [makeDeckData()],
         media: { photoData: [] },
@@ -1008,17 +1386,129 @@ describe('JetsSeatMapComponent', () => {
       expect(payload).toMatchObject({
         decksCount: 1,
         currentDeckIndex: 0,
-        allSeats,
-        availableCabins: [{ code: 'E', title: 'Economy' }],
+        allCabins: [{ code: 'E', title: 'Economy' }],
+        media: { photoData: [] },
       });
       expect(typeof payload.heightInPx).toBe('number');
       expect(typeof payload.widthInPx).toBe('number');
       expect(typeof payload.scaleFactor).toBe('number');
-      expect(payload.media).toEqual({ photoData: [] });
-      expect(payload.error).toBeUndefined();
+
+      // availabilityData key is always present (mirrors React); undefined when no Input
+      expect('availabilityData' in payload).toBe(true);
+      expect(payload.availabilityData).toBeUndefined();
+
+      // error key omitted entirely when no error (React parity)
+      expect('error' in payload).toBe(false);
+
+      // Removed legacy Angular-only fields
+      expect('availableSeats' in payload).toBe(false);
+      expect('allSeats' in payload).toBe(false);
+      expect('availableCabins' in payload).toBe(false);
     });
 
-    it('should NOT emit seatMapInited when load fails', async () => {
+    it('should emit availabilityData from the API response (NOT from the availability Input)', async () => {
+      // The `availability` Input controls per-seat status/colour overrides
+      // (see `JetsSeatMapService.setAvailabilityHandler`). The `availabilityData`
+      // emitted on `seatMapInited` is a different beast: it's the read-only
+      // `{ availableSeats: [...] }` block that the Quicket API ships in its
+      // response array (React parity — api.js:101-104). Mixing the two was the
+      // bug behind "Fix: onSeatMapInited object data".
+      const apiAvailabilityData = {
+        availableSeats: [
+          { label: '53H', currency: 'EUR', price: 0 },
+          { label: '53J', currency: 'EUR', price: 0 },
+        ],
+      };
+      mockService.getSeatMapData.mockResolvedValue({
+        content: [makeDeckData()],
+        media: null,
+        availableCabins: [],
+        availabilityData: apiAvailabilityData,
+      });
+
+      // Set the Input too, to prove it does NOT leak into payload.availabilityData.
+      component.availability = [{ label: '1A', price: 10, currency: 'EUR' }] as TSeatAvailability;
+
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+      await load();
+
+      const payload = spy.mock.calls[0][0];
+      expect(payload.availabilityData).toBe(apiAvailabilityData);
+      // Sanity: the per-seat Input must not have been smuggled in.
+      expect(payload.availabilityData).not.toEqual(component.availability);
+    });
+
+    it('should emit heightInPx/widthInPx as native (rendered = value × scaleFactor)', async () => {
+      // jsdom's getBoundingClientRect returns zeros; stub it to a known rendered size
+      // so we can assert the inverse-scale calculation. The contract says:
+      //   heightInPx × scaleFactor === rendered pixels
+      const fakeRect: DOMRect = {
+        width: 200,
+        height: 1000,
+        top: 0,
+        left: 0,
+        right: 200,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      };
+      const rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(fakeRect);
+
+      try {
+        mockService.getSeatMapData.mockResolvedValue({
+          content: [{ ...makeDeckData(), scale: 0.5 }],
+          media: null,
+          availableCabins: [],
+        });
+
+        const spy = vi.fn();
+        component.seatMapInited.subscribe(spy);
+        await load();
+
+        const payload = spy.mock.calls[0][0];
+        expect(payload.scaleFactor).toBe(0.5);
+        // 1000 (rendered) / 0.5 (scale) = 2000 (native)
+        expect(payload.heightInPx).toBe(2000);
+        // 200 (rendered) / 0.5 (scale) = 400 (native)
+        expect(payload.widthInPx).toBe(400);
+      } finally {
+        rectSpy.mockRestore();
+      }
+    });
+
+    it('should emit seatMapInited with error payload when load fails (React parity)', async () => {
+      mockService.getSeatMapData.mockRejectedValue({
+        status: 400,
+        error: {
+          statusCode: 400,
+          message: 'arrival must be shorter than or equal to 3 characters',
+          error: 'Bad Request',
+        },
+        message: 'Http failure response',
+      });
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const payload = spy.mock.calls[0][0];
+      // React format: `postData: {status} - {message}`
+      expect(payload.error).toBe('postData: 400 - arrival must be shorter than or equal to 3 characters');
+      // Layout fields are undefined for error payload (React parity — see screenshot of React lib)
+      expect(payload.heightInPx).toBeUndefined();
+      expect(payload.widthInPx).toBeUndefined();
+      expect(payload.scaleFactor).toBeUndefined();
+      expect(payload.decksCount).toBeUndefined();
+      expect(payload.currentDeckIndex).toBeUndefined();
+    });
+
+    it('should fall back to err.message when API body has no message', async () => {
       mockService.getSeatMapData.mockRejectedValue({ status: 500, message: 'oops' });
       const spy = vi.fn();
       component.seatMapInited.subscribe(spy);
@@ -1028,7 +1518,40 @@ describe('JetsSeatMapComponent', () => {
       fixture.detectChanges();
       await new Promise(r => setTimeout(r, 0));
 
-      expect(spy).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0].error).toBe('postData: 500 - oops');
+    });
+
+    it('should still emit loadError on API failure (backwards compatibility)', async () => {
+      mockService.getSeatMapData.mockRejectedValue({
+        status: 400,
+        error: { message: 'arrival must be shorter than or equal to 3 characters' },
+      });
+      const spy = vi.fn();
+      component.loadError.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0]).toBe('postData: 400 - arrival must be shorter than or equal to 3 characters');
+    });
+
+    it('should emit seatMapInited error payload for non-HTTP throws', async () => {
+      mockService.getSeatMapData.mockRejectedValue(new Error('boom'));
+      const spy = vi.fn();
+      component.seatMapInited.subscribe(spy);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      // No status → '?'; falls back to err.message
+      expect(spy.mock.calls[0][0].error).toBe('postData: ? - boom');
     });
 
     it('should propagate DOM event in tooltipRequested payload', async () => {
@@ -1263,6 +1786,7 @@ describe('JetsSeatMapComponent', () => {
     });
 
     it('opens/closes tooltip on hover when tooltipOnHover=true and non-touch', async () => {
+      vi.useFakeTimers();
       applyTouchEnv(false);
       component.config = makeConfig({ tooltipOnHover: true });
       await ready();
@@ -1279,20 +1803,112 @@ describe('JetsSeatMapComponent', () => {
 
       const closedSpy = vi.fn();
       component.activeTooltipChanged.subscribe(closedSpy);
-      vi.useFakeTimers();
-      try {
-        component.onSeatMouseLeave({
-          seat: makeSeat(),
-          element: document.createElement('div'),
-        });
-        // SC 1.4.13: close is deferred so the cursor can land on the tooltip.
-        expect(component.activeTooltip).toBeTruthy();
-        vi.advanceTimersByTime(100);
-      } finally {
-        vi.useRealTimers();
-      }
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      // SC 1.4.13: close is deferred so the cursor can land on the tooltip.
+      expect(component.activeTooltip).toBeTruthy();
+      vi.advanceTimersByTime(300);
       expect(component.activeTooltip).toBeNull();
       expect(closedSpy).toHaveBeenCalledWith(null);
+      vi.useRealTimers();
+    });
+
+    it('hoverable: mouseenter on tooltip cancels pending close', async () => {
+      vi.useFakeTimers();
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      expect(component.activeTooltip).toBeTruthy();
+
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      // Cursor lands on the tooltip before the close timer fires.
+      component.onTooltipMouseEnter();
+      vi.advanceTimersByTime(200);
+      expect(component.activeTooltip).toBeTruthy();
+      vi.useRealTimers();
+    });
+
+    it('hoverable: mouseleave on tooltip re-arms the deferred close', async () => {
+      vi.useFakeTimers();
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      component.onTooltipMouseEnter();
+      expect(component.activeTooltip).toBeTruthy();
+
+      component.onTooltipMouseLeave();
+      expect(component.activeTooltip).toBeTruthy();
+      vi.advanceTimersByTime(300);
+      expect(component.activeTooltip).toBeNull();
+      vi.useRealTimers();
+    });
+
+    it('hoverable: re-entering a seat aborts a pending close', async () => {
+      vi.useFakeTimers();
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      // Bounce back onto the seat — the pending close must be cancelled,
+      // otherwise the new tooltip would be torn down immediately.
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      vi.advanceTimersByTime(200);
+      expect(component.activeTooltip).toBeTruthy();
+      vi.useRealTimers();
+    });
+
+    it('hoverable: ngOnDestroy clears the pending close timer', async () => {
+      vi.useFakeTimers();
+      applyTouchEnv(false);
+      component.config = makeConfig({ tooltipOnHover: true });
+      await ready();
+
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      component.onSeatMouseLeave({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      const changedSpy = vi.fn();
+      component.activeTooltipChanged.subscribe(changedSpy);
+      component.ngOnDestroy();
+      vi.advanceTimersByTime(200);
+      // No stray activeTooltipChanged(null) emit after teardown.
+      expect(changedSpy).not.toHaveBeenCalled();
+      vi.useRealTimers();
     });
 
     it('tooltipOnHover=false on touch device — click still opens, hover does not', async () => {
@@ -1360,14 +1976,9 @@ describe('JetsSeatMapComponent', () => {
         passengers: [passenger],
       });
 
-      component.onTooltipSelect(
-        makeSeat({ number: '14C', price: 12, currency: '€' })
-      );
+      component.onTooltipSelect(makeSeat({ number: '14C', price: 12, currency: '€' }));
 
-      expect(announceSpy).toHaveBeenCalledWith(
-        'Seat 14C selected for John Doe, €12',
-        'polite'
-      );
+      expect(announceSpy).toHaveBeenCalledWith('Seat 14C selected for John Doe, €12', 'polite');
     });
 
     it('falls back to passenger.abbr when passengerLabel is missing', () => {
@@ -1378,14 +1989,9 @@ describe('JetsSeatMapComponent', () => {
         passengers: [passenger],
       });
 
-      component.onTooltipSelect(
-        makeSeat({ number: '14C', price: 12, currency: '€' })
-      );
+      component.onTooltipSelect(makeSeat({ number: '14C', price: 12, currency: '€' }));
 
-      expect(announceSpy).toHaveBeenCalledWith(
-        'Seat 14C selected for JD, €12',
-        'polite'
-      );
+      expect(announceSpy).toHaveBeenCalledWith('Seat 14C selected for JD, €12', 'polite');
     });
 
     it('falls back to "passenger" when neither label nor abbr is set', () => {
@@ -1395,14 +2001,9 @@ describe('JetsSeatMapComponent', () => {
         passengers: [],
       });
 
-      component.onTooltipSelect(
-        makeSeat({ number: '14C', price: 12, currency: '€' })
-      );
+      component.onTooltipSelect(makeSeat({ number: '14C', price: 12, currency: '€' }));
 
-      expect(announceSpy).toHaveBeenCalledWith(
-        'Seat 14C selected for passenger, €12',
-        'polite'
-      );
+      expect(announceSpy).toHaveBeenCalledWith('Seat 14C selected for passenger, €12', 'polite');
     });
 
     it('announces unselect with the seat number (polite)', () => {
@@ -1425,8 +2026,7 @@ describe('JetsSeatMapComponent', () => {
       Object.defineProperty(component, 'mapContainer', {
         value: {
           nativeElement: {
-            querySelector: (sel: string) =>
-              sel.includes('1A') ? triggerEl : null,
+            querySelector: (sel: string) => (sel.includes('1A') ? triggerEl : null),
           },
         },
         configurable: true,
@@ -1458,16 +2058,24 @@ describe('JetsSeatMapComponent', () => {
       component.content = [
         {
           rows: [
-            { id: 'r1', name: '1', seats: [
-              makeSeat({ id: 's-1a', number: '1A', letter: 'A' }),
-              makeSeat({ id: 's-1b', number: '1B', letter: 'B' }),
-              makeSeat({ id: 's-1c', number: '1C', letter: 'C' }),
-            ]},
-            { id: 'r2', name: '2', seats: [
-              makeSeat({ id: 's-2a', number: '2A', letter: 'A' }),
-              makeSeat({ id: 's-2b', number: '2B', letter: 'B' }),
-              makeSeat({ id: 's-2c', number: '2C', letter: 'C' }),
-            ]},
+            {
+              id: 'r1',
+              name: '1',
+              seats: [
+                makeSeat({ id: 's-1a', number: '1A', letter: 'A' }),
+                makeSeat({ id: 's-1b', number: '1B', letter: 'B' }),
+                makeSeat({ id: 's-1c', number: '1C', letter: 'C' }),
+              ],
+            },
+            {
+              id: 'r2',
+              name: '2',
+              seats: [
+                makeSeat({ id: 's-2a', number: '2A', letter: 'A' }),
+                makeSeat({ id: 's-2b', number: '2B', letter: 'B' }),
+                makeSeat({ id: 's-2c', number: '2C', letter: 'C' }),
+              ],
+            },
           ],
           number: 1,
           scale: 1,
@@ -1615,7 +2223,7 @@ describe('JetsSeatMapComponent', () => {
       expect(tooltipSpy).not.toHaveBeenCalled();
     });
 
-    it('onSeatMouseLeave defers the close by ~80ms (SC 1.4.13 hoverable)', () => {
+    it('onSeatMouseLeave defers the close (SC 1.4.13 hoverable)', () => {
       component.config = makeConfig({ tooltipOnHover: true });
       component.onSeatMouseEnter({
         seat: makeSeat(),
@@ -1631,7 +2239,7 @@ describe('JetsSeatMapComponent', () => {
         });
         // Tooltip must still be open immediately after mouseleave.
         expect(component.activeTooltip).toBeTruthy();
-        vi.advanceTimersByTime(79);
+        vi.advanceTimersByTime(299);
         expect(component.activeTooltip).toBeTruthy();
         vi.advanceTimersByTime(2);
         expect(component.activeTooltip).toBeNull();
@@ -1676,7 +2284,7 @@ describe('JetsSeatMapComponent', () => {
         component.onTooltipMouseEnter();
         component.onTooltipMouseLeave();
         expect(component.activeTooltip).toBeTruthy();
-        vi.advanceTimersByTime(100);
+        vi.advanceTimersByTime(301);
         expect(component.activeTooltip).toBeNull();
       } finally {
         vi.useRealTimers();

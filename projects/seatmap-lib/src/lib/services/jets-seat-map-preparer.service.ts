@@ -32,6 +32,39 @@ import {
   ENTITY_STATUS_MAP,
   ENTITY_TYPE_MAP,
 } from '../constants';
+import { BULK_SCALE_BY_ID, DEFAULT_BULK_SCALE } from './bulk-template.service';
+import { getNativeRowHeight } from '../utils/cabin-utils';
+
+/**
+ * Default native-unit gap inserted between a row's physical bbox and a
+ * neighbouring bulk when the source API data places them with overlap. A few
+ * native units render as 2-3 px at the typical deck scale — small enough not
+ * to redraw correct layouts (the algorithm short-circuits when no overlap is
+ * detected) but large enough to visibly separate the seat and the partition.
+ * Override via `IConfig.partitionGap`; pass `0` to disable.
+ */
+const DEFAULT_PARTITION_GAP = 4;
+
+/**
+ * Floor for a bulk's native height after the collision pass. If the algorithm
+ * would shrink the bulk below either of these limits, the change is reverted
+ * (silent skip — keep the visible overlap rather than render a degenerate
+ * partition). The fraction floor stays low (20 %) on purpose: with the default
+ * 4-unit gap a real-world overlap shrinks the bulk by at most a few percent,
+ * and we'd rather a heavily-eaten partition still render trimmed than fall
+ * back to a visible row/bulk collision.
+ */
+const MIN_BULK_NATIVE_HEIGHT = 8;
+const MIN_BULK_HEIGHT_FRACTION = 0.2;
+
+/**
+ * Per-item identifier for prepared feature/measurement entries.
+ * Mirrors React's `Utils.generateId()` — used as a stable `track by` key when
+ * consumers loop over `seat.features` / `seat.measurements`.
+ */
+function genFeatureId(): string {
+  return '_' + Math.random().toString(36).substring(2, 9);
+}
 
 @Injectable({ providedIn: 'root' })
 export class JetsSeatMapPreparerService {
@@ -163,6 +196,10 @@ export class JetsSeatMapPreparerService {
 
     const extras = this._buildExtras(deck, noseType);
 
+    if (extras.bulks?.length) {
+      extras.bulks = this._resolveBulkOverlaps(renderedRows, extras.bulks, this._resolvePartitionGap(config));
+    }
+
     return {
       rows: renderedRows,
       number: deck.number ?? deckIndex + 1,
@@ -171,6 +208,7 @@ export class JetsSeatMapPreparerService {
       scale,
       deckWidth,
       nativeDeckWidth,
+      biggestSeatRowWidth: this._computeBiggestSeatRowWidth(rows),
     };
   }
 
@@ -262,11 +300,12 @@ export class JetsSeatMapPreparerService {
       const rawSeatType = typeof s.type === 'number' ? s.type : s.seatType;
       const seatIconType = rawSeatType || rowSeatType || DEFAULT_SEAT_TYPE;
       const { features: seatFeatures, measurements } = this._prepareSeatFeaturesNew(s, lang, units);
-      // Merge flight-level amenities with per-seat features, avoiding duplicates by icon
-      const flightIcons = new Set(flightAmenities.map(a => a.icon));
-      const seatAmenities = seatFeatures.filter(f => f.value == null && !flightIcons.has(f.icon));
-      const seatDimensions = seatFeatures.filter(f => f.value != null);
-      const features = [...flightAmenities, ...seatAmenities, ...seatDimensions];
+      // Merge flight-level amenities with per-seat amenities, dedup by feature key
+      // (icon is now an SVG string — comparing icons no longer makes sense).
+      // Measurements stay in their own array, mirroring React's shape.
+      const flightKeys = new Set(flightAmenities.map(a => a.key).filter(Boolean));
+      const seatAmenities = seatFeatures.filter(f => !f.key || !flightKeys.has(f.key));
+      const features = [...flightAmenities, ...seatAmenities];
       // React parity (data-preparer.js:371): score-range colour wins over the
       // API's `seat.color`. The customSeatColorRanges contract is "the theme
       // overrides whatever the seat ships with for this score band" — so the
@@ -282,8 +321,10 @@ export class JetsSeatMapPreparerService {
         s.color ??
         undefined;
 
+      const classCode = (row.classCode ?? row.cabinClass ?? s.classType ?? 'E').toUpperCase();
       return {
         id: `seat-${rowIndex}-${i}`,
+        uniqId: genFeatureId(),
         letter,
         type: ENTITY_TYPE_MAP.seat,
         status:
@@ -296,7 +337,10 @@ export class JetsSeatMapPreparerService {
         originalColor: seatColor,
         score: s.score,
         rotation: this._mapRotation(s.rotation),
-        classType: (row.classCode ?? row.cabinClass ?? s.classType ?? 'E').toUpperCase(),
+        classCode,
+        classType: classCode,
+        // React's composite identifier: `${classCode}-${seatIconType}` (e.g. 'B-13').
+        seatType: `${classCode}-${seatIconType}`,
         seatIconType,
         features,
         measurements,
@@ -369,154 +413,97 @@ export class JetsSeatMapPreparerService {
     const features: ISeatFeature[] = [];
     const measurements: ISeatFeature[] = [];
 
-    // Measurements: pitch/width/recline
+    // Measurements (pitch/width/recline) live in their own array, mirroring
+    // React's `seat.measurements`. They may arrive on the seat object at the
+    // top level or nested under `features`.
     const pitch = seat.pitch ?? seat.features?.pitch;
     const width = seat.width ?? seat.features?.width;
     const recline = seat.recline ?? seat.features?.recline;
 
-    // Pitch/width/recline may be top-level on the seat object
-    if (seat.pitch)
-      features.push({
-        title: 'Seat pitch',
-        value: this._convertUnit(seat.pitch, units),
+    if (pitch != null)
+      measurements.push({
         key: 'pitch',
+        icon: SEAT_MEASUREMENTS_ICONS['pitch'] ?? '',
+        title: locale['pitch'] ?? 'Pitch',
+        uniqId: genFeatureId(),
+        value: this._convertUnit(pitch, units),
       });
-    if (seat.width)
-      features.push({
-        title: 'Seat width',
-        value: this._convertUnit(seat.width, units),
+    if (width != null)
+      measurements.push({
         key: 'width',
+        icon: SEAT_MEASUREMENTS_ICONS['width'] ?? '',
+        title: locale['width'] ?? 'Width',
+        uniqId: genFeatureId(),
+        value: this._convertUnit(width, units),
       });
-    if (seat.recline)
-      features.push({
-        title: 'Seat recline',
-        value: this._convertUnit(seat.recline, units),
+    if (recline != null)
+      measurements.push({
         key: 'recline',
+        icon: SEAT_MEASUREMENTS_ICONS['recline'] ?? '',
+        title: locale['recline'] ?? 'Recline',
+        uniqId: genFeatureId(),
+        value: this._convertUnit(recline, units),
       });
 
     const f = seat.features;
     if (!f) return { features, measurements };
 
-    // features.pitch/width/recline (nested) take precedence if present
-    if (f.pitch && !seat.pitch)
-      features.push({
-        title: 'Seat pitch',
-        value: this._convertUnit(f.pitch, units),
-        key: 'pitch',
-      });
-    if (f.width && !seat.width)
-      features.push({
-        title: 'Seat width',
-        value: this._convertUnit(f.width, units),
-        key: 'width',
-      });
-    if (f.recline && !seat.recline)
-      features.push({
-        title: 'Seat recline',
-        value: this._convertUnit(f.recline, units),
-        key: 'recline',
-      });
-
     // Helper: React treats any truthy value (true, '+', '-') as feature present.
-    const has = (v: any): boolean => v === true || v === '+' || v === '-';
+    const has = (v: unknown): boolean => v === true || v === '+' || v === '-';
+    // Positive amenity: short localized title, raw API value, icon by key (SVG).
+    const pushPositive = (key: string, apiValue: unknown, opts: { iconKey?: string; titleKey?: string } = {}) => {
+      const iconKey = opts.iconKey ?? key;
+      features.push({
+        key,
+        icon: SEAT_FEATURES_ICONS[iconKey] ?? SEAT_FEATURES_ICONS['+'] ?? '',
+        title: locale[opts.titleKey ?? key] ?? key,
+        uniqId: genFeatureId(),
+        value: typeof apiValue === 'string' && apiValue !== '+' && apiValue !== '-' ? apiValue : true,
+      });
+    };
+    // Negative amenity: title null, localized phrase moves into `value`,
+    // icon is the React "minus" glyph.
+    const pushNegative = (key: string) => {
+      features.push({
+        key,
+        icon: SEAT_FEATURES_ICONS['-'] ?? '',
+        title: null,
+        uniqId: genFeatureId(),
+        value: locale[key] ?? key,
+      });
+    };
 
-    // Amenities — descriptive titles matching React component style
-    if (has(f.audioVideo))
-      features.push({ title: 'Free on demand entertainment', icon: 'audioVideo', key: 'audioVideo' });
+    if (has(f.audioVideo)) pushPositive('audioVideo', f.audioVideo);
 
-    // Combine power + USB into single amenity when both present
+    // Combine power + USB into single amenity when both present.
     const hasPower = has(f.powerOutlet);
     const hasUsb = has(f.usbPort);
     if (hasPower && hasUsb) {
-      features.push({ title: 'Power available: AC/USB', icon: 'power', key: 'powerOutlet' });
+      pushPositive('powerOutlet', f.powerOutlet, { iconKey: 'power', titleKey: 'usbPowerPlug' });
     } else if (hasPower) {
-      features.push({ title: 'Power outlet', icon: 'power', key: 'powerOutlet' });
+      pushPositive('powerOutlet', f.powerOutlet, { iconKey: 'power', titleKey: 'powerPlug' });
     } else if (hasUsb) {
-      features.push({ title: 'USB charging', icon: 'usb', key: 'usbPort' });
+      pushPositive('usbPort', f.usbPort, { iconKey: 'usb', titleKey: 'usbPlug' });
     }
 
-    if (has(f.wifiEnabled)) features.push({ title: 'Wi-Fi enabled', icon: 'wifi', key: 'wifiEnabled' });
-    if (has(f.bluetooth)) features.push({ title: 'Bluetooth', icon: 'bluetooth', key: 'bluetooth' });
-    if (has(f.extraLegroom)) features.push({ title: 'Extra legroom', key: 'extraLegroom' });
-    if (has(f.restrictedLegroom))
-      features.push({
-        title: 'Restricted legroom',
-        icon: 'negative',
-        negative: true,
-        key: 'restrictedLegroom',
-      });
+    // React uses `wifi` as the public feature key (not `wifiEnabled`) — see
+    // jets-seatmap-react-lib-pub/src/common/data-preparer.js:99. The raw API
+    // field is still `wifiEnabled`; only the emitted key/locale lookup change.
+    if (has(f.wifiEnabled)) pushPositive('wifi', f.wifiEnabled, { iconKey: 'wifi' });
+    if (has(f.bluetooth)) pushPositive('bluetooth', f.bluetooth);
+    if (has(f.extraLegroom)) pushPositive('extraLegroom', f.extraLegroom);
 
-    // Negative/warning amenities
-    if (has(f.nearGalley))
-      features.push({
-        title: locale['nearGalley'] ?? 'Close to galleys',
-        icon: 'negative',
-        negative: true,
-        key: 'nearGalley',
-      });
-    if (has(f.nearLavatory))
-      features.push({
-        title: locale['nearLavatory'] ?? 'Close to restrooms',
-        icon: 'negative',
-        negative: true,
-        key: 'nearLavatory',
-      });
-    if (has((f as any)['nearStairs']))
-      features.push({
-        title: locale['nearStairs'] ?? 'Stairs, heavy traffic area',
-        icon: 'negative',
-        negative: true,
-        key: 'nearStairs',
-      });
-    if (has(f.noFloorStorage))
-      features.push({
-        title: locale['noFloorStorage'] ?? 'No underseat storage',
-        icon: 'negative',
-        negative: true,
-        key: 'noFloorStorage',
-      });
-    if (has((f as any)['noOverheadStorage']))
-      features.push({
-        title: locale['noOverheadStorage'] ?? 'Limited storage space',
-        icon: 'negative',
-        negative: true,
-        key: 'noOverheadStorage',
-      });
-    if (has(f.getColdByExit))
-      features.push({
-        title: locale['getColdByExit'] ?? 'Close to exit, drafts and chilly',
-        icon: 'negative',
-        negative: true,
-        key: 'getColdByExit',
-      });
-    if (has(f.misalignedWindow))
-      features.push({
-        title: locale['misalignedWindow'] ?? 'Partial or no window view',
-        icon: 'negative',
-        negative: true,
-        key: 'misalignedWindow',
-      });
-    if (has(f.wingInWindow))
-      features.push({
-        title: locale['wingInWindow'] ?? 'Wing view from window',
-        icon: 'negative',
-        negative: true,
-        key: 'wingInWindow',
-      });
-    if (has(f.limitedRecline))
-      features.push({
-        title: locale['limitedRecline'] ?? 'Restricted recline',
-        icon: 'negative',
-        negative: true,
-        key: 'limitedRecline',
-      });
-    if (has(f.trayTableInArmrest))
-      features.push({
-        title: locale['trayTableInArmrest'] ?? 'Tray table in armrest',
-        icon: 'negative',
-        negative: true,
-        key: 'trayTableInArmrest',
-      });
+    if (has(f.restrictedLegroom)) pushNegative('restrictedLegroom');
+    if (has(f.nearGalley)) pushNegative('nearGalley');
+    if (has(f.nearLavatory)) pushNegative('nearLavatory');
+    if (has((f as Record<string, unknown>)['nearStairs'])) pushNegative('nearStairs');
+    if (has(f.noFloorStorage)) pushNegative('noFloorStorage');
+    if (has((f as Record<string, unknown>)['noOverheadStorage'])) pushNegative('noOverheadStorage');
+    if (has(f.getColdByExit)) pushNegative('getColdByExit');
+    if (has(f.misalignedWindow)) pushNegative('misalignedWindow');
+    if (has(f.wingInWindow)) pushNegative('wingInWindow');
+    if (has(f.limitedRecline)) pushNegative('limitedRecline');
+    if (has(f.trayTableInArmrest)) pushNegative('trayTableInArmrest');
 
     return { features, measurements };
   }
@@ -546,6 +533,109 @@ export class JetsSeatMapPreparerService {
       : undefined;
 
     return { exits, bulks, wingsInfo, noseType };
+  }
+
+  // ─── Bulk / row overlap resolution ──────────────────────────────────────────
+
+  private _resolvePartitionGap(config: IConfig): number {
+    const raw = config.partitionGap;
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return DEFAULT_PARTITION_GAP;
+    return raw;
+  }
+
+  /**
+   * Shift / shrink bulks that physically overlap the rows above or below them.
+   *
+   * Why this exists — the renderer uses two independent coordinate systems:
+   * rows flow with a CSS `margin-top` derived from `(row.topOffset - prev) * scale - prevRowHeight`,
+   * while bulks are absolutely positioned with `bulk.topOffset * scale + topAdjust`.
+   * When the source API places a row whose native height (max seat height from
+   * SEAT_SIZE_BY_TYPE) is larger than the slot between its topOffset and the
+   * neighbouring bulk's topOffset, the seat visually overlaps the partition
+   * (UA953 ORD→MUC row 5 over the fish lavatory; row 22/30 over the divider).
+   *
+   * The fix runs only when an actual native overlap is detected — same-or-adjacent
+   * boxes are left alone, so the algorithm is a no-op for already-correct layouts.
+   * When a row above bites into the bulk's top, the bulk is pushed down (and its
+   * height shrunk by the same amount). When a row below bites into the bulk's
+   * bottom, the bulk's height is trimmed. If either adjustment would shrink the
+   * bulk below `MIN_BULK_NATIVE_HEIGHT` or below half its original height, the
+   * change is reverted — better to keep the overlap than render a degenerate
+   * sliver. Pass `gap = 0` to disable the fix; the source-data semantics are
+   * never mutated, only the rendered bulk geometry.
+   *
+   * Both axes are in native (unscaled) API units. Bulk visual height comes from
+   * `bulk.height * bulkScale` (see `jets-bulk.component.ts` line 186), so the
+   * native bbox of a bulk is `[topOffset, topOffset + height * bulkScale]`.
+   * The returned `height` is divided by `bulkScale` so that the renderer's
+   * `height * bulkScale * scale` still produces the desired pixel height.
+   */
+  private _resolveBulkOverlaps(rows: IRowData[], bulks: IBulkData[], gap: number): IBulkData[] {
+    // gap <= 0 is the documented opt-out: skip the pass entirely so the
+    // rendered geometry matches the pre-fix behaviour bit-for-bit.
+    if (!bulks.length || !rows.length || gap <= 0) return bulks;
+
+    const rowBoxes: Array<{ top: number; bottom: number }> = [];
+    for (const r of rows) {
+      if (r.topOffset == null) continue;
+      const h = getNativeRowHeight(r);
+      if (h <= 0) continue;
+      rowBoxes.push({ top: r.topOffset, bottom: r.topOffset + h });
+    }
+    if (!rowBoxes.length) return bulks;
+
+    return bulks.map(b => {
+      if (b.topOffset == null || b.height == null || b.height <= 0) return b;
+
+      const idStr = String(b.id ?? '0');
+      const bulkScale = BULK_SCALE_BY_ID[idStr] ?? DEFAULT_BULK_SCALE;
+      if (bulkScale <= 0) return b;
+
+      const originalTop = b.topOffset;
+      const originalNativeH = b.height * bulkScale;
+      if (originalNativeH <= 0) return b;
+
+      let top = originalTop;
+      let nativeH = originalNativeH;
+
+      // Row whose bottom edge bites into the bulk's top (row sits above and overlaps).
+      let maxRowBottomAbove = -Infinity;
+      for (const rb of rowBoxes) {
+        if (rb.top < top && rb.bottom > top) {
+          if (rb.bottom > maxRowBottomAbove) maxRowBottomAbove = rb.bottom;
+        }
+      }
+      if (maxRowBottomAbove > -Infinity) {
+        const delta = maxRowBottomAbove + gap - top;
+        if (delta > 0) {
+          top += delta;
+          nativeH -= delta;
+        }
+      }
+
+      // Row whose top edge bites into the bulk's bottom (row sits below and overlaps).
+      const bottom = top + nativeH;
+      let minRowTopBelow = Infinity;
+      for (const rb of rowBoxes) {
+        if (rb.bottom > bottom && rb.top < bottom) {
+          if (rb.top < minRowTopBelow) minRowTopBelow = rb.top;
+        }
+      }
+      if (minRowTopBelow < Infinity) {
+        const newHeight = minRowTopBelow - gap - top;
+        if (newHeight < nativeH) nativeH = newHeight;
+      }
+
+      // No change vs original — keep the input reference so caller can spot a no-op cheaply.
+      if (top === originalTop && nativeH === originalNativeH) return b;
+
+      // Silent skip if the adjustment would degrade the bulk below the safety floor.
+      if (nativeH < MIN_BULK_NATIVE_HEIGHT || nativeH < originalNativeH * MIN_BULK_HEIGHT_FRACTION) {
+        return b;
+      }
+
+      return { ...b, topOffset: top, height: nativeH / bulkScale };
+    });
   }
 
   // ─── Legacy API format (seatScheme strings) ─────────────────────────────────
@@ -624,13 +714,24 @@ export class JetsSeatMapPreparerService {
       preparedRows.push(rendered);
     }
 
+    const legacyExtras = this._buildExtras(deck, noseType);
+
+    if (legacyExtras.bulks?.length) {
+      legacyExtras.bulks = this._resolveBulkOverlaps(
+        preparedRows,
+        legacyExtras.bulks,
+        this._resolvePartitionGap(config)
+      );
+    }
+
     return {
       rows: preparedRows,
       number: deck.number ?? deckIndex + 1,
-      extras: this._buildExtras(deck, noseType),
+      extras: legacyExtras,
       scale,
       deckWidth,
       nativeDeckWidth,
+      biggestSeatRowWidth: this._computeBiggestSeatRowWidth(deck.rows),
     };
   }
 
@@ -715,11 +816,11 @@ export class JetsSeatMapPreparerService {
         newSeat,
         config.units
       );
-      // Merge flight-level amenities with per-seat features, avoiding duplicates by icon
-      const flightIcons = new Set(flightAmenities.map(a => a.icon));
-      const seatAmenities = seatFeatures.filter(f => f.value == null && !flightIcons.has(f.icon));
-      const seatDimensions = seatFeatures.filter(f => f.value != null);
-      const features = [...flightAmenities, ...seatAmenities, ...seatDimensions];
+      // Merge flight-level amenities with per-seat amenities, dedup by feature key.
+      // Measurements stay in their own array (React-aligned shape).
+      const flightKeys = new Set(flightAmenities.map(a => a.key).filter(Boolean));
+      const seatAmenities = seatFeatures.filter(f => !f.key || !flightKeys.has(f.key));
+      const features = [...flightAmenities, ...seatAmenities];
       // Legacy API seats may have extra fields (color, score, available) beyond IApiSeatLegacy
       const legacyAny = legacy as any;
       const seatScore = newSeat?.score ?? legacyAny?.score;
@@ -735,8 +836,10 @@ export class JetsSeatMapPreparerService {
         seatApiColor ??
         undefined;
 
+      const classCode = (row.classCode ?? row.cabinClass ?? newSeat?.classType ?? 'E').toUpperCase();
       return {
         id: `seat-${rowIndex}-${i}`,
+        uniqId: genFeatureId(),
         letter,
         type: ENTITY_TYPE_MAP.seat,
         status:
@@ -749,7 +852,10 @@ export class JetsSeatMapPreparerService {
         originalColor: seatColor,
         score: seatScore,
         rotation: this._mapRotation(newSeat?.rotation),
-        classType: (row.classCode ?? row.cabinClass ?? newSeat?.classType ?? 'E').toUpperCase(),
+        classCode,
+        classType: classCode,
+        // React's composite identifier: `${classCode}-${seatIconType}` (e.g. 'B-13').
+        seatType: `${classCode}-${seatIconTypeResolved}`,
         seatIconType: seatIconTypeResolved,
         features,
         measurements,
@@ -782,7 +888,8 @@ export class JetsSeatMapPreparerService {
     const features: ISeatFeature[] = [];
     const measurements: ISeatFeature[] = [];
 
-    // Pitch/width/recline: prefer seat-level values (new API), fall back to cabin level
+    // Pitch/width/recline: prefer seat-level values (new API), fall back to cabin level.
+    // Land them in the `measurements` array — same shape React emits.
     const seatFeatureKeys = Object.keys(newSeat?.features ?? {});
     const noReclineKeys = ['doNotRecline', 'limitedRecline', 'prereclinedSeat'];
     const isSeatWithoutRecline = seatFeatureKeys.some(k => noReclineKeys.includes(k));
@@ -792,194 +899,105 @@ export class JetsSeatMapPreparerService {
     const rawRecline = newSeat?.recline ?? newSeat?.features?.recline ?? cabin.recline;
     const recline = isSeatWithoutRecline ? '- -' : rawRecline;
 
-    if (pitch)
-      features.push({
-        title: locale['pitch'] ?? 'Seat pitch',
-        value: this._convertUnit(pitch, units),
+    if (pitch != null)
+      measurements.push({
         key: 'pitch',
+        icon: SEAT_MEASUREMENTS_ICONS['pitch'] ?? '',
+        title: locale['pitch'] ?? 'Pitch',
+        uniqId: genFeatureId(),
+        value: this._convertUnit(pitch, units),
       });
-    if (width)
-      features.push({
-        title: locale['width'] ?? 'Seat width',
-        value: this._convertUnit(width, units),
+    if (width != null)
+      measurements.push({
         key: 'width',
+        icon: SEAT_MEASUREMENTS_ICONS['width'] ?? '',
+        title: locale['width'] ?? 'Width',
+        uniqId: genFeatureId(),
+        value: this._convertUnit(width, units),
       });
-    if (recline)
-      features.push({
-        title: locale['recline'] ?? 'Seat recline',
-        value: this._convertUnit(recline, units),
+    if (recline != null)
+      measurements.push({
         key: 'recline',
+        icon: SEAT_MEASUREMENTS_ICONS['recline'] ?? '',
+        title: locale['recline'] ?? 'Recline',
+        uniqId: genFeatureId(),
+        value: this._convertUnit(recline, units),
       });
 
-    // Legacy string features array
+    // Legacy string features array — best-effort key normalization, treat as positive amenities.
     for (const feat of seat?.features ?? []) {
       const key = feat.toLowerCase().replace(/[^a-z]/g, '');
-      const icon = SEAT_FEATURES_ICONS[key] ?? '';
-      features.push({ title: locale[key] ?? feat, icon, key });
+      features.push({
+        key,
+        icon: SEAT_FEATURES_ICONS[key] ?? SEAT_FEATURES_ICONS['+'] ?? '',
+        title: locale[key] ?? feat,
+        uniqId: genFeatureId(),
+        value: feat,
+      });
     }
 
     // New API features object
     const nf = newSeat?.features;
     if (nf) {
-      // Helper: React treats any truthy value (true, '+', '-') as feature present.
-      // '-' means negative/warning, '+' or true means positive.
-      const has = (v: any): boolean => v === true || v === '+' || v === '-';
-      const isNeg = (v: any): boolean => v === '-';
+      const has = (v: unknown): boolean => v === true || v === '+' || v === '-';
+      const isNeg = (v: unknown): boolean => v === '-';
 
-      // Entertainment first
-      if (has(nf.audioVideo)) {
+      const pushPositive = (key: string, apiValue: unknown, opts: { iconKey?: string; titleKey?: string } = {}) => {
+        const iconKey = opts.iconKey ?? key;
         features.push({
-          title: locale['entertainment'] ?? 'Free on demand entertainment',
-          icon: 'audioVideo',
-          key: 'audioVideo',
+          key,
+          icon: SEAT_FEATURES_ICONS[iconKey] ?? SEAT_FEATURES_ICONS['+'] ?? '',
+          title: locale[opts.titleKey ?? key] ?? key,
+          uniqId: genFeatureId(),
+          value: typeof apiValue === 'string' && apiValue !== '+' && apiValue !== '-' ? apiValue : true,
         });
-      }
+      };
+      const pushNegative = (key: string) => {
+        features.push({
+          key,
+          icon: SEAT_FEATURES_ICONS['-'] ?? '',
+          title: null,
+          uniqId: genFeatureId(),
+          value: locale[key] ?? key,
+        });
+      };
+      // For features that can go either way (extraLegroom, exitRow, bassinet): pick by API value.
+      const pushEither = (key: string, apiValue: unknown, opts: { titleKey?: string } = {}) =>
+        isNeg(apiValue) ? pushNegative(key) : pushPositive(key, apiValue, opts);
 
-      // Combine power + USB when both present
+      if (has(nf.audioVideo)) pushPositive('audioVideo', nf.audioVideo);
+
       const hasPower = has(nf.powerOutlet);
       const hasUsb = has(nf.usbPort);
       if (hasPower && hasUsb) {
-        features.push({
-          title: locale['powerAcUsb'] ?? 'Power available: AC/USB',
-          icon: 'power',
-          key: 'powerOutlet',
-        });
+        pushPositive('powerOutlet', nf.powerOutlet, { iconKey: 'power', titleKey: 'usbPowerPlug' });
       } else if (hasPower) {
-        features.push({
-          title: locale['powerOutletOnly'] ?? 'Power outlet',
-          icon: 'power',
-          key: 'powerOutlet',
+        pushPositive('powerOutlet', nf.powerOutlet, {
+          iconKey: 'power',
+          titleKey: 'powerPlug',
         });
       } else if (hasUsb) {
-        features.push({ title: locale['usbOnly'] ?? 'USB charging', icon: 'usb', key: 'usbPort' });
+        pushPositive('usbPort', nf.usbPort, { iconKey: 'usb', titleKey: 'usbPlug' });
       }
 
-      if (has(nf.wifiEnabled)) {
-        features.push({
-          title: locale['wifiEnabled'] ?? 'Wi-Fi enabled',
-          icon: 'wifi',
-          key: 'wifiEnabled',
-        });
-      }
-      if (has(nf.bluetooth)) {
-        features.push({
-          title: locale['bluetooth'] ?? 'Bluetooth',
-          icon: 'bluetooth',
-          key: 'bluetooth',
-        });
-      }
+      if (has(nf.wifiEnabled)) pushPositive('wifiEnabled', nf.wifiEnabled, { iconKey: 'wifi' });
+      if (has(nf.bluetooth)) pushPositive('bluetooth', nf.bluetooth);
 
-      if (has(nf.extraLegroom)) {
-        features.push({
-          title: locale['extra_legroom'] ?? 'Extra legroom',
-          negative: isNeg(nf.extraLegroom),
-          key: 'extraLegroom',
-        });
-      }
-      if (has(nf.exitRow)) {
-        features.push({
-          title: locale['exitRow'] ?? 'Exit row',
-          negative: isNeg(nf.exitRow),
-          key: 'exitRow',
-        });
-      }
-      if (has(nf.bassinet)) {
-        features.push({
-          title: locale['bassinet'] ?? 'Bassinet',
-          negative: isNeg(nf.bassinet),
-          key: 'bassinet',
-        });
-      }
+      if (has(nf.extraLegroom)) pushEither('extraLegroom', nf.extraLegroom, { titleKey: 'extra_legroom' });
+      if (has(nf.exitRow)) pushEither('exitRow', nf.exitRow);
+      if (has(nf.bassinet)) pushEither('bassinet', nf.bassinet);
 
-      // Negative/warning amenities
-      if (has(nf.nearGalley)) {
-        features.push({
-          title: locale['nearGalley'] ?? 'Close to galleys',
-          icon: 'negative',
-          negative: true,
-          key: 'nearGalley',
-        });
-      }
-      if (has(nf.nearLavatory)) {
-        features.push({
-          title: locale['nearLavatory'] ?? 'Close to restrooms',
-          icon: 'negative',
-          negative: true,
-          key: 'nearLavatory',
-        });
-      }
-      if (has((nf as any).nearStairs)) {
-        features.push({
-          title: locale['nearStairs'] ?? 'Stairs, heavy traffic area',
-          icon: 'negative',
-          negative: true,
-          key: 'nearStairs',
-        });
-      }
-      if (has(nf.noFloorStorage)) {
-        features.push({
-          title: locale['noFloorStorage'] ?? 'No underseat storage',
-          icon: 'negative',
-          negative: true,
-          key: 'noFloorStorage',
-        });
-      }
-      if (has((nf as any).noOverheadStorage)) {
-        features.push({
-          title: locale['noOverheadStorage'] ?? 'Limited storage space',
-          icon: 'negative',
-          negative: true,
-          key: 'noOverheadStorage',
-        });
-      }
-      if (has(nf.getColdByExit)) {
-        features.push({
-          title: locale['getColdByExit'] ?? 'Close to exit, drafts and chilly',
-          icon: 'negative',
-          negative: true,
-          key: 'getColdByExit',
-        });
-      }
-      if (has(nf.misalignedWindow)) {
-        features.push({
-          title: locale['misalignedWindow'] ?? 'Partial or no window view',
-          icon: 'negative',
-          negative: true,
-          key: 'misalignedWindow',
-        });
-      }
-      if (has(nf.wingInWindow)) {
-        features.push({
-          title: locale['wingInWindow'] ?? 'Wing view from window',
-          icon: 'negative',
-          negative: true,
-          key: 'wingInWindow',
-        });
-      }
-      if (has(nf.limitedRecline)) {
-        features.push({
-          title: locale['limitedRecline'] ?? 'Restricted recline',
-          icon: 'negative',
-          negative: true,
-          key: 'limitedRecline',
-        });
-      }
-      if (has(nf.trayTableInArmrest)) {
-        features.push({
-          title: locale['trayTableInArmrest'] ?? 'Tray table in armrest',
-          icon: 'negative',
-          negative: true,
-          key: 'trayTableInArmrest',
-        });
-      }
-      if (has(nf.restrictedLegroom)) {
-        features.push({
-          title: locale['restrictedLegroom'] ?? 'Restricted legroom',
-          icon: 'negative',
-          negative: true,
-          key: 'restrictedLegroom',
-        });
-      }
+      if (has(nf.nearGalley)) pushNegative('nearGalley');
+      if (has(nf.nearLavatory)) pushNegative('nearLavatory');
+      if (has((nf as Record<string, unknown>)['nearStairs'])) pushNegative('nearStairs');
+      if (has(nf.noFloorStorage)) pushNegative('noFloorStorage');
+      if (has((nf as Record<string, unknown>)['noOverheadStorage'])) pushNegative('noOverheadStorage');
+      if (has(nf.getColdByExit)) pushNegative('getColdByExit');
+      if (has(nf.misalignedWindow)) pushNegative('misalignedWindow');
+      if (has(nf.wingInWindow)) pushNegative('wingInWindow');
+      if (has(nf.limitedRecline)) pushNegative('limitedRecline');
+      if (has(nf.trayTableInArmrest)) pushNegative('trayTableInArmrest');
+      if (has(nf.restrictedLegroom)) pushNegative('restrictedLegroom');
     }
 
     return { features, measurements };
@@ -995,48 +1013,67 @@ export class JetsSeatMapPreparerService {
     const locale = LOCALES_MAP[lang] ?? LOCALES_MAP['EN'];
     const amenities: ISeatFeature[] = [];
 
+    // React parity (data-preparer.js:87-107 + the seat feature merger): the
+    // localized phrase belongs in `title` (the category label), and the API's
+    // free-form `summary` belongs in `value`. Falling back to `true` when no
+    // summary is present matches React's `cabin[key] = summary` shape after the
+    // subsequent feature mapper turns it into `{ title: locale[key], value: cabin[key] }`.
     if (apiResponse.entertainment?.exists) {
       amenities.push({
-        title: apiResponse.entertainment.summary ?? locale['entertainment'] ?? 'Free on demand entertainment',
-        icon: 'audioVideo',
         key: 'audioVideo',
+        icon: SEAT_FEATURES_ICONS['audioVideo'] ?? '',
+        title: locale['audioVideo'] ?? 'Audio and video on demand',
+        uniqId: genFeatureId(),
+        value: apiResponse.entertainment.summary ?? true,
       });
     }
 
     if (apiResponse.power?.exists) {
       const pw = apiResponse.power;
+      const powerIcon = SEAT_FEATURES_ICONS['power'] ?? '';
       if (pw.powerOutlet && pw.usbPort) {
         amenities.push({
-          title: pw.summary ?? locale['powerAcUsb'] ?? 'Power available: AC/USB',
-          icon: 'power',
-          key: 'powerOutlet',
+          key: 'power',
+          icon: powerIcon,
+          title: locale['usbPowerPlug'] ?? 'USB and power plug',
+          uniqId: genFeatureId(),
+          value: pw.summary ?? true,
         });
       } else if (pw.powerOutlet) {
         amenities.push({
-          title: pw.summary ?? locale['powerOutletOnly'] ?? 'Power outlet',
-          icon: 'power',
-          key: 'powerOutlet',
+          key: 'power',
+          icon: powerIcon,
+          title: locale['powerPlug'] ?? 'Power plug',
+          uniqId: genFeatureId(),
+          value: pw.summary ?? true,
         });
       } else if (pw.usbPort) {
         amenities.push({
-          title: pw.summary ?? locale['usbOnly'] ?? 'USB charging',
-          icon: 'usb',
           key: 'usbPort',
+          icon: SEAT_FEATURES_ICONS['usb'] ?? powerIcon,
+          title: locale['usbPlug'] ?? 'USB plug',
+          uniqId: genFeatureId(),
+          value: pw.summary ?? true,
         });
       } else {
         amenities.push({
-          title: pw.summary ?? locale['power'] ?? 'Power available',
-          icon: 'power',
           key: 'power',
+          icon: powerIcon,
+          title: locale['power'] ?? 'Power plug',
+          uniqId: genFeatureId(),
+          value: pw.summary ?? true,
         });
       }
     }
 
     if (apiResponse.wifi?.exists) {
+      // React uses `wifi` as the key (not `wifiEnabled`) — see data-preparer.js:99.
       amenities.push({
-        title: apiResponse.wifi.summary ?? locale['wifiEnabled'] ?? 'Wi-Fi enabled',
-        icon: 'wifi',
-        key: 'wifiEnabled',
+        key: 'wifi',
+        icon: SEAT_FEATURES_ICONS['wifi'] ?? '',
+        title: locale['wifi'] ?? 'Wi-Fi',
+        uniqId: genFeatureId(),
+        value: apiResponse.wifi.summary ?? true,
       });
     }
 
@@ -1061,9 +1098,23 @@ export class JetsSeatMapPreparerService {
    * Groups by cabin class, finds widest row per class, averages.
    */
   private _computeNativeDeckWidth(rows: IApiRow[]): number {
-    // Group rows CONSECUTIVELY by classCode — matches React's _groupRowsByCabinClass.
-    // Then pick the row with the MOST SEATS per group (matches React's findBiggestDeckRow),
-    // and use its total native width (all elements including aisles).
+    return this._computeDeckRowAvg(rows, /* countAisles */ true);
+  }
+
+  /**
+   * Same shape as `_computeNativeDeckWidth` but mirrors React's
+   * `_dataHelper.findBiggestDeckRow` + `_prepareRow` with `maxRowWidth=0`
+   * (data-preparer.js:164,304-313): aisle elements get width 0, so the
+   * resulting average is `seats × nativeW` only. Feeds the `displayScale`
+   * derivation in `JetsSeatMapComponent` — keeping it independent of the
+   * aisle-inflated `nativeDeckWidth` lets row layout stay correct (aisles
+   * visible) while the contour scale matches React.
+   */
+  private _computeBiggestSeatRowWidth(rows: IApiRow[]): number {
+    return this._computeDeckRowAvg(rows, /* countAisles */ false);
+  }
+
+  private _computeDeckRowAvg(rows: IApiRow[], countAisles: boolean): number {
     interface GroupEntry {
       classCode: string;
       bestSeatCount: number;
@@ -1094,19 +1145,25 @@ export class JetsSeatMapPreparerService {
         seatCount = (scheme.match(/S/g) ?? []).length;
         const seatType = row.seatType ?? DEFAULT_SEAT_TYPE;
         const [nativeW] = SEAT_SIZE_BY_TYPE[seatType] ?? [100, 100];
-        nativeRowWidth = scheme.length * nativeW;
+        // countAisles=true → `scheme.length × nativeW` (preparer needs aisle
+        // budget downstream; see `_prepareRowNew` line 230 distributing
+        // `remaining` to aisles).
+        // countAisles=false → `seatCount × nativeW` (React parity for the
+        // displayScale denominator — `data-preparer.js:304-313` collapses
+        // aisle widths to 0 when `maxRowWidth=0`).
+        nativeRowWidth = (countAisles ? scheme.length : seatCount) * nativeW;
       } else {
         const seats = row.seats ?? [];
         const rowSeatType = row.seatType ?? DEFAULT_SEAT_TYPE;
         const [nativeW] = SEAT_SIZE_BY_TYPE[rowSeatType] ?? [100, 100];
-        nativeRowWidth = seats.length * nativeW;
-        // Count non-aisle seats
+        let totalLen = 0;
         for (const s of seats) {
           if (this._apiSeatType(s) !== ENTITY_TYPE_MAP.aisle) seatCount++;
+          totalLen++;
         }
+        nativeRowWidth = (countAisles ? totalLen : seatCount) * nativeW;
       }
 
-      // Pick row with most seats (like React's findBiggestDeckRow sort by S-count)
       if (seatCount > bestSeatCount) {
         bestSeatCount = seatCount;
         bestRowWidth = nativeRowWidth;
@@ -1117,8 +1174,7 @@ export class JetsSeatMapPreparerService {
     }
 
     const sum = groups.reduce((acc, g) => acc + g.bestRowWidth, 0);
-    const result = groups.length > 0 ? sum / groups.length : 1;
-    return result;
+    return groups.length > 0 ? sum / groups.length : 1;
   }
 
   /**
@@ -1136,7 +1192,11 @@ export class JetsSeatMapPreparerService {
     const DECK_PADDING = 10;
     const FUSELAGE_OUTLINE = 12;
     const innerDeckWidth = nativeDeckWidth + (DECK_PADDING + FUSELAGE_OUTLINE) * 2;
-    const maxDeckWidth = innerDeckWidth + fuselageStrokeWidth * 2 + sideSpace * 2;
+    // Reserve body border (fuselageStrokeWidth) AND the `fuselageFillColor`
+    // lining on each side — the lining mirrors React's
+    // `borderWidth = max((innerW - deck.width)*0.5 - fuselageStrokeWidth, fuselageStrokeWidth)`
+    // (PlaneBody/index.js:86-94), minimum width == fuselageStrokeWidth.
+    const maxDeckWidth = innerDeckWidth + fuselageStrokeWidth * 4 + sideSpace * 2;
     const scale = maxDeckWidth > 0 ? containerWidth / maxDeckWidth : 1;
 
     return { scale, deckWidth: innerDeckWidth * scale };
@@ -1144,7 +1204,13 @@ export class JetsSeatMapPreparerService {
 
   /** Map API rotation string → TSeatRotation CSS class suffix */
   private _mapRotation(apiRotation: string | undefined): import('../types').TSeatRotation {
+    // React passes the API rotation through verbatim — see Seat fixtures
+    // (rotation: 'n') and SeatMap's class builder which interprets 'n' as
+    // "no rotate" via the truthy check. We do the same: any known direction
+    // wins, everything else (including the unmapped empty string from old
+    // payloads) becomes 'n' so the emitted shape always carries a value.
     const map: Record<string, import('../types').TSeatRotation> = {
+      n: 'n',
       nw: 'nw',
       nw45: 'nw45',
       ne: 'ne',
@@ -1152,10 +1218,8 @@ export class JetsSeatMapPreparerService {
       s: 's',
       se: 'se',
       sw: 'sw',
-      n: '',
-      '': '',
     };
-    return map[apiRotation ?? ''] ?? '';
+    return map[apiRotation ?? ''] ?? 'n';
   }
 
   private _calculateSeatSize(mapWidth: number, rowSize: number): number {
@@ -1221,14 +1285,23 @@ export class JetsSeatMapPreparerService {
     return merged;
   }
 
-  /** Prepare additionalProps from availability for tooltip rendering */
+  /**
+   * Prepare integrator-defined `availability[].additionalProps` for tooltip
+   * rendering. Mirrors React's `data-preparer.js#prepareSeatAdditionalProps`:
+   * each item turns into an `ISeatFeature` with the icon resolved from
+   * `SEAT_FEATURES_ICONS` (key fallback: `'dot'`), the integrator label landing
+   * in `value`, and a fresh `uniqId` for `@for ... track`. `title` is `''`
+   * (not `null`) so the tooltip's negative-amenity styling does not fire on
+   * these rows — React doesn't apply it to additionalProps either.
+   */
   prepareSeatAdditionalProps(
-    additionalProps?: Array<{ type: string; icon?: string; label?: string; cssClass?: string }>
+    additionalProps?: Array<{ icon?: string | null; label?: string; cssClass?: string }>
   ): ISeatFeature[] {
     if (!additionalProps?.length) return [];
     return additionalProps.map(item => ({
+      uniqId: genFeatureId(),
       icon: SEAT_FEATURES_ICONS[item.icon ?? 'dot'] ?? '',
-      title: null,
+      title: '',
       value: item.label,
       cssClass: item.cssClass,
     }));

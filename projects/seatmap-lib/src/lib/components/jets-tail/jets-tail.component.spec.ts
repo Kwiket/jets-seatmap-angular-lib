@@ -26,9 +26,19 @@ describe('JetsTailComponent', () => {
     expect(component.width).toBe(320);
   });
 
-  it('should accept a custom hullColor', () => {
-    component.colorTheme = { hullColor: '#abcdef' } as any;
+  it('should paint the tail with fuselageFillColor', () => {
+    fixture.componentRef.setInput('colorTheme', { fuselageFillColor: '#abcdef' });
     fixture.detectChanges();
-    expect(component.colorTheme?.hullColor).toBe('#abcdef');
+    const html: string = fixture.nativeElement.innerHTML;
+    expect(html).toContain('#abcdef');
+  });
+
+  it('should scale stroke-width by fuselageStrokeWidth', () => {
+    fixture.componentRef.setInput('width', 200);
+    fixture.componentRef.setInput('colorTheme', { fuselageStrokeWidth: 18 });
+    fixture.detectChanges();
+    // width=200 with viewBox 200 → scale factor 1, so stroke renders as 18 SVG units
+    const html: string = fixture.nativeElement.innerHTML;
+    expect(html).toContain('stroke-width:18');
   });
 });

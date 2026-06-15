@@ -1,0 +1,88 @@
+name: Bootstrap publish (first npm version only)
+
+# One-time bootstrap workflow. npm Trusted Publishing requires the package
+# to already exist in the registry before a Trusted Publisher can be added
+# (the npmjs.com settings page is per-package and only shows up once the
+# package has been published at least once - see npm/cli#8544).
+#
+# This workflow publishes the very first version of @seatmaps.com/angular-lib
+# using the classic NPM_TOKEN secret. Provenance still attaches because
+# `id-token: write` lets npm sign the Sigstore attestation with the GitHub
+# Actions OIDC token, independently of how publish auth works.
+#
+# AFTER the first successful run:
+#   1. configure Trusted Publisher on npmjs.com (see INSTRUCTIONS_FOR_ADMIN.md)
+#   2. delete this file - all subsequent releases must go through publish.yml
+#      (OIDC, no long-lived token).
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-publish:
+    name: Bootstrap publish @seatmaps.com/angular-lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Reuse the same approval gate as publish.yml so a reviewer signs off
+    # on the bootstrap publish too.
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/@seatmaps.com/angular-lib
+
+    permissions:
+      contents: read
+      id-token: write # required for Sigstore provenance, even with NPM_TOKEN auth
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - name: Upgrade npm to >= 11.5.1 (required for provenance attestation)
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build library
+        # build:lib already copies LICENSE into dist/seatmap-lib (see commit e903dec).
+        run: npm run build:lib
+
+      - name: Guard - no API secrets in the dist artifact
+        working-directory: dist/seatmap-lib
+        run: |
+          # Print the exact file list npm would publish.
+          npm pack --dry-run
+
+          # README.md / LICENSE are docs; the README documents API_APP_ID
+          # and API_KEY as placeholder field names and would otherwise
+          # trigger a false positive.
+          if grep -rIEn \
+              --exclude='README.md' \
+              --exclude='LICENSE' \
+              'SEATMAP_API|API_APP_ID|API_KEY|APP_ID|APP_KEY|env-config\.js' .; then
+            echo "::error::Secret-bearing token found in built artifact; refusing to publish."
+            exit 1
+          fi
+
+      - name: Publish to npm with provenance (auth via NPM_TOKEN)
+        # publishConfig.provenance: true in projects/seatmap-lib/package.json
+        # already opts in; --provenance is restated here as defence in depth.
+        # NODE_AUTH_TOKEN is consumed by the ~/.npmrc that setup-node wrote
+        # for registry.npmjs.org.
+        run: npm publish --provenance --access public
+        working-directory: dist/seatmap-lib
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

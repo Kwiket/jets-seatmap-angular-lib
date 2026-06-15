@@ -2,21 +2,15 @@
 <ng-container *ngTemplateOutlet="seatmapContent" />
 
 <ng-template #seatmapContent>
-  <section
-    class="jets-seat-map__region"
-    role="region"
-    [attr.aria-labelledby]="mapHeadingId"
-  >
+  <section class="jets-seat-map__region" role="region" [attr.aria-labelledby]="mapHeadingId">
     <!-- Visually-hidden landmark heading (region name for AT) -->
     <h2 [id]="mapHeadingId" class="jets-seat-map__heading">{{ mapHeadingText }}</h2>
 
     <!-- Skip link: visually-hidden until focused. Lets keyboard users skip
          past the entire grid to whatever follows the seat map. -->
-    <a
-      class="jets-seat-map__skip-link"
-      [attr.href]="'#' + afterId"
-      (click)="onSkipLinkClick($event)"
-    >{{ skipLinkLabel }}</a>
+    <a class="jets-seat-map__skip-link" [attr.href]="'#' + afterId" (click)="onSkipLinkClick($event)">{{
+      skipLinkLabel
+    }}</a>
 
     <div
       #mapContainer
@@ -33,154 +27,160 @@
       (keydown)="onGridKeydown($event)"
       (focusin)="onGridFocusin($event)"
     >
-    <!-- Built-in tooltip (or user-provided override).
+      <!-- Built-in tooltip (or user-provided override).
          (mouseenter)/(mouseleave) implement SC 1.4.13 "hoverable" — moving
          the cursor from the seat into the tooltip cancels the delayed close
-         scheduled by `onSeatMouseLeave`. (keydown.escape) implements
-         SC 1.4.13 "dismissable" when focus is INSIDE the tooltip (e.g. on
-         the Select / Cancel buttons) — the global Escape handler on the
-         grid only fires when focus is still on a seat.
+         scheduled by `onSeatMouseLeave`, so in-tooltip buttons remain
+         clickable. (keydown.escape) implements SC 1.4.13 "dismissable" when
+         focus is INSIDE the tooltip (e.g. on the Select / Cancel buttons)
+         — the global Escape handler on the grid only fires when focus is
+         still on a seat.
          The override branch is wrapped in a host <div> so it can carry the
-         same event bindings as the built-in tooltip; component outlets
+         same event bindings as the built-in tooltip; *ngComponentOutlet
          can't take event bindings directly. -->
-    @if (activeTooltip && resolvedConfig.builtInTooltip !== false) {
-      @if (tooltipOverride) {
-        <div
-          class="jets-seat-map__tooltip-host"
-          (mouseenter)="onTooltipMouseEnter()"
-          (mouseleave)="onTooltipMouseLeave()"
-          (keydown.escape)="onTooltipClose(); $event.stopPropagation()"
-        >
-          <ng-container
-            *ngComponentOutlet="
-              tooltipOverride;
-              inputs: {
-                data: activeTooltip,
-                isSelectAvailable: isSelectAvailable,
-                showActions: hasAvailability,
-                showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
-                colorTheme: resolvedConfig.colorTheme,
-                rightToLeft: resolvedConfig.rightToLeft ?? false,
-                hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
-                currencyOverride: resolvedConfig.currencySign || '',
-              }
-            "
-          />
-        </div>
-      } @else {
-        <sm-jets-tooltip
-          [data]="activeTooltip"
-          [isSelectAvailable]="isSelectAvailable"
-          [showActions]="hasAvailability"
-          [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
-          [colorTheme]="resolvedConfig.colorTheme"
-          [rightToLeft]="resolvedConfig.rightToLeft ?? false"
-          [hiddenSeatFeatures]="resolvedConfig.hiddenSeatFeatures ?? []"
-          [currencyOverride]="resolvedConfig.currencySign || ''"
-          [viewOverride]="tooltipViewOverride"
-          (select)="onTooltipSelect($event)"
-          (unselect)="onTooltipUnselect($event)"
-          (close)="onTooltipClose()"
-          (mouseenter)="onTooltipMouseEnter()"
-          (mouseleave)="onTooltipMouseLeave()"
-          (keydown.escape)="onTooltipClose(); $event.stopPropagation()"
-        />
-      }
-    }
-
-    @if (content.length && showViewToggle) {
-      <!-- View toggle button (visible only when alternativeView is 'auto' or unset). -->
-      <button
-        type="button"
-        class="jets-seat-map__view-toggle"
-        (click)="toggleView()"
-      >{{ viewToggleLabel }}</button>
-    }
-
-    @if (content.length && effectiveView === 'list') {
-      <sm-jets-seat-list
-        [content]="content"
-        [lang]="$any(lang)"
-        [colorTheme]="resolvedConfig.colorTheme"
-        [showActions]="hasAvailability"
-        [isSelectAvailable]="isSelectAvailable"
-        (seatSelected)="onTooltipSelect($event)"
-        (seatUnselected)="onTooltipUnselect($event)"
-      />
-    } @else if (content.length) {
-      <!-- Aircraft body with decks -->
-      <sm-jets-plane-body
-        [decks]="content"
-        [colorTheme]="resolvedConfig.colorTheme"
-        [width]="fuselageBodyWidth"
-        [visibleFuselage]="showFuselage"
-        [visibleNose]="resolvedConfig.visibleNose"
-        [visibleTail]="resolvedConfig.visibleTail"
-        [noseType]="noseType"
-      >
-        @for (deck of visibleDecks; track deck.number; let i = $index) {
-          @if (i > 0) {
-            <sm-jets-deck-separator [colorTheme]="resolvedConfig.colorTheme" />
-          }
+      @if (activeTooltip && resolvedConfig.builtInTooltip !== false) {
+        @if (tooltipOverride) {
           <div
-            class="deck-wrapper"
-            style="position: relative; width: 100%; display: flex; flex-direction: column; align-items: center"
+            class="jets-seat-map__tooltip-host"
+            (mouseenter)="onTooltipMouseEnter()"
+            (mouseleave)="onTooltipMouseLeave()"
+            (keydown.escape)="onTooltipClose(); $event.stopPropagation()"
           >
-            <div
-              class="deck-floor"
-              [style.background-color]="resolvedConfig.colorTheme?.floorColor || '#555'"
-              [style.width]="getDeckFloorWidth(deck)"
-            >
-              <sm-jets-deck
-                [deck]="deck"
-                [lang]="lang"
-                [showNumber]="showDeckNumbers"
-                [colorTheme]="resolvedConfig.colorTheme"
-                [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
-                [currencyOverride]="resolvedConfig.currencySign || ''"
-                [flatBulks]="resolvedConfig.flatBulks ?? false"
-                [colorfulSeatsByClass]="resolvedConfig.colorfulSeatsByClass ?? false"
-                [bodyWidth]="resolvedConfig.width"
-                [fuselageWidth]="fuselageBodyWidth"
-                [visibleCabinTitles]="resolvedConfig.visibleCabinTitles !== false"
-                [horizontalCabinTitles]="false"
-                [cabinLabelGap]="getDeckCabinLabelGap(deck)"
-                [seatOverride]="seatOverride"
-                (seatClick)="onSeatClick($event)"
-                (seatMouseEnter)="onSeatMouseEnter($event)"
-                (seatMouseLeave)="onSeatMouseLeave($event)"
-              />
-            </div>
-            @if (resolvedConfig.visibleWings !== false && getDeckWingsInfo(deck); as wingsInfo) {
-              <sm-jets-wing
-                [wingsInfo]="wingsInfo"
-                [colorTheme]="resolvedConfig.colorTheme"
-                [bodyWidth]="fuselageBodyWidth"
-                [scale]="deck.scale ?? 1"
-                [topAdjust]="getDeckWingTopAdjust(deck)"
-              />
-            }
+            <ng-container
+              *ngComponentOutlet="
+                tooltipOverride;
+                inputs: {
+                  data: activeTooltip,
+                  isSelectAvailable: isSelectAvailable,
+                  showActions: hasAvailability,
+                  showPrice: resolvedConfig.visibleSeatPriceLabels ?? false,
+                  colorTheme: resolvedConfig.colorTheme,
+                  rightToLeft: resolvedConfig.rightToLeft ?? false,
+                  hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
+                  currencyOverride: resolvedConfig.currencySign || '',
+                }
+              "
+            />
           </div>
+        } @else {
+          <sm-jets-tooltip
+            [data]="activeTooltip"
+            [isSelectAvailable]="isSelectAvailable"
+            [showActions]="hasAvailability"
+            [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
+            [colorTheme]="resolvedConfig.colorTheme"
+            [rightToLeft]="resolvedConfig.rightToLeft ?? false"
+            [hiddenSeatFeatures]="resolvedConfig.hiddenSeatFeatures ?? []"
+            [currencyOverride]="resolvedConfig.currencySign || ''"
+            [viewOverride]="tooltipViewOverride"
+            (select)="onTooltipSelect($event)"
+            (unselect)="onTooltipUnselect($event)"
+            (close)="onTooltipClose()"
+            (mouseenter)="onTooltipMouseEnter()"
+            (mouseleave)="onTooltipMouseLeave()"
+            (keydown.escape)="onTooltipClose(); $event.stopPropagation()"
+          />
         }
-      </sm-jets-plane-body>
-    } @else if (isLoading) {
-      @if (notInitOverride) {
-        <ng-container *ngComponentOutlet="notInitOverride; inputs: { lang }" />
+      }
+
+      @if (content.length && showViewToggle) {
+        <!-- View toggle button (visible only when alternativeView is 'auto' or unset). -->
+        <button type="button" class="jets-seat-map__view-toggle" (click)="toggleView()">{{ viewToggleLabel }}</button>
+      }
+
+      @if (content.length && effectiveView === 'list') {
+        <sm-jets-seat-list
+          [content]="content"
+          [lang]="$any(lang)"
+          [colorTheme]="resolvedConfig.colorTheme"
+          [showActions]="hasAvailability"
+          [isSelectAvailable]="isSelectAvailable"
+          (seatSelected)="onTooltipSelect($event)"
+          (seatUnselected)="onTooltipUnselect($event)"
+        />
+      } @else if (content.length) {
+        <!-- Aircraft body with decks -->
+        <sm-jets-plane-body
+          [decks]="content"
+          [colorTheme]="resolvedConfig.colorTheme"
+          [width]="fuselageBodyWidth"
+          [visibleFuselage]="showFuselage"
+          [visibleNose]="resolvedConfig.visibleNose"
+          [visibleTail]="resolvedConfig.visibleTail"
+          [noseType]="noseType"
+          [displayScale]="displayScale"
+        >
+          @for (deck of visibleDecks; track deck.number; let i = $index) {
+            @if (i > 0) {
+              <sm-jets-deck-separator [colorTheme]="resolvedConfig.colorTheme" />
+            }
+            <div
+              class="deck-wrapper"
+              [attr.data-deck-index]="getDeckIndex(deck)"
+              style="position: relative; width: 100%; display: flex; flex-direction: column; align-items: center"
+            >
+              <div
+                class="deck-floor"
+                [style.background-color]="resolvedConfig.colorTheme?.floorColor || '#555'"
+                [style.width]="getDeckFloorWidth(deck)"
+                [style.box-sizing]="'border-box'"
+                [style.border-left-style]="'solid'"
+                [style.border-right-style]="'solid'"
+                [style.border-left-color]="getDeckFloorLiningColor()"
+                [style.border-right-color]="getDeckFloorLiningColor()"
+                [style.border-left-width.px]="getDeckFloorLiningWidth(deck)"
+                [style.border-right-width.px]="getDeckFloorLiningWidth(deck)"
+              >
+                <sm-jets-deck
+                  [deck]="deck"
+                  [lang]="lang"
+                  [showNumber]="showDeckNumbers"
+                  [colorTheme]="resolvedConfig.colorTheme"
+                  [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
+                  [currencyOverride]="resolvedConfig.currencySign || ''"
+                  [flatBulks]="resolvedConfig.flatBulks ?? false"
+                  [colorfulSeatsByClass]="resolvedConfig.colorfulSeatsByClass ?? false"
+                  [bodyWidth]="resolvedConfig.width"
+                  [fuselageWidth]="fuselageBodyWidth"
+                  [visibleCabinTitles]="resolvedConfig.visibleCabinTitles !== false"
+                  [horizontalCabinTitles]="false"
+                  [cabinLabelGap]="getDeckCabinLabelGap(deck)"
+                  [seatOverride]="seatOverride"
+                  (seatClick)="onSeatClick($event)"
+                  (seatMouseEnter)="onSeatMouseEnter($event)"
+                  (seatMouseLeave)="onSeatMouseLeave($event)"
+                />
+              </div>
+              @if (resolvedConfig.visibleWings !== false && getDeckWingsInfo(deck); as wingsInfo) {
+                <sm-jets-wing
+                  [wingsInfo]="wingsInfo"
+                  [colorTheme]="resolvedConfig.colorTheme"
+                  [bodyWidth]="fuselageBodyWidth"
+                  [scale]="deck.scale ?? 1"
+                  [topAdjust]="getDeckWingTopAdjust(deck)"
+                />
+              }
+            </div>
+          }
+        </sm-jets-plane-body>
+      } @else if (isLoading) {
+        @if (notInitOverride) {
+          <ng-container *ngComponentOutlet="notInitOverride; inputs: { lang }" />
+        } @else {
+          <sm-jets-not-init [lang]="lang" />
+        }
+      } @else if (isSeatMapInited) {
+        <sm-jets-no-data [lang]="lang" />
+        @if (error) {
+          <div class="jets-seat-map__error">{{ error }}</div>
+        }
       } @else {
-        <sm-jets-not-init [lang]="lang" />
+        @if (notInitOverride) {
+          <ng-container *ngComponentOutlet="notInitOverride; inputs: { lang }" />
+        } @else {
+          <sm-jets-not-init [lang]="lang" />
+        }
       }
-    } @else if (isSeatMapInited) {
-      <sm-jets-no-data [lang]="lang" />
-      @if (error) {
-        <div class="jets-seat-map__error">{{ error }}</div>
-      }
-    } @else {
-      @if (notInitOverride) {
-        <ng-container *ngComponentOutlet="notInitOverride; inputs: { lang }" />
-      } @else {
-        <sm-jets-not-init [lang]="lang" />
-      }
-    }
     </div>
 
     <!-- Skip-link target: focusable wrapper element keyboard users land on

@@ -116,6 +116,12 @@
 }
 
 .jets-tooltip--amenity-icon {
+  // React parity: amenities render the SVG as a bare glyph — no box, no border.
+  // `tooltipIconBorderColor` / `tooltipIconBackgroundColor` style the whole
+  // dimensions tile (`.jets-tooltip--dimension` ≈ React `.jets-tooltip--measurement`,
+  // see below), not the feature list (`.jets-tooltip--feature`). Reference:
+  // `TooltipGlobal.view.js:73-91` (features: no wrapper styles) vs `:97-119`
+  // (measurements: `borderColor` + `background` on the whole tile).
   display: flex;
   align-items: center;
   justify-content: center;
@@ -124,8 +130,6 @@
   min-width: 20px;
   min-height: 20px;
   flex-shrink: 0;
-  background: var(--tooltip-icon-bg, transparent);
-  border: 1px solid var(--tooltip-icon-border, transparent);
   color: var(--tooltip-icon, inherit);
 
   svg {
@@ -161,9 +165,13 @@
   flex-direction: column;
   align-items: center;
   padding: 14px 8px 12px;
-  border: 1px solid var(--tooltip-font, #4f6f8f);
+  // React parity: `tooltipIconBorderColor` / `tooltipIconBackgroundColor` paint
+  // the whole measurement tile, not just the inner glyph. Reference:
+  // `TooltipGlobal.view.js:99-101` — `<div className="jets-tooltip--measurement"
+  //  style={{ borderColor: tooltipIconBorderColor, background: tooltipIconBackgroundColor }}>`.
+  border: 1px solid var(--tooltip-icon-border, #4f6f8f);
   border-radius: 8px;
-  background: var(--tooltip-bg, #fff);
+  background: var(--tooltip-icon-bg, #fff);
 }
 
 .jets-tooltip--dim-icon {
@@ -171,8 +179,6 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 6px;
-  background: var(--tooltip-icon-bg, transparent);
-  border: 1px solid var(--tooltip-icon-border, transparent);
 
   // ::ng-deep needed because SVG is inserted via [innerHTML] and lacks scoping attributes
   ::ng-deep svg {

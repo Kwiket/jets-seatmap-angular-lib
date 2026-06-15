@@ -16,13 +16,13 @@ framework conventions differ (`@Input()` / `@Output()` instead of props/callback
 
 There are 2 ways to install the lib:
 
-- using npm [version](https://www.npmjs.com/package/@kwiket/jets-seatmap-angular-lib)
+- using npm [version](https://www.npmjs.com/package/@seatmaps.com/angular-lib)
 - using a self-hosted version
 
 ### npm version
 
 ```bash
-npm install @kwiket/jets-seatmap-angular-lib
+npm install @seatmaps.com/angular-lib
 ```
 
 ### Self-hosted version
@@ -66,7 +66,7 @@ npm install name-of-your-lib-variation
 or include this string into your `package.json` dependencies if you use the GitHub repo:
 
 ```json
-"@kwiket/jets-seatmap-angular-lib": "git+ssh://git@github.com/path-to-your-repo.git#branch"
+"@seatmaps.com/angular-lib": "git+ssh://git@github.com/path-to-your-repo.git#branch"
 ```
 
 &nbsp;
@@ -89,7 +89,7 @@ import {
   IInitialLayoutData,
   ILayoutData,
   ITooltipRequestData,
-} from '@kwiket/jets-seatmap-angular-lib';
+} from '@seatmaps.com/angular-lib';
 
 @Component({
   selector: 'app-root',
@@ -325,6 +325,7 @@ interface IPassenger {
   passengerType?: TPassengerType;
   passengerLabel?: string;
   passengerColor?: string;
+  readOnly?: boolean;
 }
 
 interface ISeat {
@@ -572,20 +573,20 @@ seats:
 
 ```typescript
 interface IInitialLayoutData {
-  heightInPx: number;           // sum of lengths of all plane elements; multiply by `scaleFactor` for actual pixels
-  widthInPx: number;            // outer width of the plane (swapped with height if `horizontal` is true)
+  heightInPx: number;           // native (unscaled) height of the active deck; multiply by `scaleFactor` for actual pixels
+  widthInPx: number;            // native (unscaled) plane width; multiply by `scaleFactor` for actual pixels
   scaleFactor: number;          // scale applied to fit into provided boundaries
   decksCount: number;
   currentDeckIndex: number;
   media: IMediaData | null;     // cabin photos / panoramas, if any
-  error?: string;               // error message if a seatmap could not be built
-
-  // Angular-only convenience fields:
-  availableSeats: ISeatData[];  // seats available for passengers
-  allSeats: ISeatData[];        // every seat on the plane regardless of status
-  availableCabins: { code: string; title: string }[]; // detected cabin classes
+  availabilityData?: TSeatAvailability; // snapshot of the `availability` Input, when provided
+  error?: string;               // present only when a seatmap could not be built (omitted otherwise)
+  allCabins: { code: string; title: string }[]; // all cabin classes detected in the source data (before cabin-class filtering)
 }
 ```
+
+The `heightInPx`/`widthInPx` invariant matches React's contract: `rendered_pixels = heightInPx × scaleFactor`
+(and likewise for width). When `scaleFactor === 1`, the values are the actual rendered pixel sizes.
 
 `IMediaData` shape:
 
@@ -730,7 +731,9 @@ interface IPassenger {
 
 ### <a name="seatmouseleave"></a> seatMouseLeave
 
-Fired when the cursor leaves the seat boundaries. Payload — `ISeatMouseLeaveData`, structurally identical to
+Fired when the cursor leaves the seat boundaries — **only when `tooltipOnHover === true`**. The React parent (see the
+React library's `JetsSeat.js` / `SeatMap.js`) attaches the underlying mouseleave listener only in hover mode, so the
+event is silent in click-tooltip mode. Payload — `ISeatMouseLeaveData`, structurally identical to
 [ tooltipRequested](#-tooltiprequested).
 
 ```typescript
@@ -835,7 +838,7 @@ Additional `@Output()`s:
 | -------------------------- | ------------------------ | ----------------------------------------------------------------- |
 | `deckChanged`              | `number`                 | Active deck index changed.                                        |
 | `loadError`                | `string`                 | Failed to load the seatmap (HTTP error message).                  |
-| `seatMouseEnter`           | `ISeatMouseEnterData`    | Cursor entered seat boundaries (counterpart to `seatMouseLeave`). |
+| `seatMouseEnter`           | `ISeatMouseEnterData`    | Cursor entered seat boundaries — fires unconditionally (Angular-only; React has no equivalent). |
 | `activeTooltipChanged`     | `ITooltipData \| null`   | Built-in tooltip opened/closed.                                   |
 | `legendReady`              | `ILegendItem[]`          | Legend recomputed (after load / availability change).             |
 | `mediaReady`               | `IMediaData \| null`     | Media (cabin photos) finished loading.                            |

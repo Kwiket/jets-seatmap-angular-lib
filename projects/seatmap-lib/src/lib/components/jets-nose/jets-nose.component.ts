@@ -32,6 +32,9 @@ export class JetsNoseComponent implements OnChanges {
   @Input() noseType?: string;
   @Input() colorTheme?: IColorTheme;
   @Input() width = 200;
+  /** Display scale (mirrors React's `params.scale`); pre-multiplies the SVG
+   *  outline so the nose contour matches the CSS body border thickness. */
+  @Input() displayScale = 1;
 
   svgContent: SafeHtml = '';
 
@@ -46,14 +49,13 @@ export class JetsNoseComponent implements OnChanges {
   private _resolveStyle(): INoseStyle {
     const t = this.colorTheme ?? {};
     const d = DEFAULT_COLOR_THEME;
-    // Hull uses hullColor if provided; falls back to the DEFAULT light hull,
-    // so that a dark fuselageFillColor (cabin floor) does NOT darken the nose.
-    const hull = t.hullColor ?? d.fuselageFillColor;
+    const fill = t.fuselageFillColor ?? d.fuselageFillColor;
+    const themedStroke = (t.fuselageStrokeWidth ?? d.fuselageStrokeWidth) * this.displayScale;
     return {
-      hullColor: hull,
-      straightFillColor: hull,
+      hullColor: fill,
+      straightFillColor: fill,
       outlineColor: t.fuselageStrokeColor ?? d.fuselageStrokeColor,
-      strokeWidth: 1.5,
+      strokeWidth: themedStroke / (this.width / 200),
       windowColor: t.fuselageWindowsColor ?? t.fuselageStrokeColor ?? d.fuselageStrokeColor,
     };
   }

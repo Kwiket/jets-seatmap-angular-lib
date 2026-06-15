@@ -329,8 +329,15 @@ const FIELD_CASES: FieldCase[] = [
     value: '#000000',
     closeUp: FEW_ROWS_FROM_TOP,
     verify: async page => {
-      // SVG paths carry `stroke="..."` attributes set from the seat template.
-      const stroke = await page.locator('.jets-seat--available .jets-seat__svg path.bd').first().getAttribute('stroke');
+      // BASELINE_THEME doesn't set `seatUnavailableCrossColor`, so the seat
+      // template applies `seatStrokeColor` to every non-selected seat's `path.bd`
+      // regardless of availability status. Reading any seat with a number is
+      // robust against the availability race (demo's DEFAULT_AVAILABILITY
+      // labels don't always match QT888 seats post-merge).
+      const stroke = await page
+        .locator('.jets-seat[data-seat-number] .jets-seat__svg path.bd')
+        .first()
+        .getAttribute('stroke');
       expect(stroke).toBe('#000000');
     },
   },
@@ -340,7 +347,7 @@ const FIELD_CASES: FieldCase[] = [
     closeUp: FEW_ROWS_FROM_TOP,
     verify: async page => {
       const width = await page
-        .locator('.jets-seat--available .jets-seat__svg path.bd')
+        .locator('.jets-seat[data-seat-number] .jets-seat__svg path.bd')
         .first()
         .getAttribute('stroke-width');
       expect(width).toBe('4');
@@ -352,7 +359,11 @@ const FIELD_CASES: FieldCase[] = [
     closeUp: FEW_ROWS_FROM_TOP,
     verify: async page => {
       // The armrest paths use class `bc` and receive `fill="${armrestColor}"`.
-      const fill = await page.locator('.jets-seat--available .jets-seat__svg path.bc').first().getAttribute('fill');
+      // Same any-seat strategy as seatStrokeColor (see comment above).
+      const fill = await page
+        .locator('.jets-seat[data-seat-number] .jets-seat__svg path.bc')
+        .first()
+        .getAttribute('fill');
       expect(fill).toBe('#ff5722');
     },
   },
@@ -564,8 +575,12 @@ const FIELD_CASES: FieldCase[] = [
         .locator('.jets-plane-body__fuselage')
         .first()
         .evaluate(el => parseFloat(getComputedStyle(el).borderLeftWidth));
-      // Override 18 should exceed baseline 16 once scaling is honoured.
-      expect(width).toBeGreaterThan(16);
+      // Override 18 must visibly exceed baseline 12 — both go through the
+      // same displayScale (~0.25-0.3 with the production
+      // `_computeNativeDeckWidth` that counts aisles), so the rendered
+      // baseline ends up ~3-4 px and the override ~5-6 px. Lower bound 4
+      // sits between them and survives small flight/aircraft variance.
+      expect(width).toBeGreaterThan(4);
     },
   },
   {

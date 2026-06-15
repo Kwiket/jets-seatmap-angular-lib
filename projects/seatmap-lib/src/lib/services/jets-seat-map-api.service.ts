@@ -21,7 +21,7 @@ export class JetsSeatMapApiService {
       Authorization: `${scheme} ${token}`,
     });
 
-    // API expects { flight: {...}, lang, units, supportedSeatTypesCount, ...metadata } — not flat
+    // API expects { flight: {...}, lang, units, supportedSeatTypesCount, metadata? } — React parity (api.js:64)
     const { lang, units, ...flightFields } = flightData;
     const supportedSeatTypesCount = SEAT_SIZE_BY_TYPE.length - 1; // Exclude zero index
     const body: Record<string, unknown> = {
@@ -29,14 +29,11 @@ export class JetsSeatMapApiService {
       lang,
       units,
       supportedSeatTypesCount,
-      ...(config.apiMetadata ?? {}),
+      ...(config.apiMetadata ? { metadata: config.apiMetadata } : {}),
     };
 
-    console.log('[SeatmapAPI] POST', `${config.apiUrl}/flight/features/plane/seatmap`);
-    console.log('[SeatmapAPI] Request body:', JSON.stringify(body, null, 2));
-
     try {
-      return await this._postSeatmap(config.apiUrl, body, headers);
+      return await this._postSeatmap(config.apiUrl, body, headers, flightData.id);
     } catch (err: any) {
       if (err?.status === 401) {
         console.warn('[SeatmapAPI] 401 — clearing cached token and retrying');
@@ -46,10 +43,8 @@ export class JetsSeatMapApiService {
           'Content-Type': 'application/json',
           Authorization: `${scheme} ${newToken}`,
         });
-        return await this._postSeatmap(config.apiUrl, body, retryHeaders);
+        return await this._postSeatmap(config.apiUrl, body, retryHeaders, flightData.id);
       }
-      console.error('[SeatmapAPI] Error status:', err?.status);
-      console.error('[SeatmapAPI] Error body:', JSON.stringify(err?.error, null, 2));
       throw err;
     }
   }
@@ -57,7 +52,8 @@ export class JetsSeatMapApiService {
   private async _postSeatmap(
     apiUrl: string,
     body: Record<string, unknown>,
-    headers: HttpHeaders
+    headers: HttpHeaders,
+    flightId: string
   ): Promise<IApiSeatmapResponse> {
     const rawResponse = await firstValueFrom(
       this.http.post<IApiSeatmapResponse | IApiSeatmapResponse[]>(`${apiUrl}/flight/features/plane/seatmap`, body, {
@@ -68,6 +64,18 @@ export class JetsSeatMapApiService {
     let response: IApiSeatmapResponse;
 
     if (Array.isArray(rawResponse)) {
+      // React parity (api.js:80-83): a 200-OK response can still encode a soft
+      // failure as `[{id: flightId, error: "..."}, ...]`. The React lib detects
+      // the matching item and `throw new Error(item.error)`; the caller catches
+      // it and surfaces the message via `seatMapInited({error})`. Without this
+      // throw the matching item silently became `response` below (no decks, no
+      // seatDetails) and the host app saw `error: undefined` in the payload.
+      for (const item of rawResponse) {
+        if ((item as { id?: string; error?: string }).id === flightId && (item as { error?: string }).error) {
+          throw new Error((item as { error: string }).error);
+        }
+      }
+
       // API returns array: first element has seatDetails/decks, remaining have per-cabin-class data
       // (entertainment, wifi, power, cabin measurements keyed by id suffix like ":F", ":B", ":E", ":P")
       response = rawResponse.find(r => r.seatDetails?.decks?.length || r.decks?.length) ?? rawResponse[0];
@@ -107,11 +115,22 @@ export class JetsSeatMapApiService {
           response.media = media;
         }
       }
+
+      // Extract the read-only `availabilityData` payload (React parity —
+      // api.js:101-104): the API surfaces it as a sibling element with
+      // `id: 'availabilityData'`. We strip the marker `id` and keep the rest
+      // (`availableSeats`) so consumers see the same shape as the React lib.
+      for (const item of rawResponse) {
+        if ((item as any).id === 'availabilityData') {
+          const { id: _id, ...rest } = item as any;
+          response.availabilityData = rest;
+          break;
+        }
+      }
     } else {
       response = rawResponse;
     }
 
-    console.log('[SeatmapAPI] Response:', JSON.stringify(response, null, 2).slice(0, 1000));
     return response;
   }
 

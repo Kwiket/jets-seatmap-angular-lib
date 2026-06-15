@@ -1,20 +1,7 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
-  Input,
-  Output,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import {
-  IColorTheme,
-  IDeckData,
-  IRowData,
-  ISeatData,
-  ISeatFeature,
-  TLang,
-} from '../../types';
+import { IColorTheme, IDeckData, IRowData, ISeatData, ISeatFeature, TLang } from '../../types';
 import { LOCALES_MAP } from '../../constants';
 import { computeSeatPosition, TSeatPosition } from '../../utils/a11y';
 
@@ -278,7 +265,10 @@ export class JetsSeatListComponent {
   private _priceKey(seat: ISeatData): number {
     // Treat missing prices as +Infinity so they sink to the bottom in
     // ascending order and to the top in descending (consistent UX).
-    return seat.price != null ? seat.price : Number.POSITIVE_INFINITY;
+    // `seat.price` is loose-typed (number | string) for the public emit shape;
+    // internally it's always numeric, but narrow defensively.
+    const p = seat.price;
+    return typeof p === 'number' ? p : Number.POSITIVE_INFINITY;
   }
 
   private _hasExtraLegroom(seat: ISeatData): boolean {

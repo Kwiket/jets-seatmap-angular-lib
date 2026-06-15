@@ -13,7 +13,7 @@ import { JetsTailComponent } from '../jets-tail/jets-tail.component';
     <div class="jets-plane-body" [style.width.px]="width" [style.background-color]="bgColor">
       <!-- Nose -->
       @if (showNose) {
-        <sm-jets-nose [noseType]="noseType" [colorTheme]="colorTheme" [width]="width" />
+        <sm-jets-nose [noseType]="noseType" [colorTheme]="colorTheme" [width]="width" [displayScale]="displayScale" />
       }
 
       <!-- Fuselage wrapper — width & border match nose SVG outline -->
@@ -31,7 +31,7 @@ import { JetsTailComponent } from '../jets-tail/jets-tail.component';
 
       <!-- Tail -->
       @if (showTail) {
-        <sm-jets-tail [colorTheme]="colorTheme" [width]="width" />
+        <sm-jets-tail [colorTheme]="colorTheme" [width]="width" [displayScale]="displayScale" />
       }
     </div>
   `,
@@ -63,6 +63,14 @@ export class JetsPlaneBodyComponent {
   @Input() visibleNose?: boolean;
   @Input() visibleTail?: boolean;
   @Input() noseType?: string;
+  /**
+   * Display scale (= `config.width / maxDeckWidth`, same formula React uses
+   * for its CSS `zoom`/`transform: scale`). React shrinks every CSS px by
+   * this factor when rendering — a `fuselageStrokeWidth: 10` paints at
+   * ~7.17 px on a typical 558-wide native deck. We pre-scale the body's
+   * border-width here so the visual thickness matches.
+   */
+  @Input() displayScale = 1;
 
   get showNose(): boolean {
     return this.visibleNose ?? this.visibleFuselage;
@@ -78,24 +86,26 @@ export class JetsPlaneBodyComponent {
   private static readonly NOSE_STROKE = 1.5;
 
   /**
-   * Fuselage width matching the nose SVG outline outer edges.
-   * Nose outline path is at x=1.5 .. x=198.5 with stroke-width=1.5,
-   * so outer edges span (198.5+0.75) - (1.5-0.75) = 198.5 SVG units.
+   * Fuselage container width = full seatmap width. Matches React's
+   * `bodyWidth = config.width` (PlaneBody/index.js). The pixel-wide
+   * `border-left`/`border-right` carve the interior via box-sizing: border-box.
    */
   get fuselageWidth(): number {
-    const vb = JetsPlaneBodyComponent.NOSE_VIEWBOX_W;
-    return (this.width * (vb - JetsPlaneBodyComponent.NOSE_STROKE)) / vb;
+    return this.width;
   }
 
-  /** Border width that matches the nose SVG stroke scaled to rendered size. */
+  /**
+   * Body border width in pixels. Mirrors React's
+   * `borderLeft: '${fuselageStrokeWidth}px …'` (PlaneBody/index.js:30-34) —
+   * the themed value (clamped 10-18 by mergeColorThemeWithConstraints) IS
+   * the pixel width; no SVG-unit scaling. When the consumer doesn't set
+   * `fuselageStrokeWidth`, React renders no border (`${undefined}px` → invalid
+   * CSS → 0), so we return 0 too, otherwise a hidden 1.5-px line creeps in.
+   */
   get scaledStrokeWidth(): number {
-    // colorTheme.fuselageStrokeWidth (native SVG units, after the
-    // mergeColorThemeWithConstraints clamp to 10-18) wins when set; the
-    // 1.5-unit NOSE_STROKE fallback keeps the look stable for consumers
-    // who don't theme the value.
     const themed = this.colorTheme?.fuselageStrokeWidth;
-    const native = typeof themed === 'number' && themed > 0 ? themed : JetsPlaneBodyComponent.NOSE_STROKE;
-    return (native * this.width) / JetsPlaneBodyComponent.NOSE_VIEWBOX_W;
+    const stroke = typeof themed === 'number' && themed > 0 ? themed : 0;
+    return stroke * this.displayScale;
   }
 
   get bgColor(): string {
@@ -103,7 +113,7 @@ export class JetsPlaneBodyComponent {
   }
 
   get fuselageFill(): string {
-    return this.colorTheme?.hullColor ?? this.colorTheme?.fuselageFillColor ?? DEFAULT_COLOR_THEME.fuselageFillColor;
+    return this.colorTheme?.fuselageFillColor ?? DEFAULT_COLOR_THEME.fuselageFillColor;
   }
 
   get fuselageStroke(): string {
