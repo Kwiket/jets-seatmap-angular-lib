@@ -41,9 +41,12 @@ import {
   DEFAULT_LANG,
   DEFAULT_SEAT_MAP_WIDTH,
   DEFAULT_UNITS,
+  LEGACY_COLOR_THEME,
   LOCALES_MAP,
   SCALE_TYPES,
+  WCAG_COLOR_THEME,
 } from '../../constants';
+import { getWcagFlags, TResolvedWcagFlags } from '../../utils/wcag-flags';
 import { getNativeRowHeight } from '../../utils/cabin-utils';
 import { getEnvironmentInfo } from '../../services/environment.service';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
@@ -210,6 +213,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    */
   private _lastTriggerElement: HTMLElement | null = null;
 
+  /** Resolved WCAG flag set — single source of truth for every feature gate. */
+  get wcagFlags(): TResolvedWcagFlags {
+    return getWcagFlags(this.config);
+  }
+
   get resolvedConfig(): IConfig {
     const env = getEnvironmentInfo();
     // Firefox doesn't fully support CSS zoom — force SCALE mode
@@ -217,6 +225,18 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     if (env.isFirefox && scaleType === SCALE_TYPES.ZOOM) {
       scaleType = SCALE_TYPES.SCALE as any;
     }
+    // WCAG-AA palette is opt-in via `wcag.defaultColorTheme`. When ON, we
+    // pre-merge `WCAG_COLOR_THEME` UNDER the user's theme so sub-components
+    // see WCAG-compliant values for any key the user didn't override. When
+    // OFF, we forward the user's theme verbatim — sub-components keep their
+    // `colorTheme?.X ?? DEFAULT_COLOR_THEME.X` fallback to the LEGACY palette,
+    // and `customSeatColorRanges` / API-injected per-seat colours still win
+    // (they would be silently overridden if `theme.seatAvailableColor` were
+    // pre-populated, because `_resolveStyle` treats "key present" as
+    // "user override").
+    const flags = this.wcagFlags;
+    const userTheme = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(this.config?.colorTheme);
+    const colorTheme = flags.defaultColorTheme ? { ...WCAG_COLOR_THEME, ...userTheme } : userTheme;
     return {
       ...this.config,
       width: this.config?.width ?? DEFAULT_SEAT_MAP_WIDTH,
@@ -230,7 +250,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       flatBulks: this.config?.flatBulks ?? false,
       colorfulSeatsByClass: this.config?.colorfulSeatsByClass ?? false,
       colorfulSeatsByScore: this.config?.colorfulSeatsByScore ?? true,
-      colorTheme: JetsSeatMapPreparerService.mergeColorThemeWithConstraints(this.config?.colorTheme),
+      colorTheme,
       scaleType,
     };
   }
@@ -842,12 +862,20 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    * closes the tooltip without moving focus.
    */
   onGridKeydown(event: KeyboardEvent): void {
-    // Tooltip dismiss takes precedence over grid moves.
-    if (event.key === 'Escape' && this.activeTooltip) {
+    const flags = this.wcagFlags;
+    // Escape-to-dismiss belongs to the dialog contract — independently
+    // togglable so consumers running with `keyboardNavigation` off but the
+    // dialog tooltip on still get the dismiss key.
+    if (flags.tooltipDialog && event.key === 'Escape' && this.activeTooltip) {
       this.onTooltipClose();
       event.preventDefault();
       return;
     }
+
+    // Arrow / Home / End / PageUp / PageDown nav lives under
+    // `keyboardNavigation`. Without the flag the handler returns and the
+    // browser sees the native key (default tab order) — pre-WCAG parity.
+    if (!flags.keyboardNavigation) return;
 
     const key = this.gridNav.classifyKey(event);
     if (!key) return;
@@ -869,6 +897,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    * click.
    */
   onGridFocusin(event: FocusEvent): void {
+    // Roving-tabindex focus tracking and focus-driven tooltip parity are
+    // both keyboard-navigation behaviour — gated together.
+    if (!this.wcagFlags.keyboardNavigation) return;
     const el = event.target as HTMLElement | null;
     if (!el) return;
     const rowAttr = el.getAttribute?.('aria-rowindex');
@@ -950,6 +981,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    * grid lands on the right cell.
    */
   private _resetGridFocus(): void {
+    if (!this.wcagFlags.keyboardNavigation) return;
     if (!this.content?.length) return;
     this.focusedCell = this.gridNav.initialCell(this.activeDeckIndex, this.content);
     // Defer to next tick so the rendered DOM matches the new `content`.
@@ -1442,16 +1474,19 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    * wrapped in try/catch so a removed/disconnected trigger never throws.
    * WCAG 2.4.3 (Focus Order) — non-modal dialog focus-return contract.
    *
-   * Skip in `tooltipOnHover` mode: focusing the trigger seat fires
-   * `onGridFocusin`, which re-opens the tooltip (intended for keyboard
-   * hover parity), so a click on the Cancel/Close button would close →
-   * focus-restore → reopen in a loop. In hover mode the cursor is already
-   * on or near the seat, so the restoration brings no a11y benefit anyway.
+   * Skipped when:
+   *   - `wcag.tooltipDialog` is off (no dialog contract to honour); OR
+   *   - `tooltipOnHover` is on — focusing the trigger seat fires
+   *     `onGridFocusin`, which re-opens the tooltip (intended for keyboard
+   *     hover parity), so a click on Cancel/Close would close → focus-restore
+   *     → reopen in a loop. In hover mode the cursor is already on or near
+   *     the seat, so the restoration brings no a11y benefit anyway.
    */
   private _restoreFocusToTrigger(): void {
     const trigger = this._lastTriggerElement;
     this._lastTriggerElement = null;
     if (!trigger) return;
+    if (!this.wcagFlags.tooltipDialog) return;
     if (this.resolvedConfig.tooltipOnHover) return;
     setTimeout(() => {
       try {
@@ -1460,6 +1495,18 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
         /* no-op: jsdom / disconnected node may throw on focus options */
       }
     }, 0);
+  }
+
+  /**
+   * Bound to the (keydown.escape) listener on the tooltip host element(s).
+   * Routes through `onTooltipClose` only when the dialog contract is active —
+   * otherwise the keydown bubbles to the host page so consumers' own Escape
+   * handlers (modal dismiss, dropdown close, etc.) keep working.
+   */
+  onTooltipHostEscape(event: Event): void {
+    if (!this.wcagFlags.tooltipDialog) return;
+    this.onTooltipClose();
+    event.stopPropagation();
   }
 
   onMapClick(event: MouseEvent): void {
@@ -1493,7 +1540,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this._emitLayoutUpdated();
     // Re-anchor the roving tabindex to the first interactive seat of the new
     // deck (commit 7). Best-effort focus call via try/catch — never fail a
-    // deck switch over a focus glitch.
+    // deck switch over a focus glitch. Gated by `keyboardNavigation` because
+    // (a) the focus call would re-open a hover tooltip via `onGridFocusin`,
+    // and (b) without the nav handler arrow keys do nothing anyway.
+    if (!this.wcagFlags.keyboardNavigation) return;
     setTimeout(() => {
       try {
         this.focusedCell = this.gridNav.initialCell(index, this.content);
@@ -1532,6 +1582,13 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private _announce(message: string): void {
+    // Gate live announcements behind `wcag.liveAnnouncer`. Without the flag
+    // the call is a no-op so consumers don't pick up surprise screen-reader
+    // chatter just from upgrading to a WCAG release. The cdk LiveAnnouncer
+    // is still injected unconditionally — its only cost is a hidden DOM
+    // node, and removing the injection would mean a service-construction
+    // gate per call site.
+    if (!this.wcagFlags.liveAnnouncer) return;
     // LiveAnnouncer manipulates a live-region DOM node; if the host page
     // tore that down (or we fire from a stray timer after teardown) we
     // don't want the announcement failure to surface as a hard error.

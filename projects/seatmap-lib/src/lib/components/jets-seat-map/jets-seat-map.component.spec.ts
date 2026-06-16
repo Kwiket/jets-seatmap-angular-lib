@@ -609,6 +609,11 @@ describe('JetsSeatMapComponent', () => {
 
   // ─── Tooltip focus return (commit 11 / WCAG 2.4.3) ────────────────────
   describe('Tooltip focus return', () => {
+    beforeEach(() => {
+      // Focus-return belongs to the dialog contract.
+      component.config = makeConfig({ wcag: { tooltipDialog: true } });
+    });
+
     it('_showTooltip records the trigger element as _lastTriggerElement', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
@@ -1961,7 +1966,8 @@ describe('JetsSeatMapComponent', () => {
       fixture = TestBed.createComponent(JetsSeatMapComponent);
       component = fixture.componentInstance;
       component.flight = makeFlight();
-      component.config = makeConfig();
+      // LiveAnnouncer is opt-in — explicitly enable for this describe block.
+      component.config = makeConfig({ wcag: { liveAnnouncer: true } });
 
       fixture.detectChanges();
       await fixture.whenStable();
@@ -2055,6 +2061,9 @@ describe('JetsSeatMapComponent', () => {
 
   describe('Grid keyboard navigation (commit 7)', () => {
     beforeEach(() => {
+      component.config = makeConfig({
+        wcag: { gridSemantics: true, keyboardNavigation: true, tooltipDialog: true },
+      });
       component.content = [
         {
           rows: [
@@ -2150,6 +2159,11 @@ describe('JetsSeatMapComponent', () => {
     let hadOntouchstart = false;
 
     beforeEach(() => {
+      // The focus-driven hover tooltip path depends on the keyboard-nav
+      // wiring (`onGridFocusin`) and the dialog focus contract.
+      component.config = makeConfig({
+        wcag: { gridSemantics: true, keyboardNavigation: true, tooltipDialog: true },
+      });
       // Force non-touch — the hover/focus paths short-circuit on touch.
       resetCachedEnvironmentInfo();
       const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
@@ -2202,7 +2216,10 @@ describe('JetsSeatMapComponent', () => {
     }
 
     it('onGridFocusin opens the tooltip when tooltipOnHover=true and the cell is an available seat', () => {
-      component.config = makeConfig({ tooltipOnHover: true });
+      component.config = makeConfig({
+        tooltipOnHover: true,
+        wcag: { gridSemantics: true, keyboardNavigation: true, tooltipDialog: true },
+      });
       const tooltipSpy = vi.fn();
       component.tooltipRequested.subscribe(tooltipSpy);
 

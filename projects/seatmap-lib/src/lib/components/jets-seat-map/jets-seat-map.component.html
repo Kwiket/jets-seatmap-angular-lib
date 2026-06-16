@@ -2,15 +2,21 @@
 <ng-container *ngTemplateOutlet="seatmapContent" />
 
 <ng-template #seatmapContent>
-  <section class="jets-seat-map__region" role="region" [attr.aria-labelledby]="mapHeadingId">
-    <!-- Visually-hidden landmark heading (region name for AT) -->
-    <h2 [id]="mapHeadingId" class="jets-seat-map__heading">{{ mapHeadingText }}</h2>
+  <section
+    class="jets-seat-map__region"
+    [attr.role]="wcagFlags.landmarksAndSkipLink ? 'region' : null"
+    [attr.aria-labelledby]="wcagFlags.landmarksAndSkipLink ? mapHeadingId : null"
+  >
+    @if (wcagFlags.landmarksAndSkipLink) {
+      <!-- Visually-hidden landmark heading (region name for AT) -->
+      <h2 [id]="mapHeadingId" class="jets-seat-map__heading">{{ mapHeadingText }}</h2>
 
-    <!-- Skip link: visually-hidden until focused. Lets keyboard users skip
-         past the entire grid to whatever follows the seat map. -->
-    <a class="jets-seat-map__skip-link" [attr.href]="'#' + afterId" (click)="onSkipLinkClick($event)">{{
-      skipLinkLabel
-    }}</a>
+      <!-- Skip link: visually-hidden until focused. Lets keyboard users skip
+           past the entire grid to whatever follows the seat map. -->
+      <a class="jets-seat-map__skip-link" [attr.href]="'#' + afterId" (click)="onSkipLinkClick($event)">{{
+        skipLinkLabel
+      }}</a>
+    }
 
     <div
       #mapContainer
@@ -44,7 +50,7 @@
             class="jets-seat-map__tooltip-host"
             (mouseenter)="onTooltipMouseEnter()"
             (mouseleave)="onTooltipMouseLeave()"
-            (keydown.escape)="onTooltipClose(); $event.stopPropagation()"
+            (keydown.escape)="onTooltipHostEscape($event)"
           >
             <ng-container
               *ngComponentOutlet="
@@ -58,6 +64,8 @@
                   rightToLeft: resolvedConfig.rightToLeft ?? false,
                   hiddenSeatFeatures: resolvedConfig.hiddenSeatFeatures ?? [],
                   currencyOverride: resolvedConfig.currencySign || '',
+                  showSelectRestrictionReason: wcagFlags.visibleRestrictionReason,
+                  dialogMode: wcagFlags.tooltipDialog,
                 }
               "
             />
@@ -72,13 +80,15 @@
             [rightToLeft]="resolvedConfig.rightToLeft ?? false"
             [hiddenSeatFeatures]="resolvedConfig.hiddenSeatFeatures ?? []"
             [currencyOverride]="resolvedConfig.currencySign || ''"
+            [showSelectRestrictionReason]="wcagFlags.visibleRestrictionReason"
+            [dialogMode]="wcagFlags.tooltipDialog"
             [viewOverride]="tooltipViewOverride"
             (select)="onTooltipSelect($event)"
             (unselect)="onTooltipUnselect($event)"
             (close)="onTooltipClose()"
             (mouseenter)="onTooltipMouseEnter()"
             (mouseleave)="onTooltipMouseLeave()"
-            (keydown.escape)="onTooltipClose(); $event.stopPropagation()"
+            (keydown.escape)="onTooltipHostEscape($event)"
           />
         }
       }
@@ -183,10 +193,12 @@
       }
     </div>
 
-    <!-- Skip-link target: focusable wrapper element keyboard users land on
-         after pressing the skip link. tabindex="-1" makes it programmatically
-         focusable without entering the regular tab order. -->
-    <span [id]="afterId" tabindex="-1" class="jets-seat-map__after"></span>
+    @if (wcagFlags.landmarksAndSkipLink) {
+      <!-- Skip-link target: focusable wrapper element keyboard users land on
+           after pressing the skip link. tabindex="-1" makes it programmatically
+           focusable without entering the regular tab order. -->
+      <span [id]="afterId" tabindex="-1" class="jets-seat-map__after"></span>
+    }
   </section>
 </ng-template>
 

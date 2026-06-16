@@ -72,10 +72,10 @@ let _tooltipDialogUid = 0;
         class="jets-tooltip"
         [class.jets-tooltip--below]="!sidePanel && data.openBelow"
         [class.jets-tooltip--side-panel]="sidePanel"
-        [attr.role]="sidePanel ? 'region' : 'dialog'"
-        [attr.aria-labelledby]="headerTitleId"
-        [attr.aria-describedby]="describedById ?? null"
-        (keydown.escape)="onEscapeKey($event)"
+        [attr.role]="sidePanel ? 'region' : dialogMode ? 'dialog' : null"
+        [attr.aria-labelledby]="sidePanel || dialogMode ? headerTitleId : null"
+        [attr.aria-describedby]="(sidePanel || dialogMode) && describedById ? describedById : null"
+        (keydown.escape)="dialogMode ? onEscapeKey($event) : null"
         [style.top.px]="sidePanel ? null : data.top"
         [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
         [style.font-family]="colorTheme?.fontFamily || null"
@@ -210,7 +210,9 @@ let _tooltipDialogUid = 0;
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
                   [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
                   [attr.aria-disabled]="_reason.disabled ? 'true' : null"
-                  [attr.aria-describedby]="_reason.disabled && _reason.message ? selectReasonId : null"
+                  [attr.aria-describedby]="
+                    showSelectRestrictionReason && _reason.disabled && _reason.message ? selectReasonId : null
+                  "
                   (click)="onSelectClick(_reason)"
                 >
                   {{ locale['select'] }}
@@ -218,7 +220,7 @@ let _tooltipDialogUid = 0;
               }
             </div>
             @let _bottomReason = data.seat.passenger ? null : getSelectDisabledReason();
-            @if (_bottomReason && _bottomReason.disabled && _bottomReason.message) {
+            @if (showSelectRestrictionReason && _bottomReason && _bottomReason.disabled && _bottomReason.message) {
               <p class="jets-tooltip--select-reason" [id]="selectReasonId" [style.direction]="textDirection">
                 {{ _bottomReason.message }}
               </p>
@@ -263,6 +265,24 @@ export class JetsTooltipComponent implements AfterViewInit {
    * mirroring the behaviour of the per-seat price pill.
    */
   @Input() currencyOverride?: string;
+  /**
+   * WCAG opt-in: render a visible explanation line under a disabled Select
+   * button (e.g. "The seat is only for: adults") and wire it to the button
+   * via `aria-describedby`. Default `false` keeps the pre-WCAG silent-disabled
+   * behaviour. The parent component flips this via `config.wcag.visibleRestrictionReason`.
+   */
+  @Input() showSelectRestrictionReason = false;
+  /**
+   * WCAG opt-in: render the (non-sidePanel) tooltip with the full dialog
+   * contract — `role="dialog"`, `aria-labelledby` + `aria-describedby` on
+   * the wrapper, and an Escape-to-close handler that's active when focus is
+   * inside the tooltip. The parent flips this via `config.wcag.tooltipDialog`.
+   *
+   * Default `false`: the tooltip renders without ARIA dialog wiring and
+   * Escape inside the tooltip falls through to the host page. Sidepanel
+   * mode is unaffected — it always carries `role="region"`.
+   */
+  @Input() dialogMode = false;
 
   /** Config-level override wins over per-seat currency; falls back to the seat's own currency. */
   get resolvedCurrency(): string {
@@ -563,6 +583,10 @@ export class JetsTooltipComponent implements AfterViewInit {
    */
   ngAfterViewInit(): void {
     if (this.sidePanel) return;
+    // Auto-focus the primary action is the dialog-contract behaviour. Without
+    // the flag the tooltip stays where it is and the user keeps focus on
+    // the seat they hovered/clicked — pre-WCAG parity.
+    if (!this.dialogMode) return;
     setTimeout(() => {
       try {
         this.primaryActionBtnRef?.nativeElement?.focus({ preventScroll: true });

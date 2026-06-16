@@ -576,6 +576,8 @@ describe('JetsTooltipComponent', () => {
         nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
       });
       component.isSelectAvailable = true;
+      // The visible reason line is opt-in via `wcag.visibleRestrictionReason`.
+      component.showSelectRestrictionReason = true;
       fixture.detectChanges();
 
       const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
@@ -659,6 +661,12 @@ describe('JetsTooltipComponent', () => {
 
   // ─── Dialog ARIA contract (commit 11) ──────────────────────────────────
   describe('Dialog ARIA contract', () => {
+    beforeEach(() => {
+      // Dialog role + ARIA wiring + Escape are opt-in via `wcag.tooltipDialog`,
+      // surfaced on this component as the `dialogMode` input.
+      component.dialogMode = true;
+    });
+
     it('non-sidePanel: outer div has role="dialog" and NO aria-modal', () => {
       // Decisions log 2026-06-04: tooltip is non-modal — the map is not
       // overlaid, click-outside closes the tooltip, so aria-modal would lie.

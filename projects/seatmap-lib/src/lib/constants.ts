@@ -116,7 +116,77 @@ export const SEAT_SIZE_BY_TYPE: [number, number][] = [
   [100, 100],
 ];
 
-// Default color theme — WCAG 2.1/2.2 AA compliant defaults.
+// Legacy color theme — pre-WCAG palette used by main. This is what
+// `DEFAULT_COLOR_THEME` resolves to so consumers upgrading to a WCAG
+// release see the same visuals until they opt into `wcag.defaultColorTheme`.
+export const LEGACY_COLOR_THEME = {
+  // Seat
+  seatAvailableColor: '#4CAF50',
+  seatUnavailableColor: '#b0bec5',
+  seatSelectedColor: '#2196F3',
+  seatPreferredColor: '#FF9800',
+  seatExtraColor: '#9C27B0',
+  seatLabelColor: '#ffffff',
+  seatStrokeColor: 'rgb(237,237,237)',
+  seatStrokeWidth: 1,
+  seatArmrestColor: 'rgb(185,186,186)',
+  notAvailableSeatsColor: 'dimgrey',
+  // Fuselage
+  fuselageFillColor: 'lightgray',
+  fuselageStrokeColor: 'darkgrey',
+  fuselageStrokeWidth: 12,
+  fuselageWindowsColor: 'darkgrey',
+  fuselageWingsColor: 'darkgrey',
+  fuselageNoseType: 'default' as 'default' | 'by-type',
+  // Floor & background
+  seatMapBackgroundColor: '#ffffff',
+  floorColor: '#595959',
+  seatmapFontColor: '#333333',
+  // Bulk
+  bulkIconColor: 'rgb(70, 81, 94)',
+  bulkFloorIconColor: 'rgb(206, 216, 237)',
+  bulkBaseColor: 'dimgrey',
+  bulkCutColor: 'lightgrey',
+  // Armrest / exit / hull
+  armrestColor: 'rgb(185,186,186)',
+  exitColor: '#d00434',
+  hullColor: '#e8eaed',
+  // Passenger badge
+  defaultPassengerBadgeColor: '#2196F3',
+  defaultPassengerBadgeLabelColor: '#ffffff',
+  defaultPassengerBadgeBorderColor: '#1976D2',
+  // Tooltip
+  tooltipBackgroundColor: '#ffffff',
+  tooltipHeaderColor: '#222222',
+  tooltipBorderColor: '#e0e0e0',
+  tooltipFontColor: '#333333',
+  tooltipIconColor: '#4f6f8f',
+  tooltipIconBorderColor: '#4f6f8f',
+  tooltipIconBackgroundColor: '#ffffff',
+  tooltipSelectButtonTextColor: '#ffffff',
+  tooltipSelectButtonBackgroundColor: 'rgb(0, 68, 153)',
+  tooltipCancelButtonTextColor: '#333333',
+  tooltipCancelButtonBackgroundColor: '#f0f0f0',
+  // Deck
+  deckTitleColor: '#333333',
+  deckLabelTitleColor: 'rgb(255,255,255)',
+  deckHeightSpacing: 200,
+  deckSeparation: 50,
+  // Deck selector — matches React defaults from constants.js
+  deckSelectorStrokeColor: 'rgba(50, 50, 50, 0.5)',
+  deckSelectorFillColor: '#fff',
+  deckSelectorSize: 25,
+  // Wings (React default: 30)
+  wingsWidth: 30,
+  // Cabin titles
+  cabinTitlesWidth: 80,
+  cabinTitlesLabelColor: '#00BFFF',
+  cabinTitlesHighlightColors: { F: '#BDB76B', B: '#FF8C00', P: '#8FBC8F', E: '#1E90FF' } as Record<string, string>,
+  // Typography
+  fontFamily: '',
+};
+
+// WCAG 2.1/2.2 AA compliant color theme — opt-in via `config.wcag.defaultColorTheme`.
 //
 // All colour pairs that carry information were audited against WCAG SC 1.4.3
 // (text contrast, minimum 4.5:1) and SC 1.4.11 (non-text / UI boundary
@@ -149,8 +219,9 @@ export const SEAT_SIZE_BY_TYPE: [number, number][] = [
 // ⚠ When updating ANY colour above, recompute the affected pairs and refresh
 // the table above. Consumers who pass a custom `colorTheme` are unaffected
 // and own their own contrast budget.
-export const DEFAULT_COLOR_THEME = {
-  // Seat
+export const WCAG_COLOR_THEME: typeof LEGACY_COLOR_THEME = {
+  ...LEGACY_COLOR_THEME,
+  // Seat — re-tuned for AA contrast against #1a1a1a label.
   seatAvailableColor: '#A5D6A7',
   seatUnavailableColor: '#BDBDBD',
   seatSelectedColor: '#90CAF9',
@@ -158,63 +229,22 @@ export const DEFAULT_COLOR_THEME = {
   seatExtraColor: '#CE93D8',
   seatLabelColor: '#1a1a1a',
   seatStrokeColor: '#757575',
-  seatStrokeWidth: 1,
-  seatArmrestColor: 'rgb(185,186,186)',
   notAvailableSeatsColor: '#BDBDBD',
-  // Fuselage
-  fuselageFillColor: 'lightgray',
-  fuselageStrokeColor: 'darkgrey',
-  fuselageStrokeWidth: 12,
-  fuselageWindowsColor: 'darkgrey',
-  fuselageWingsColor: 'darkgrey',
-  fuselageNoseType: 'default' as 'default' | 'by-type',
-  // Floor & background
-  seatMapBackgroundColor: '#ffffff',
-  floorColor: '#595959',
-  seatmapFontColor: '#333333',
-  // Bulk
-  bulkIconColor: 'rgb(70, 81, 94)',
-  bulkFloorIconColor: 'rgb(206, 216, 237)',
-  bulkBaseColor: 'dimgrey',
-  bulkCutColor: 'lightgrey',
-  // Armrest / exit / hull
-  armrestColor: 'rgb(185,186,186)',
-  exitColor: '#d00434',
-  hullColor: '#e8eaed',
-  // Passenger badge
+  // Passenger badge — darker blues for 6.7:1 vs white label.
   defaultPassengerBadgeColor: '#1565C0',
-  defaultPassengerBadgeLabelColor: '#ffffff',
   defaultPassengerBadgeBorderColor: '#0D47A1',
-  // Tooltip
-  tooltipBackgroundColor: '#ffffff',
-  tooltipHeaderColor: '#222222',
-  tooltipBorderColor: '#e0e0e0',
-  tooltipFontColor: '#333333',
-  tooltipIconColor: '#4f6f8f',
-  tooltipIconBorderColor: '#4f6f8f',
-  tooltipIconBackgroundColor: '#ffffff',
-  tooltipSelectButtonTextColor: '#ffffff',
-  tooltipSelectButtonBackgroundColor: 'rgb(0, 68, 153)',
-  tooltipCancelButtonTextColor: '#333333',
-  tooltipCancelButtonBackgroundColor: '#f0f0f0',
-  // Deck
-  deckTitleColor: '#333333',
-  deckLabelTitleColor: 'rgb(255,255,255)',
-  deckHeightSpacing: 200,
-  deckSeparation: 50,
-  // Deck selector — matches React defaults from constants.js
-  deckSelectorStrokeColor: 'rgba(50, 50, 50, 0.5)',
-  deckSelectorFillColor: '#fff',
-  deckSelectorSize: 25,
-  // Wings (React default: 30)
-  wingsWidth: 30,
-  // Cabin titles
-  cabinTitlesWidth: 80,
+  // Cabin titles — replace bright sky-blue (1.4.3 fail vs white) with AA-compliant.
   cabinTitlesLabelColor: '#0277BD',
-  cabinTitlesHighlightColors: { F: '#BDB76B', B: '#FF8C00', P: '#8FBC8F', E: '#1E90FF' } as Record<string, string>,
-  // Typography
-  fontFamily: '',
 };
+
+/**
+ * Default color theme exported for backward compatibility. Aliases to
+ * `LEGACY_COLOR_THEME` so consumers and existing component-level fallbacks
+ * (`colorTheme?.X ?? DEFAULT_COLOR_THEME.X`) keep their pre-WCAG palette
+ * until they opt into `wcag.defaultColorTheme`. New code that wants the
+ * AA palette unconditionally should import `WCAG_COLOR_THEME` directly.
+ */
+export const DEFAULT_COLOR_THEME = LEGACY_COLOR_THEME;
 
 // ─── Localisations ────────────────────────────────────────────────────────────
 // React parity: shared keys mirror jets-seatmap-react-lib-pub/src/common/i18n.languages.js

@@ -33,9 +33,12 @@ async function resetFocus(page: Page): Promise<void> {
 test.describe('seatmap a11y', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    // Render a small but representative seatmap so the axe run is bounded.
-    // No flags flipped — we want the default theme + behaviour audited.
-    await applyConfigAndReady(page, {});
+    // Render the seatmap with every WCAG flag on — this suite measures
+    // accessibility behaviour (axe scan, keyboard nav, Enter→dialog, Escape).
+    // Default-off `wcag` would have grid semantics, keyboard nav, dialog
+    // tooltip, and landmarks dormant and the assertions would observe
+    // pre-WCAG parity instead.
+    await applyConfigAndReady(page, { wcag: { enabled: true } });
   });
 
   test('initial page has no axe violations', async ({ page }) => {
