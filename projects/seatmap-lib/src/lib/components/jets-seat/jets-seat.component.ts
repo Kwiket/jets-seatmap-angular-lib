@@ -14,6 +14,7 @@ import {
   ENTITY_STATUS_MAP,
   ENTITY_TYPE_MAP,
   DEFAULT_COLOR_THEME,
+  WCAG_COLOR_THEME,
   SEAT_SIZE_BY_TYPE,
   DEFAULT_SEAT_TYPE,
   LOCALES_MAP,
@@ -185,6 +186,13 @@ export class JetsSeatComponent implements OnChanges {
    * the map-level `config.lang` in commit 6.
    */
   @Input() lang: string = DEFAULT_LANG;
+  /**
+   * When true, fall back to `WCAG_COLOR_THEME` for any colour key the
+   * consumer didn't override via `colorTheme`. When false (default) we
+   * use `DEFAULT_COLOR_THEME` (= LEGACY palette), preserving pre-WCAG
+   * visuals. The parent maps this from `config.wcag.defaultColorTheme`.
+   */
+  @Input() wcagPalette = false;
 
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
@@ -255,7 +263,7 @@ export class JetsSeatComponent implements OnChanges {
         return loc['empty'] || 'empty';
       case ENTITY_TYPE_MAP.index: {
         const rowLabel = loc['row'] || 'Row';
-        return this.data.number ? `${rowLabel} ${this.data.number}` : (loc['index'] || rowLabel);
+        return this.data.number ? `${rowLabel} ${this.data.number}` : loc['index'] || rowLabel;
       }
       default:
         return null;
@@ -539,7 +547,7 @@ export class JetsSeatComponent implements OnChanges {
 
   private _resolveStyle(classType: string = this.data.classType ?? 'E'): ISeatStyle {
     const theme = this.colorTheme ?? {};
-    const def = DEFAULT_COLOR_THEME;
+    const def = this.wcagPalette ? WCAG_COLOR_THEME : DEFAULT_COLOR_THEME;
 
     // Explicit theme.seatAvailableColor / seatSelectedColor outrank
     // API/score-injected per-seat colours, matching the precedence already

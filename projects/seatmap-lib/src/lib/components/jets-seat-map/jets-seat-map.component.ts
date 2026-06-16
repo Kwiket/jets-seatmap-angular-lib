@@ -225,18 +225,17 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     if (env.isFirefox && scaleType === SCALE_TYPES.ZOOM) {
       scaleType = SCALE_TYPES.SCALE as any;
     }
-    // WCAG-AA palette is opt-in via `wcag.defaultColorTheme`. When ON, we
-    // pre-merge `WCAG_COLOR_THEME` UNDER the user's theme so sub-components
-    // see WCAG-compliant values for any key the user didn't override. When
-    // OFF, we forward the user's theme verbatim — sub-components keep their
-    // `colorTheme?.X ?? DEFAULT_COLOR_THEME.X` fallback to the LEGACY palette,
-    // and `customSeatColorRanges` / API-injected per-seat colours still win
-    // (they would be silently overridden if `theme.seatAvailableColor` were
-    // pre-populated, because `_resolveStyle` treats "key present" as
-    // "user override").
-    const flags = this.wcagFlags;
+    // WCAG-AA palette is opt-in via `wcag.defaultColorTheme`. We DO NOT
+    // pre-merge `WCAG_COLOR_THEME` into the resolved theme here — that would
+    // populate every key (including deck-height padding, stroke widths,
+    // wing dimensions) and make sub-components treat them as user overrides.
+    // Instead the `wcagPalette` flag is plumbed to sub-components and they
+    // pick `WCAG_COLOR_THEME` (vs `DEFAULT_COLOR_THEME`/`LEGACY_COLOR_THEME`)
+    // as the fallback base for unset colour keys only — leaving structural
+    // keys, `customSeatColorRanges`, and API-injected per-seat colours
+    // untouched.
     const userTheme = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(this.config?.colorTheme);
-    const colorTheme = flags.defaultColorTheme ? { ...WCAG_COLOR_THEME, ...userTheme } : userTheme;
+    const colorTheme = userTheme;
     return {
       ...this.config,
       width: this.config?.width ?? DEFAULT_SEAT_MAP_WIDTH,
@@ -799,27 +798,28 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   // ─── Alternative-view (list vs grid) — commit 13 ────────────────────────
 
   /**
-   * Resolved render mode. `config.alternativeView` wins unless the user
-   * toggled manually (then `viewOverride` is used). For `'auto'` we follow
-   * the live `_viewportNarrow` flag (matchMedia('(max-width: 480px)')).
+   * Resolved render mode. Reads `wcag.alternativeView` (with the deprecated
+   * top-level `config.alternativeView` fallback handled inside `getWcagFlags`).
+   * `viewOverride` (set by the toggle button) wins. `'auto'` follows the
+   * live `_viewportNarrow` flag (`matchMedia('(max-width: 480px)')`).
    */
   get effectiveView(): 'grid' | 'list' {
     if (this.viewOverride) return this.viewOverride;
-    const cfg = this.config?.alternativeView;
+    const cfg = this.wcagFlags.alternativeView;
     if (cfg === 'list') return 'list';
-    if (cfg === 'grid') return 'grid';
-    // 'auto' or unset
-    return cfg === 'auto' && this._viewportNarrow ? 'list' : 'grid';
+    if (cfg === 'auto') return this._viewportNarrow ? 'list' : 'grid';
+    return 'grid';
   }
 
   /**
-   * Whether the user-facing toggle button should render. We only show the
-   * toggle when the host hasn't pinned `alternativeView` to a specific
-   * value — pinning it means the host explicitly wants one mode.
+   * Whether the user-facing toggle button should render. Only shown when the
+   * host explicitly opted into `'auto'` — pinning `'grid'` / `'list'` (or
+   * leaving the config alone, in which case `getWcagFlags` returns the
+   * `'grid'` default) means the host picked a mode and the toggle stays
+   * hidden. Pre-WCAG hosts never see the button.
    */
   get showViewToggle(): boolean {
-    const cfg = this.config?.alternativeView;
-    return cfg !== 'grid' && cfg !== 'list';
+    return this.wcagFlags.alternativeView === 'auto';
   }
 
   /** Localised label for the toggle button (English fallback). */

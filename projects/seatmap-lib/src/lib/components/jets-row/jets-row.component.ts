@@ -10,7 +10,7 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
   imports: [CommonModule, NgComponentOutlet, JetsSeatComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    'role': 'row',
+    role: 'row',
     '[attr.aria-rowindex]': 'rowIndex ?? null',
   },
   template: `
@@ -42,6 +42,7 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
             <sm-jets-seat
               [data]="seat"
               [colorTheme]="colorTheme"
+              [wcagPalette]="wcagPalette"
               [showPrice]="showPrice"
               [currencyOverride]="currencyOverride"
               [colorfulSeatsByClass]="colorfulSeatsByClass"
@@ -84,6 +85,8 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
 export class JetsRowComponent {
   @Input() row!: IRowData;
   @Input() colorTheme?: IColorTheme;
+  /** Forwarded to `JetsSeatComponent` — selects WCAG vs LEGACY palette fallback. */
+  @Input() wcagPalette = false;
   @Input() showPrice = false;
   @Input() currencyOverride?: string;
   @Input() colorfulSeatsByClass = false;

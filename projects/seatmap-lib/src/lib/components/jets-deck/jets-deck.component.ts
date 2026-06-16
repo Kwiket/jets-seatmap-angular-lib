@@ -19,7 +19,7 @@ interface ICabinSection {
   imports: [CommonModule, JetsRowComponent, JetsDeckExitComponent, JetsBulkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    'role': 'grid',
+    role: 'grid',
     '[attr.aria-label]': 'gridAriaLabel',
     '[attr.aria-rowcount]': 'rowCount',
     '[attr.aria-colcount]': 'colCount',
@@ -101,6 +101,7 @@ interface ICabinSection {
           <sm-jets-row
             [row]="row"
             [colorTheme]="colorTheme"
+            [wcagPalette]="wcagPalette"
             [showPrice]="showPrice"
             [currencyOverride]="currencyOverride"
             [colorfulSeatsByClass]="colorfulSeatsByClass"
@@ -201,6 +202,8 @@ export class JetsDeckComponent {
   @Input() lang = 'EN';
   @Input() showNumber = false;
   @Input() colorTheme?: IColorTheme;
+  /** Forwarded to `JetsRowComponent` → `JetsSeatComponent`. */
+  @Input() wcagPalette = false;
   @Input() showPrice = false;
   @Input() currencyOverride?: string;
   @Input() flatBulks = false;
