@@ -1441,11 +1441,18 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    * the dialog is still mounted can re-trigger an unwanted hover-open. All
    * wrapped in try/catch so a removed/disconnected trigger never throws.
    * WCAG 2.4.3 (Focus Order) — non-modal dialog focus-return contract.
+   *
+   * Skip in `tooltipOnHover` mode: focusing the trigger seat fires
+   * `onGridFocusin`, which re-opens the tooltip (intended for keyboard
+   * hover parity), so a click on the Cancel/Close button would close →
+   * focus-restore → reopen in a loop. In hover mode the cursor is already
+   * on or near the seat, so the restoration brings no a11y benefit anyway.
    */
   private _restoreFocusToTrigger(): void {
     const trigger = this._lastTriggerElement;
     this._lastTriggerElement = null;
     if (!trigger) return;
+    if (this.resolvedConfig.tooltipOnHover) return;
     setTimeout(() => {
       try {
         trigger.focus({ preventScroll: true });
