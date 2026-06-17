@@ -12,9 +12,11 @@
 
 ## Status
 
-- **Last updated:** 2026-06-05 — **🎉 ВСЕ 17 КОММИТОВ ЗАВЕРШЕНЫ.** Wave G интегрирована параллельно: commit 17 (`README + ACR + CHANGELOG`, SHA `5d3a35a`) и commit 16 (`axe + keyboard tests`, SHA `9a9ab70`). ACR покрывает 59 SC (0 «Does not support», 2 «Partially supports» из-за host responsibility). Unit-набор: 476/476 зелёные. E2E a11y-набор: 3/3 зелёные. Ветка `WCAG` готова к ревью и мёржу.
+- **Last updated:** 2026-06-16 — **Phase 2 завершена: WCAG-фичи переведены на opt-in флаги и портированы поверх свежего `main`.** Работа ведётся в ветке `wcag-port-main` (95 коммитов поверх Phase 1 tip `30038c8`). Все 17 a11y-коммитов теперь спрятаны за `config.wcag: IWcagConfig`, **по умолчанию выключены** — без явного opt-in библиотека байт-в-байт совпадает с `main` (нулевой визуальный diff подтверждён snapshot-сравнением, см. ниже). Дальше — свернуть `wcag-port-main` в `WCAG` (fast-forward), затем пользователь руками чистит устаревшие ветки через GitHub.
+- **Phase 1 (2026-06-05, branch `WCAG`, tip `30038c8`):** 🎉 ВСЕ 17 КОММИТОВ ЗАВЕРШЕНЫ. Wave G: commit 17 (`README + ACR + CHANGELOG`, SHA `5d3a35a`) и commit 16 (`axe + keyboard tests`, SHA `9a9ab70`). ACR покрывает 59 SC (0 «Does not support», 2 «Partially supports» из-за host responsibility). Unit-набор: 476/476 зелёные. E2E a11y-набор: 3/3 зелёные. В Phase 1 все a11y-фичи были включены по умолчанию (visual/DOM-breaking для consumers).
+- **Phase 2 (2026-06-16, branch `wcag-port-main`, tip `2edf176`):** merge свежего `main` (React-parity фиксы) + рефактор на флаги. Новый `IWcagConfig` (types.ts) с per-feature флагами, все default `false`: `enabled` (общий шорткат), `defaultColorTheme`, `liveAnnouncer`, `visibleRestrictionReason`, `landmarksAndSkipLink`, `gridSemantics`, `keyboardNavigation` (требует `gridSemantics`), `tooltipDialog`, `alternativeView`. AA-палитра вынесена в `WCAG_COLOR_THEME` и подмешивается только при `defaultColorTheme` (commit `868df0a`, «defer WCAG palette via wcagPalette plumbing»). Snapshot-comparison harness — `projects/seatmap-demo/e2e/comparison/` (commit `2edf176`), env `$WCAG_PRESET` = `off` / `mid` / `on`. **Сравнение прогнано и пройдено 2026-06-16:** пресет `off` даёт нулевой diff с `origin/main`. Повторный прогон не нужен.
 - **Orchestration mode active:** Claude как orchestrator. Подробности — Claude memory `project_wcag_orchestration` и `project_wcag_sub_agent_constraints`.
-- **Current wave:** нет — все 17 коммитов завершены 2026-06-05. Дальше — code review ветки `WCAG`, согласование с другими стейкхолдерами, merge в `main`, выпуск релиза.
+- **Current wave:** нет — Phase 1 и Phase 2 завершены. Следующий шаг — fast-forward ветки `WCAG` на `wcag-port-main` (чистый ff, 95 коммитов, 0 потерь), после чего стейкхолдеры ревьюят `WCAG`, merge в `main`, релиз.
 - **Pre-existing e2e flakes** (зафиксировано суб-агентами Wave C на baseline `9eb0b26`): `colorTheme · field-seatArmrestColor`, `colorTheme · field-seatStrokeWidth`, `customCabinTitles · default`, `customCabinTitles · short`. Проходят в изолированном single-worker запуске, ломаются на параллельных воркерах. Не связаны с WCAG-работой; разбирать отдельно после ветки.
 - **Blockers:**
   - ⚠ Baseline при запуске `vitest run` напрямую падает с `TestBed.initTestEnvironment() first` — init-testbed setup инжектируется только через `ng test`. Тесты гонять командой `npm test -- --watch=false` / `ng test seatmap-lib --watch=false`, **не** `vitest run` напрямую.
@@ -331,6 +333,17 @@ Position рассчитывается по индексу в `row.seats` (пер
 | 16 | `test(a11y): jest-axe unit + @axe-core/playwright e2e` | [x] | `9a9ab70` | 2026-06-05 | sub-agent Wave G; 4 jest-axe unit-сценария (default, tooltip open, list view, 3-deck tablist) + 3 Playwright e2e (axe + tab cycle + arrow + dialog); color-contrast в jsdom отключён (false-positives без layout); npm scripts `test:a11y` / `e2e:a11y` |
 | 17 | `docs(a11y): README + ACR + override responsibility` | [x] | `5d3a35a` | 2026-06-05 | sub-agent Wave G; README получил секцию Accessibility + override-responsibility snippet; docs/ACR.md — 59 SC (33 Supports, 18 N/A, 6 Host responsibility, 2 Partially); CHANGELOG.md с тремя breaking changes (peer dep, default colors, DOM tag) |
 
+### Phase 2 — opt-in flags + port на свежий `main` (branch `wcag-port-main`)
+
+| # | Коммит | Статус | SHA | Дата | Заметки |
+|---|---|---|---|---|---|
+| P2.0 | `Merge branch 'main' into wcag-port-main` | [x] | `8ae065a` | 2026-06-16 | подтянут свежий `main` со всеми React-parity фиксами поверх Phase 1 tip `30038c8` |
+| P2.1 | `fix(seatmap-lib): skip tooltip focus-return in tooltipOnHover mode` | [x] | `dfb43d7` | 2026-06-16 | hover-режим не должен возвращать фокус на trigger |
+| P2.2 | `feat(seatmap-lib): add IWcagConfig + per-feature WCAG flags (default off)` | [x] | `75c961e` | 2026-06-16 | `IWcagConfig` в types.ts; `getWcagFlags`/`Required<IWcagConfig>` резолвер; `keyboardNavigation` требует `gridSemantics` |
+| P2.3 | `chore(e2e): regenerate demo screenshots after Phase 2 flag refactor` | [x] | `9ecde11` | 2026-06-16 | baseline-скриншоты демо после рефактора флагов |
+| P2.4 | `fix(seatmap-lib): defer WCAG palette via wcagPalette plumbing; restore main parity` | [x] | `868df0a` | 2026-06-16 | AA-палитра → `WCAG_COLOR_THEME`, подмешивается только при `defaultColorTheme`; дефолт = `LEGACY_COLOR_THEME` |
+| P2.5 | `test(seatmap-demo): add WCAG snapshot-comparison harness` | [x] | `2edf176` | 2026-06-16 | `e2e/comparison/`, `$WCAG_PRESET` = off/mid/on; **сравнение прогнано, пресет `off` = нулевой diff с `main`** |
+
 После каждого коммита:
 ```
 # В директории jets-seatmap-angular-lib
@@ -359,6 +372,9 @@ git push origin HEAD:WCAG
 - **2026-06-04 — DOM tag change:** seat `div` → `button` — DOM-breaking для consumers, опиравшихся на `div.jets-seat`. CSS-класс `.jets-seat` и `data-seat-number` атрибут сохраняются. Отмечено в CHANGELOG коммита 5.
 - **2026-06-04 — Orchestration mode:** пользователь явно попросил оркестрационную модель работы. Claude как orchestrator анализирует DAG зависимостей, готовит worktree'ы, диспатчит параллельные суб-агенты (`Agent` tool, `general-purpose`), сам делает PLAN.md updates после волны. Суб-агенты PLAN.md **не трогают** — иначе merge-конфликты на одной строке. Подробности в Claude memory `project_wcag_orchestration`.
 - **2026-06-04 — Commit 4 approval:** пользователь явно дал «ок» на default-colors visual breaking change и регенерацию `colorTheme/screenshots/*.png` через `playwright test --update-snapshots`. Можно дисpatch'ить суб-агенту.
+- **2026-06-16 — Phase 2, opt-in flags (отмена breaking-by-default):** Phase 1 включала все a11y-фичи по умолчанию, что давало visual/DOM-breaking для существующих consumers. Решено: спрятать всё за `config.wcag: IWcagConfig`, все флаги default `false`. Без opt-in рендер байт-в-байт совпадает с `main`. Это снимает три breaking changes из CHANGELOG Phase 1 (теперь они проявляются только при явном включении флагов). Реализовано в ветке `wcag-port-main` поверх свежего `main`.
+- **2026-06-16 — AA-палитра как отдельный токен-сет:** вместо переписывания `DEFAULT_COLOR_THEME` (Phase 1) AA-контрастные цвета вынесены в `WCAG_COLOR_THEME` и подмешиваются базой под `config.colorTheme` только при `defaultColorTheme === true`. Историческая палитра переименована/сохранена как `LEGACY_COLOR_THEME` и остаётся дефолтом. Commit `868df0a`.
+- **2026-06-16 — Snapshot-parity как gate:** добавлен harness `projects/seatmap-demo/e2e/comparison/` (commit `2edf176`) с env `$WCAG_PRESET` (`off`/`mid`/`on`), прогоняемый дважды (против `origin/main` и против ветки) в разные `$OUT_DIR`. Критерий приёмки: пресет `off` = нулевой diff с `main`. **Прогнано и пройдено 2026-06-16** — повторять не требуется.
 
 ---
 
