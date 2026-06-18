@@ -11,6 +11,18 @@
       <!-- Visually-hidden landmark heading (region name for AT) -->
       <h2 [id]="mapHeadingId" class="jets-seat-map__heading">{{ mapHeadingText }}</h2>
 
+      <!-- "Enter the grid" skip link: focuses the active seat so keyboard
+           users reach arrow-key seat selection in one Tab. Only meaningful
+           when the seats are focusable gridcells. -->
+      @if (wcagFlags.gridSemantics) {
+        <a
+          class="jets-seat-map__skip-link"
+          [attr.href]="'#' + deckPanelId"
+          (click)="onJumpToSeatsClick($event)"
+          >{{ jumpToSeatsLabel }}</a
+        >
+      }
+
       <!-- Skip link: visually-hidden until focused. Lets keyboard users skip
            past the entire grid to whatever follows the seat map. -->
       <a class="jets-seat-map__skip-link" [attr.href]="'#' + afterId" (click)="onSkipLinkClick($event)">{{

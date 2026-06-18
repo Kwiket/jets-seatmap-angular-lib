@@ -682,6 +682,39 @@ describe('JetsSeatMapComponent', () => {
     });
   });
 
+  describe('skip-to-seats link', () => {
+    it('onJumpToSeatsClick focuses the roving anchor seat (tabindex=0)', () => {
+      const container = document.createElement('div');
+      const other = document.createElement('button');
+      other.setAttribute('role', 'gridcell');
+      other.setAttribute('tabindex', '-1');
+      const anchor = document.createElement('button');
+      anchor.setAttribute('role', 'gridcell');
+      anchor.setAttribute('tabindex', '0');
+      container.append(other, anchor);
+      document.body.appendChild(container);
+      (component as any).mapContainer = { nativeElement: container };
+
+      component.onJumpToSeatsClick(new Event('click'));
+      expect(document.activeElement).toBe(anchor);
+      document.body.removeChild(container);
+    });
+
+    it('onJumpToSeatsClick falls back to the first gridcell button when no anchor', () => {
+      const container = document.createElement('div');
+      const first = document.createElement('button');
+      first.setAttribute('role', 'gridcell');
+      first.setAttribute('tabindex', '-1');
+      container.appendChild(first);
+      document.body.appendChild(container);
+      (component as any).mapContainer = { nativeElement: container };
+
+      component.onJumpToSeatsClick(new Event('click'));
+      expect(document.activeElement).toBe(first);
+      document.body.removeChild(container);
+    });
+  });
+
   // ─── Edge cases ───────────────────────────────────────────────────────
 
   describe('Edge cases', () => {
