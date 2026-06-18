@@ -1,12 +1,21 @@
 /**
  * Pure-logic service for 2D keyboard navigation across the seat grid.
  *
- * Implements the WAI-ARIA Authoring Practices "Layout Grid" pattern:
- *   - Arrow keys move focus one cell at a time in the corresponding axis.
- *   - Home / End jump to the first / last column of the current row.
- *   - Ctrl+Home / Ctrl+End jump to the first / last cell of the current deck.
- *   - PageUp / PageDown jump 5 rows (clamped to the deck boundaries).
- *   - Ctrl+Arrow{Left,Right} "skim" between interactive seats only.
+ * Navigation lands on real `seat` cells only (any status, including
+ * `unavailable`). Non-seat spacer cells (aisle / empty / index) keep their
+ * `role="gridcell"` for screen-reader grid structure but are NEVER an
+ * arrow-key focus target — otherwise the focus ring renders around blank
+ * space between seats. This is a deliberate, pragmatic departure from the
+ * strict APG "Layout Grid" pattern (which makes every cell focusable); see
+ * docs/wcag/PLAN.md Decisions log.
+ *
+ *   - Arrow keys move focus to the next/nearest SEAT in the axis, skipping
+ *     spacer cells (and seatless separator rows for vertical moves).
+ *   - Home / End jump to the first / last SEAT of the current row.
+ *   - Ctrl+Home / Ctrl+End jump to the first / last SEAT of the current deck.
+ *   - PageUp / PageDown jump 5 rows toward a seat-bearing row.
+ *   - Ctrl+Arrow{Left,Right} "skim" between interactive seats only
+ *     (available/selected/preferred/extra — i.e. also skipping `unavailable`).
  *
  * Cross-deck navigation is intentionally OUT OF SCOPE — `move()` always
  * returns the same `deckIdx`. The orchestrator wiring inside
@@ -101,59 +110,46 @@ export class SeatGridNavigationService {
     }
 
     switch (key) {
-      case 'ArrowLeft': {
-        if (from.colIdx <= 0) return from;
-        return { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: from.colIdx - 1 };
-      }
-      case 'ArrowRight': {
-        const lastCol = currentRow.seats.length - 1;
-        if (from.colIdx >= lastCol) return from;
-        return { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: from.colIdx + 1 };
-      }
-      case 'ArrowUp': {
-        if (from.rowIdx <= 0) return from;
-        const targetRowIdx = from.rowIdx - 1;
-        const targetCol = this.clampCol(rows, targetRowIdx, from.colIdx);
-        return { deckIdx: from.deckIdx, rowIdx: targetRowIdx, colIdx: targetCol };
-      }
-      case 'ArrowDown': {
-        if (from.rowIdx >= rows.length - 1) return from;
-        const targetRowIdx = from.rowIdx + 1;
-        const targetCol = this.clampCol(rows, targetRowIdx, from.colIdx);
-        return { deckIdx: from.deckIdx, rowIdx: targetRowIdx, colIdx: targetCol };
-      }
+      case 'ArrowLeft':
+        return this.stepHorizontal(from, currentRow.seats, -1);
+      case 'ArrowRight':
+        return this.stepHorizontal(from, currentRow.seats, +1);
+      case 'ArrowUp':
+        return this.stepVertical(from, rows, from.rowIdx - 1, -1);
+      case 'ArrowDown':
+        return this.stepVertical(from, rows, from.rowIdx + 1, +1);
       case 'Home': {
-        if (from.colIdx === 0) return from;
-        return { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: 0 };
+        const col = this.firstSeatCol(currentRow.seats);
+        if (col < 0 || col === from.colIdx) return from;
+        return { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: col };
       }
       case 'End': {
-        const lastCol = currentRow.seats.length - 1;
-        if (from.colIdx === lastCol) return from;
-        return { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: lastCol };
+        const col = this.lastSeatCol(currentRow.seats);
+        if (col < 0 || col === from.colIdx) return from;
+        return { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: col };
       }
       case 'CtrlHome': {
-        if (from.rowIdx === 0 && from.colIdx === 0) return from;
-        return { deckIdx: from.deckIdx, rowIdx: 0, colIdx: 0 };
+        const cell = this.firstSeatCellOfDeck(from.deckIdx, rows);
+        if (!cell || (cell.rowIdx === from.rowIdx && cell.colIdx === from.colIdx)) return from;
+        return cell;
       }
       case 'CtrlEnd': {
-        const lastRowIdx = rows.length - 1;
-        const lastRow = rows[lastRowIdx];
-        const lastCol = lastRow && lastRow.seats ? Math.max(0, lastRow.seats.length - 1) : 0;
-        if (from.rowIdx === lastRowIdx && from.colIdx === lastCol) return from;
-        return { deckIdx: from.deckIdx, rowIdx: lastRowIdx, colIdx: lastCol };
+        const cell = this.lastSeatCellOfDeck(from.deckIdx, rows);
+        if (!cell || (cell.rowIdx === from.rowIdx && cell.colIdx === from.colIdx)) return from;
+        return cell;
       }
       case 'PageUp': {
         if (from.rowIdx === 0) return from;
-        const targetRowIdx = Math.max(0, from.rowIdx - PAGE_STEP);
-        const targetCol = this.clampCol(rows, targetRowIdx, from.colIdx);
-        return { deckIdx: from.deckIdx, rowIdx: targetRowIdx, colIdx: targetCol };
+        // Scan from the target row back DOWN toward `from`, so we always land
+        // on a seat-bearing row even if the exact target row is a separator.
+        const target = Math.max(0, from.rowIdx - PAGE_STEP);
+        return this.stepVertical(from, rows, target, +1);
       }
       case 'PageDown': {
         const lastRowIdx = rows.length - 1;
         if (from.rowIdx === lastRowIdx) return from;
-        const targetRowIdx = Math.min(lastRowIdx, from.rowIdx + PAGE_STEP);
-        const targetCol = this.clampCol(rows, targetRowIdx, from.colIdx);
-        return { deckIdx: from.deckIdx, rowIdx: targetRowIdx, colIdx: targetCol };
+        const target = Math.min(lastRowIdx, from.rowIdx + PAGE_STEP);
+        return this.stepVertical(from, rows, target, -1);
       }
       case 'CtrlArrowLeft':
         return this.skim(from, decks, -1);
@@ -202,14 +198,97 @@ export class SeatGridNavigationService {
 
   // ─── internals ─────────────────────────────────────────────────────────────
 
-  /** Clamp a desired colIdx to the valid range of `rows[rowIdx].seats`. */
-  private clampCol(rows: IDeckData['rows'], rowIdx: number, desiredCol: number): number {
-    const row = rows[rowIdx];
-    if (!row || !row.seats || row.seats.length === 0) return 0;
-    const lastCol = row.seats.length - 1;
-    if (desiredCol < 0) return 0;
-    if (desiredCol > lastCol) return lastCol;
-    return desiredCol;
+  /** Whether a cell is a real seat (any status) — the only arrow-key target. */
+  private isSeatCell(seat: ISeatData | undefined): boolean {
+    return !!seat && seat.type === 'seat';
+  }
+
+  /**
+   * Move horizontally within a row to the next SEAT cell in `dir` (+1/-1),
+   * skipping spacer cells. Returns `from` (referentially) if none exists.
+   */
+  private stepHorizontal(from: ICellPos, seats: ISeatData[], dir: 1 | -1): ICellPos {
+    for (let c = from.colIdx + dir; c >= 0 && c < seats.length; c += dir) {
+      if (this.isSeatCell(seats[c])) {
+        return { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: c };
+      }
+    }
+    return from;
+  }
+
+  /**
+   * Scan rows starting at `startRowIdx` in `dir` for the first seat-bearing
+   * row, landing on the seat nearest `from.colIdx`. Skips seatless separator
+   * rows. Returns `from` if no seat row is reachable (or if it resolves back
+   * to the current cell).
+   */
+  private stepVertical(
+    from: ICellPos,
+    rows: IDeckData['rows'],
+    startRowIdx: number,
+    dir: 1 | -1,
+  ): ICellPos {
+    for (let r = startRowIdx; r >= 0 && r < rows.length; r += dir) {
+      const seats = rows[r]?.seats;
+      if (!seats) continue;
+      const col = this.nearestSeatCol(seats, from.colIdx);
+      if (col >= 0) {
+        if (r === from.rowIdx && col === from.colIdx) return from;
+        return { deckIdx: from.deckIdx, rowIdx: r, colIdx: col };
+      }
+    }
+    return from;
+  }
+
+  /** Index of the first seat cell in a row, or -1. */
+  private firstSeatCol(seats: ISeatData[]): number {
+    for (let c = 0; c < seats.length; c++) {
+      if (this.isSeatCell(seats[c])) return c;
+    }
+    return -1;
+  }
+
+  /** Index of the last seat cell in a row, or -1. */
+  private lastSeatCol(seats: ISeatData[]): number {
+    for (let c = seats.length - 1; c >= 0; c--) {
+      if (this.isSeatCell(seats[c])) return c;
+    }
+    return -1;
+  }
+
+  /** Seat cell nearest to `desiredCol` (ties resolve to the left), or -1. */
+  private nearestSeatCol(seats: ISeatData[], desiredCol: number): number {
+    let best = -1;
+    let bestDist = Infinity;
+    for (let c = 0; c < seats.length; c++) {
+      if (!this.isSeatCell(seats[c])) continue;
+      const dist = Math.abs(c - desiredCol);
+      if (dist < bestDist) {
+        best = c;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }
+
+  /** First seat cell of the deck (top-down), or null. */
+  private firstSeatCellOfDeck(deckIdx: number, rows: IDeckData['rows']): ICellPos | null {
+    for (let r = 0; r < rows.length; r++) {
+      const seats = rows[r]?.seats;
+      const col = seats ? this.firstSeatCol(seats) : -1;
+      if (col >= 0) return { deckIdx, rowIdx: r, colIdx: col };
+    }
+    return null;
+  }
+
+  /** Last seat cell of the deck (bottom-up), or null. */
+  private lastSeatCellOfDeck(deckIdx: number, rows: IDeckData['rows']): ICellPos | null {
+    for (let r = rows.length - 1; r >= 0; r--) {
+      const seats = rows[r]?.seats;
+      const col = seats ? this.lastSeatCol(seats) : -1;
+      if (col >= 0) return { deckIdx, rowIdx: r, colIdx: col };
+    }
+    return null;
   }
 
   /**

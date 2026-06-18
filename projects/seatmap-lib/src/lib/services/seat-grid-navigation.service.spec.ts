@@ -200,6 +200,119 @@ describe('SeatGridNavigationService', () => {
     });
   });
 
+  // ── move: arrows skip non-seat spacer cells ─────────────────────────────────
+  describe('move: arrows skip non-seat spacer cells', () => {
+    // [seat A(0), aisle(1), seat C(2), empty(3), seat E(4)]
+    const spacerRow = () =>
+      row([
+        seat('seat', 'available', 'A'),
+        seat('aisle', 'available'),
+        seat('seat', 'available', 'C'),
+        seat('empty', 'available'),
+        seat('seat', 'available', 'E'),
+      ]);
+
+    it('ArrowRight hops over an aisle to the next seat', () => {
+      const d = deck([spacerRow()]);
+      expect(svc.move({ deckIdx: 0, rowIdx: 0, colIdx: 0 }, 'ArrowRight', [d])).toEqual({
+        deckIdx: 0,
+        rowIdx: 0,
+        colIdx: 2,
+      });
+    });
+
+    it('ArrowRight hops over an empty to the next seat', () => {
+      const d = deck([spacerRow()]);
+      expect(svc.move({ deckIdx: 0, rowIdx: 0, colIdx: 2 }, 'ArrowRight', [d])).toEqual({
+        deckIdx: 0,
+        rowIdx: 0,
+        colIdx: 4,
+      });
+    });
+
+    it('ArrowLeft hops over spacers back to the previous seat', () => {
+      const d = deck([spacerRow()]);
+      expect(svc.move({ deckIdx: 0, rowIdx: 0, colIdx: 4 }, 'ArrowLeft', [d])).toEqual({
+        deckIdx: 0,
+        rowIdx: 0,
+        colIdx: 2,
+      });
+    });
+
+    it('ArrowRight stays put (referential identity) when only spacers remain', () => {
+      // [seat(0), aisle(1), empty(2)]
+      const d = deck([
+        row([seat('seat', 'available', 'A'), seat('aisle', 'available'), seat('empty', 'available')]),
+      ]);
+      const from: ICellPos = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
+      expect(svc.move(from, 'ArrowRight', [d])).toBe(from);
+    });
+
+    it('plain ArrowRight still lands on an unavailable seat (only spacers are skipped)', () => {
+      // [seat available(0), aisle(1), seat unavailable(2)]
+      const d = deck([
+        row([
+          seat('seat', 'available', 'A'),
+          seat('aisle', 'available'),
+          seat('seat', 'unavailable', 'C'),
+        ]),
+      ]);
+      expect(svc.move({ deckIdx: 0, rowIdx: 0, colIdx: 0 }, 'ArrowRight', [d])).toEqual({
+        deckIdx: 0,
+        rowIdx: 0,
+        colIdx: 2,
+      });
+    });
+
+    it('Home / End target the first / last SEAT, not a leading / trailing spacer', () => {
+      // [aisle(0), seat B(1), seat C(2), empty(3)]
+      const d = deck([
+        row([
+          seat('aisle', 'available'),
+          seat('seat', 'available', 'B'),
+          seat('seat', 'available', 'C'),
+          seat('empty', 'available'),
+        ]),
+      ]);
+      expect(svc.move({ deckIdx: 0, rowIdx: 0, colIdx: 2 }, 'Home', [d])).toEqual({
+        deckIdx: 0,
+        rowIdx: 0,
+        colIdx: 1,
+      });
+      expect(svc.move({ deckIdx: 0, rowIdx: 0, colIdx: 1 }, 'End', [d])).toEqual({
+        deckIdx: 0,
+        rowIdx: 0,
+        colIdx: 2,
+      });
+    });
+
+    it('ArrowDown skips a seatless separator row to the next row with seats', () => {
+      const d = deck([
+        row([seat('seat', 'available', 'A'), seat('seat', 'available', 'B')]), // row 0
+        row([seat('aisle', 'available'), seat('empty', 'available')]), // row 1: separator, no seats
+        row([seat('seat', 'available', 'A'), seat('seat', 'available', 'B')]), // row 2
+      ]);
+      expect(svc.move({ deckIdx: 0, rowIdx: 0, colIdx: 1 }, 'ArrowDown', [d])).toEqual({
+        deckIdx: 0,
+        rowIdx: 2,
+        colIdx: 1,
+      });
+    });
+
+    it('CtrlEnd lands on the last SEAT, skipping a trailing spacer cell', () => {
+      // last row: [seat A(0), seat B(1), empty(2)]
+      const d = deck([
+        row([seat('seat', 'available', 'A'), seat('seat', 'available', 'B')]),
+        row([seat('seat', 'available', 'A'), seat('seat', 'available', 'B'), seat('empty', 'available')]),
+      ]);
+      expect(svc.move({ deckIdx: 0, rowIdx: 0, colIdx: 0 }, 'CtrlEnd', [d])).toEqual({
+        deckIdx: 0,
+        rowIdx: 1,
+        colIdx: 1,
+      });
+    });
+  });
+
   // ── move: Home / End ───────────────────────────────────────────────────────
   describe('move: Home / End', () => {
     const decks = [uniformDeck(3, 5)];
