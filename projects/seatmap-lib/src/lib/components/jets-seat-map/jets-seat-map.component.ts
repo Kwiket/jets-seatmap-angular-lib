@@ -402,18 +402,6 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     return locale['skipSeatmap'] || 'Skip seat map';
   }
 
-  /**
-   * Label for the complementary "enter the grid" skip link — moves focus
-   * straight onto the active seat so a keyboard user reaches arrow-key seat
-   * selection in a single Tab instead of stepping past every preceding
-   * control. Honours the 'skipToSeats' locale key; English fallback otherwise.
-   * TODO(docs): add 'skipToSeats' to all locales in LOCALES_MAP.
-   */
-  get jumpToSeatsLabel(): string {
-    const locale = LOCALES_MAP[this.lang] || LOCALES_MAP['EN'] || {};
-    return locale['skipToSeats'] || 'Skip to seat selection';
-  }
-
   /** id placed on the deck panel for aria-controls wiring from the tablist. */
   get deckPanelId(): string {
     return `${this.deckPanelIdBase}-${this.activeDeckIndex}`;
@@ -1591,24 +1579,6 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     target.focus({ preventScroll: true });
     // Bring the target into view so sighted keyboard users see they jumped.
     target.scrollIntoView({ block: 'nearest', behavior: 'auto' });
-  }
-
-  /**
-   * "Enter the grid" skip-link handler. Moves focus to the roving anchor seat
-   * (the single `tabindex="0"` gridcell), falling back to the first focusable
-   * seat. Lets a keyboard user jump straight into arrow-key seat selection
-   * without stepping through every preceding control.
-   */
-  onJumpToSeatsClick(event: Event): void {
-    event.preventDefault();
-    const container = this.mapContainer?.nativeElement;
-    if (!container) return;
-    const anchor =
-      container.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]') ||
-      container.querySelector<HTMLElement>('button[role="gridcell"]');
-    if (!anchor) return;
-    anchor.focus({ preventScroll: true });
-    anchor.scrollIntoView?.({ block: 'nearest', behavior: 'auto' });
   }
 
   // ─── A11y live announcements ────────────────────────────────────────────
