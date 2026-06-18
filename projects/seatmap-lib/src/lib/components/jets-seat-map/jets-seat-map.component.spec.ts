@@ -654,6 +654,34 @@ describe('JetsSeatMapComponent', () => {
     });
   });
 
+  describe('grid keyboard navigation vs open dialog', () => {
+    beforeEach(async () => {
+      // `enabled` turns on gridSemantics + keyboardNavigation + tooltipDialog;
+      // tooltipOnHover stays false, so any open tooltip is an activation dialog.
+      component.config = makeConfig({ wcag: { enabled: true } });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      // Deterministic 1×2 grid so ArrowRight has a seat to move to.
+      (component as any).content = [
+        { rows: [{ id: 'r0', seats: [makeSeat({ number: '1A' }), makeSeat({ number: '1B' })] }] },
+      ];
+      (component as any).focusedCell = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
+    });
+
+    it('ArrowRight moves the focused cell when no tooltip is open', () => {
+      component.activeTooltip = null;
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      expect((component as any).focusedCell).toEqual({ deckIdx: 0, rowIdx: 0, colIdx: 1 });
+    });
+
+    it('ArrowRight does NOT move the grid while an activation dialog is open', () => {
+      component.activeTooltip = { seat: makeSeat() } as any;
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      expect((component as any).focusedCell).toEqual({ deckIdx: 0, rowIdx: 0, colIdx: 0 });
+    });
+  });
+
   // ─── Edge cases ───────────────────────────────────────────────────────
 
   describe('Edge cases', () => {

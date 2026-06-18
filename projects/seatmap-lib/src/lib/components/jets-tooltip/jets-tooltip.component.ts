@@ -76,6 +76,7 @@ let _tooltipDialogUid = 0;
         [attr.aria-labelledby]="sidePanel || dialogMode ? headerTitleId : null"
         [attr.aria-describedby]="(sidePanel || dialogMode) && describedById ? describedById : null"
         (keydown.escape)="dialogMode ? onEscapeKey($event) : null"
+        (keydown)="dialogMode ? onDialogKeydown($event) : null"
         [style.top.px]="sidePanel ? null : data.top"
         [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
         [style.font-family]="colorTheme?.fontFamily || null"
@@ -234,6 +235,7 @@ let _tooltipDialogUid = 0;
 })
 export class JetsTooltipComponent implements AfterViewInit {
   private sanitizer = inject(DomSanitizer);
+  private host: ElementRef<HTMLElement> = inject(ElementRef);
 
   /**
    * Primary action button (Select when no passenger, Unselect when seat carries
@@ -589,11 +591,57 @@ export class JetsTooltipComponent implements AfterViewInit {
     if (!this.dialogMode) return;
     setTimeout(() => {
       try {
-        this.primaryActionBtnRef?.nativeElement?.focus({ preventScroll: true });
+        // Prefer the primary action (Select / Unselect). When the seat has no
+        // actions (e.g. an info-only tooltip), fall back to the first
+        // focusable button (the × close) so focus still lands inside the
+        // dialog — otherwise it would stay on the trigger seat and arrow keys
+        // would keep moving the grid behind the open dialog.
+        const target = this.primaryActionBtnRef?.nativeElement ?? this._focusableButtons()[0];
+        target?.focus({ preventScroll: true });
       } catch {
         /* no-op: jsdom and old browsers may throw on focus options */
       }
     }, 0);
+  }
+
+  /**
+   * Focusable buttons inside the tooltip, in DOM order (× close, Cancel,
+   * Select / Unselect). Drives the auto-focus fallback and arrow-key roving.
+   */
+  private _focusableButtons(): HTMLButtonElement[] {
+    return Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLButtonElement>('button:not([disabled])'),
+    );
+  }
+
+  /**
+   * Arrow-key roving between the dialog's buttons. The tooltip lives inside
+   * the seat-grid container, so without `stopPropagation` these keys would
+   * bubble to the grid and move seat focus out of the open dialog. Active
+   * only in dialog mode; Tab still works natively as the standard path.
+   */
+  onDialogKeydown(event: KeyboardEvent): void {
+    if (!this.dialogMode) return;
+    if (
+      event.key !== 'ArrowLeft' &&
+      event.key !== 'ArrowRight' &&
+      event.key !== 'ArrowUp' &&
+      event.key !== 'ArrowDown'
+    ) {
+      return;
+    }
+    // Keep the keystroke inside the dialog regardless of how many buttons
+    // there are, so it never leaks to the grid navigation handler.
+    event.preventDefault();
+    event.stopPropagation();
+    const btns = this._focusableButtons();
+    if (btns.length < 2) return;
+    const active = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
+    const current = active ? btns.indexOf(active as HTMLButtonElement) : -1;
+    const dir = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+    const start = current < 0 ? 0 : current;
+    const next = (start + dir + btns.length) % btns.length;
+    btns[next].focus();
   }
 
   /**

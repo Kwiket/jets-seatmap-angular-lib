@@ -802,6 +802,54 @@ describe('JetsTooltipComponent', () => {
       document.body.removeChild(sentinel);
     });
 
+    it('auto-focuses the × close button when the seat has no action buttons', async () => {
+      component.data = makeTooltipData();
+      component.showActions = false;
+      fixture.detectChanges();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      await fixture.whenStable();
+
+      const closeBtn = fixture.nativeElement.querySelector('.jets-tooltip--close-btn') as HTMLButtonElement;
+      expect(document.activeElement).toBe(closeBtn);
+    });
+
+    it('ArrowLeft / ArrowRight rove focus between the dialog buttons', () => {
+      component.data = makeTooltipData();
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const cancelBtn = fixture.nativeElement.querySelector('.jets-cancel-btn') as HTMLButtonElement;
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+
+      selectBtn.focus();
+      component.onDialogKeydown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+      expect(document.activeElement).toBe(cancelBtn);
+
+      component.onDialogKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      expect(document.activeElement).toBe(selectBtn);
+    });
+
+    it('onDialogKeydown stops arrow keys from bubbling to the grid', () => {
+      component.data = makeTooltipData();
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const ev = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+      const stopSpy = vi.spyOn(ev, 'stopPropagation');
+      component.onDialogKeydown(ev);
+      expect(stopSpy).toHaveBeenCalled();
+    });
+
+    it('onDialogKeydown ignores non-arrow keys so they bubble normally', () => {
+      component.data = makeTooltipData();
+      fixture.detectChanges();
+
+      const ev = new KeyboardEvent('keydown', { key: 'a', bubbles: true });
+      const stopSpy = vi.spyOn(ev, 'stopPropagation');
+      component.onDialogKeydown(ev);
+      expect(stopSpy).not.toHaveBeenCalled();
+    });
+
     it('Escape inside the tooltip emits close and stops event propagation', () => {
       component.data = makeTooltipData();
       fixture.detectChanges();

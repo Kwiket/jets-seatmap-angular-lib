@@ -872,6 +872,17 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
 
+    // While the built-in tooltip is open as an interactive (click / Enter-
+    // activated, non-hover) dialog, it owns the keyboard. Its action buttons
+    // live inside this same container, so their Arrow / Home / End / Page keys
+    // bubble up here — without this guard `gridNav.move` + `_focusCell` would
+    // yank focus back onto a seat the moment the user tries to move between
+    // the dialog buttons. Hover-follow tooltips (`tooltipOnHover`) keep focus
+    // on the seat and must NOT suspend grid navigation, so they're excluded.
+    if (flags.tooltipDialog && this.activeTooltip && !this.resolvedConfig.tooltipOnHover) {
+      return;
+    }
+
     // Arrow / Home / End / PageUp / PageDown nav lives under
     // `keyboardNavigation`. Without the flag the handler returns and the
     // browser sees the native key (default tab order) — pre-WCAG parity.
