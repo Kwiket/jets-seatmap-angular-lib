@@ -38,7 +38,8 @@
 }
 
 .jets-seat-list__filter,
-.jets-seat-list__sort {
+.jets-seat-list__sort,
+.jets-seat-list__select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -46,7 +47,8 @@
   cursor: pointer;
 }
 
-.jets-seat-list__sort select {
+.jets-seat-list__sort select,
+.jets-seat-list__select select {
   font-size: 13px;
   padding: 4px 6px;
   border: 1px solid #cccccc;
@@ -54,10 +56,22 @@
   background: #ffffff;
 }
 
+// Horizontal-scroll guard: keeps the table inside the seat-map box instead of
+// bleeding under adjacent page content when the available width is tight.
+.jets-seat-list__table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .jets-seat-list__table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+
+  // Row number is short — never wrap it onto two lines.
+  .jets-seat-list__col-row {
+    white-space: nowrap;
+  }
 
   th,
   td {

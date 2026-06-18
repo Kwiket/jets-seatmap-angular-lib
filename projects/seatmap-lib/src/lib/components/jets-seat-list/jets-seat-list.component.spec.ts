@@ -61,10 +61,91 @@ describe('JetsSeatListComponent', () => {
   });
 
   it('renders a semantic table with caption and column headers', () => {
+    fixture.componentRef.setInput('hasAvailability', true);
+    fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('table caption')).toBeTruthy();
     const headers = root.querySelectorAll('thead th[scope="col"]');
+    // Row, Seat, Cabin, Position, Price, Status, Action (Features hidden — none here).
     expect(headers.length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('Row column shows the numeric row, not the internal row id', () => {
+    const firstRowCell = (fixture.nativeElement as HTMLElement).querySelector(
+      'tbody tr .jets-seat-list__col-row'
+    );
+    // Seat '1A' → row '1' (never 'r1' / 'row-0').
+    expect(firstRowCell?.textContent?.trim()).toBe('1');
+  });
+
+  it('hides Price and Status columns when availability is off, shows them when on', () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const headerText = () =>
+      Array.from(root.querySelectorAll('thead th')).map(th => th.textContent?.trim());
+
+    // Default: hasAvailability false.
+    expect(headerText()).not.toContain('Price');
+    expect(headerText()).not.toContain('Status');
+
+    fixture.componentRef.setInput('hasAvailability', true);
+    fixture.detectChanges();
+    expect(headerText()).toContain('Price');
+    expect(headerText()).toContain('Status');
+  });
+
+  it('hides the Features column when no seat carries features', () => {
+    const headers = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('thead th')
+    ).map(th => th.textContent?.trim());
+    expect(headers).not.toContain('Features');
+  });
+
+  it('shows the Features column when at least one seat has a feature', () => {
+    component.content = [
+      {
+        rows: [
+          {
+            id: 'r1',
+            name: '10',
+            seats: [makeSeat({ id: 's', number: '10A', features: [{ key: 'wifi', title: 'Wi-Fi' }] })],
+          },
+        ],
+        number: 1,
+        scale: 1,
+      },
+    ];
+    fixture.detectChanges();
+    const headers = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('thead th')
+    ).map(th => th.textContent?.trim());
+    expect(headers).toContain('Features');
+  });
+
+  it('positionFilter = window shows window seats and excludes middle seats', () => {
+    // Row 5A | 5B | 5C → 5A first (window), 5C last (window), 5B middle.
+    component.content = [
+      {
+        rows: [
+          {
+            id: 'r',
+            name: '5',
+            seats: [
+              makeSeat({ id: 'a', number: '5A' }),
+              makeSeat({ id: 'b', number: '5B' }),
+              makeSeat({ id: 'c', number: '5C' }),
+            ],
+          },
+        ],
+        number: 1,
+        scale: 1,
+      },
+    ];
+    component.positionFilter = 'window';
+    fixture.detectChanges();
+    const seatCells = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr td:nth-child(2)')
+    ).map(td => td.textContent?.trim());
+    expect(seatCells).toEqual(['5A', '5C']);
   });
 
   it('Select click emits seatSelected with the seat', () => {

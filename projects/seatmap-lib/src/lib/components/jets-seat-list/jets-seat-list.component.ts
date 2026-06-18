@@ -20,9 +20,13 @@ export type TSeatListSortKey = 'row' | 'priceAsc' | 'priceDesc';
 interface ISeatRow {
   seat: ISeatData;
   row: IRowData;
-  rowName: string;
+  /** Passenger-facing row number (e.g. '43'), derived from the seat number. */
+  rowNumber: string;
   position: TSeatPosition | null;
 }
+
+/** Position filter values for the single `<select>` (window / aisle are mutually exclusive). */
+export type TSeatPositionFilter = 'all' | 'window' | 'aisle';
 
 /**
  * Accessible alternative to the 2D seat grid. Renders all seats as a
@@ -47,13 +51,19 @@ export class JetsSeatListComponent {
   @Input() colorTheme?: IColorTheme;
   @Input() showActions = true;
   @Input() isSelectAvailable = false;
+  /**
+   * Whether availability data is loaded. When false the Price and Status
+   * columns carry no meaningful signal (every seat reads "—" / "Available"),
+   * so they're hidden to keep the table compact.
+   */
+  @Input() hasAvailability = false;
 
   @Output() seatSelected = new EventEmitter<ISeatData>();
   @Output() seatUnselected = new EventEmitter<ISeatData>();
 
   // ─── Filter / sort state (driven by [(ngModel)] in the template) ────────
-  filterWindow = false;
-  filterAisle = false;
+  /** Window / aisle are mutually exclusive, so a single dropdown drives both. */
+  positionFilter: TSeatPositionFilter = 'all';
   filterExtraLegroom = false;
   filterExitRow = false;
   sortKey: TSeatListSortKey = 'row';
@@ -65,13 +75,12 @@ export class JetsSeatListComponent {
     const result: ISeatRow[] = [];
     for (const deck of this.content || []) {
       for (const row of deck.rows || []) {
-        const rowName = row.name ?? row.id ?? '';
         for (const seat of row.seats || []) {
           if (seat.type !== 'seat') continue;
           result.push({
             seat,
             row,
-            rowName,
+            rowNumber: this._rowNumber(seat),
             position: computeSeatPosition(seat, row),
           });
         }
@@ -84,6 +93,14 @@ export class JetsSeatListComponent {
   get filteredAndSortedSeats(): ISeatRow[] {
     const filtered = this.flatSeats.filter(entry => this._matchesFilters(entry));
     return this._sort(filtered);
+  }
+
+  /**
+   * Whether any seat carries amenity features. When none do, the whole
+   * Features column is "—" and gets hidden to keep the table compact.
+   */
+  get showFeaturesColumn(): boolean {
+    return this.flatSeats.some(entry => this.featuresLabel(entry.seat) !== '—');
   }
 
   // ─── Cell helpers ────────────────────────────────────────────────────────
@@ -170,6 +187,16 @@ export class JetsSeatListComponent {
     return this.loc['filterAisle'] || this.loc['seatPositionAisle']?.replace(/^./, c => c.toUpperCase()) || 'Aisle';
   }
 
+  /** Label for the position dropdown (replaces the window / aisle checkboxes). */
+  get positionFilterLabel(): string {
+    return this.loc['position'] || 'Position';
+  }
+
+  /** "All" option in the position dropdown — no window/aisle restriction. */
+  get positionAllLabel(): string {
+    return this.loc['allPositions'] || this.loc['all'] || 'All';
+  }
+
   get filterExtraLegroomLabel(): string {
     return this.loc['filterExtraLegroom'] || this.loc['extra_legroom'] || 'Extra legroom';
   }
@@ -241,11 +268,22 @@ export class JetsSeatListComponent {
   }
 
   private _matchesFilters(entry: ISeatRow): boolean {
-    if (this.filterWindow && entry.position !== 'window') return false;
-    if (this.filterAisle && entry.position !== 'aisle') return false;
+    if (this.positionFilter === 'window' && entry.position !== 'window') return false;
+    if (this.positionFilter === 'aisle' && entry.position !== 'aisle') return false;
     if (this.filterExtraLegroom && !this._hasExtraLegroom(entry.seat)) return false;
     if (this.filterExitRow && !this._hasExitRow(entry.seat)) return false;
     return true;
+  }
+
+  /**
+   * Passenger-facing row number for the Row column — the numeric prefix of the
+   * seat number ('43A' → '43'). Falls back to the seat's `rowName`, never to
+   * the internal `row.id` ('row-0'), which is meaningless to users.
+   */
+  private _rowNumber(seat: ISeatData): string {
+    const fromNumber = (seat.number || '').match(/\d+/)?.[0];
+    if (fromNumber) return fromNumber;
+    return seat.rowName ?? '';
   }
 
   private _sort(entries: ISeatRow[]): ISeatRow[] {
