@@ -139,7 +139,6 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   error: string | null = null;
   activeTooltip: ITooltipData | null = null;
   passengersList: IPassenger[] = [];
-  isSelectAvailable = false;
   activeDeckIndex = 0;
 
   private _flightId: string | null = null;
@@ -298,6 +297,17 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   get hasAvailability(): boolean {
     return !!this.availability?.length;
+  }
+
+  /**
+   * Whether there's a passenger queued to receive the next seat selection.
+   * Computed (not a stored flag) so it's correct everywhere it's consumed —
+   * notably the list view, which never opens a tooltip (where this used to be
+   * the only place the flag was refreshed, leaving list Select buttons stuck
+   * disabled even for available seats).
+   */
+  get isSelectAvailable(): boolean {
+    return !!this.seatmapService.getNextPassenger(this.passengersList);
   }
 
   get legendItems(): ILegendItem[] {
@@ -1317,7 +1327,6 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this._cancelHoverClose();
 
     const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
-    this.isSelectAvailable = !!nextPassenger;
 
     const tooltipData = this.seatmapService.calculateTooltipData(
       seat,

@@ -61,13 +61,11 @@ describe('JetsSeatListComponent', () => {
   });
 
   it('renders a semantic table with caption and column headers', () => {
-    fixture.componentRef.setInput('hasAvailability', true);
-    fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('table caption')).toBeTruthy();
     const headers = root.querySelectorAll('thead th[scope="col"]');
-    // Row, Seat, Cabin, Position, Price, Status, Action (Features hidden — none here).
-    expect(headers.length).toBeGreaterThanOrEqual(7);
+    // Row, Seat, Cabin, Position, Action (Features hidden — none here).
+    expect(headers.length).toBeGreaterThanOrEqual(5);
   });
 
   it('Row column shows the numeric row, not the internal row id', () => {
@@ -78,19 +76,47 @@ describe('JetsSeatListComponent', () => {
     expect(firstRowCell?.textContent?.trim()).toBe('1');
   });
 
-  it('hides Price and Status columns when availability is off, shows them when on', () => {
-    const root = fixture.nativeElement as HTMLElement;
-    const headerText = () =>
-      Array.from(root.querySelectorAll('thead th')).map(th => th.textContent?.trim());
+  it('has no separate Price or Status column (merged into the action button)', () => {
+    const headers = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('thead th')
+    ).map(th => th.textContent?.trim());
+    expect(headers).not.toContain('Price');
+    expect(headers).not.toContain('Status');
+  });
 
-    // Default: hasAvailability false.
-    expect(headerText()).not.toContain('Price');
-    expect(headerText()).not.toContain('Status');
-
-    fixture.componentRef.setInput('hasAvailability', true);
+  it('unavailable seat renders a disabled "Unavailable" button instead of Select', () => {
+    component.content = [
+      {
+        rows: [{ id: 'r', name: '9', seats: [makeSeat({ id: 'u', number: '9A', status: ENTITY_STATUS_MAP.unavailable })] }],
+        number: 1,
+        scale: 1,
+      },
+    ];
+    fixture.componentRef.setInput('isSelectAvailable', true);
     fixture.detectChanges();
-    expect(headerText()).toContain('Price');
-    expect(headerText()).toContain('Status');
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('tbody tr button');
+    expect(btn?.textContent?.trim()).toBe('Unavailable');
+    expect(btn?.disabled).toBe(true);
+  });
+
+  it('paid available seat shows the price on the Select button, free seats show "Select"', () => {
+    component.content = [
+      {
+        rows: [{ id: 'r', name: '9', seats: [
+          makeSeat({ id: 'paid', number: '9A', price: 33, currency: 'USD' }),
+          makeSeat({ id: 'free', number: '9B', price: 0 }),
+        ]}],
+        number: 1,
+        scale: 1,
+      },
+    ];
+    fixture.componentRef.setInput('isSelectAvailable', true);
+    fixture.detectChanges();
+    const btns = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('tbody tr button')
+    ).map(b => b.textContent?.trim());
+    expect(btns[0]).toBe('USD33');
+    expect(btns[1]).toBe('Select');
   });
 
   it('hides the Features column when no seat carries features', () => {

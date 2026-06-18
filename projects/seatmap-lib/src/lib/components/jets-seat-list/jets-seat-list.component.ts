@@ -51,12 +51,6 @@ export class JetsSeatListComponent {
   @Input() colorTheme?: IColorTheme;
   @Input() showActions = true;
   @Input() isSelectAvailable = false;
-  /**
-   * Whether availability data is loaded. When false the Price and Status
-   * columns carry no meaningful signal (every seat reads "—" / "Available"),
-   * so they're hidden to keep the table compact.
-   */
-  @Input() hasAvailability = false;
 
   @Output() seatSelected = new EventEmitter<ISeatData>();
   @Output() seatUnselected = new EventEmitter<ISeatData>();
@@ -146,24 +140,27 @@ export class JetsSeatListComponent {
     return currency ? `${currency}${seat.price}` : String(seat.price);
   }
 
-  statusLabel(seat: ISeatData): string {
-    const loc = this._locale();
-    switch (seat.status) {
-      case 'available':
-        return loc['available'] || 'Available';
-      case 'unavailable':
-        return loc['unavailable'] || 'Unavailable';
-      case 'selected':
-        return loc['selected'] || 'Selected';
-      case 'preferred':
-        return loc['preferred'] || 'Preferred';
-      case 'extra':
-        return loc['extra'] || 'Extra';
-      case 'disabled':
-        return loc['disabled'] || 'Disabled';
-      default:
-        return String(seat.status);
-    }
+  /** A seat the user can never select (no availability for it). */
+  isUnavailable(seat: ISeatData): boolean {
+    return seat.status === 'unavailable' || seat.status === 'disabled';
+  }
+
+  get unavailableLabel(): string {
+    return this.loc['unavailable'] || 'Unavailable';
+  }
+
+  /**
+   * Label for the (enabled) Select button — encodes availability + price in
+   * one control so a separate Status / Price column isn't needed:
+   *   - paid seat  → the formatted price (e.g. 'USD33');
+   *   - free / unpriced seat → the plain "Select" word.
+   * Unavailable seats never reach this — they render a disabled
+   * `unavailableLabel` button instead.
+   */
+  selectButtonLabel(seat: ISeatData): string {
+    const price = seat.price;
+    if (typeof price === 'number' && price > 0) return this.priceLabel(seat);
+    return this.selectLabel;
   }
 
   // ─── Locale facades for the template ────────────────────────────────────
@@ -338,6 +335,7 @@ export class JetsSeatListComponent {
 
   private _isSelectDisabled(seat: ISeatData): boolean {
     if (seat.passenger) return false;
+    if (this.isUnavailable(seat)) return true;
     if (this.isSelectAvailable) return false;
     return true;
   }

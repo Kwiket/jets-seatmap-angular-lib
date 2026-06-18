@@ -51,10 +51,6 @@
         @if (showFeaturesColumn) {
           <th scope="col">{{ loc['features'] || 'Features' }}</th>
         }
-        @if (hasAvailability) {
-          <th scope="col">{{ loc['price'] || 'Price' }}</th>
-          <th scope="col">{{ loc['status'] || 'Status' }}</th>
-        }
         @if (showActions) {
           <th scope="col">{{ loc['action'] || 'Action' }}</th>
         }
@@ -70,10 +66,6 @@
           @if (showFeaturesColumn) {
             <td>{{ featuresLabel(entry.seat) }}</td>
           }
-          @if (hasAvailability) {
-            <td>{{ priceLabel(entry.seat) }}</td>
-            <td>{{ statusLabel(entry.seat) }}</td>
-          }
           @if (showActions) {
             <td>
               @if (entry.seat.passenger) {
@@ -84,14 +76,26 @@
                 >
                   {{ unselectLabel }}
                 </button>
+              } @else if (isUnavailable(entry.seat)) {
+                <!-- Status merged into the action control: an unavailable seat
+                     is a disabled button that reads "Unavailable". -->
+                <button
+                  type="button"
+                  class="jets-seat-list__action jets-seat-list__action--unavailable"
+                  disabled
+                >
+                  {{ unavailableLabel }}
+                </button>
               } @else {
+                <!-- Available: the button shows the price when the seat is
+                     paid, otherwise the plain "Select" word. -->
                 <button
                   type="button"
                   class="jets-seat-list__action jets-seat-list__action--select"
                   [disabled]="isSelectDisabled(entry.seat)"
                   (click)="onSelectClick(entry.seat)"
                 >
-                  {{ selectLabel }}
+                  {{ selectButtonLabel(entry.seat) }}
                 </button>
               }
             </td>

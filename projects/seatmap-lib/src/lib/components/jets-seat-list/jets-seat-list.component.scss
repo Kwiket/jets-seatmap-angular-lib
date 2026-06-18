@@ -107,8 +107,29 @@
     border-color: #0277bd;
   }
 
+  // Unavailable seats: a muted, non-actionable control that carries the
+  // status text instead of a separate Status column.
+  &--unavailable {
+    background: #f0f0f0;
+    color: #757575;
+    border-color: #e0e0e0;
+    cursor: not-allowed;
+    white-space: nowrap;
+  }
+
+  // Keep the available/paid Select button from breaking the price onto two
+  // lines (e.g. "USD33").
+  &--select {
+    white-space: nowrap;
+  }
+
   &[disabled] {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  // The unavailable button is intentionally muted already — don't double-dim it.
+  &--unavailable[disabled] {
+    opacity: 1;
   }
 }
