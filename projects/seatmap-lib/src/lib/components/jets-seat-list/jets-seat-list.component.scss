@@ -56,6 +56,14 @@
   background: #ffffff;
 }
 
+// WCAG 2.4.7 Focus Visible for the filter controls above the table.
+.jets-seat-list__sort select:focus-visible,
+.jets-seat-list__select select:focus-visible,
+.jets-seat-list__filter input:focus-visible {
+  outline: 2px solid #0277bd;
+  outline-offset: 2px;
+}
+
 // Horizontal-scroll guard: keeps the table inside the seat-map box instead of
 // bleeding under adjacent page content when the available width is tight.
 .jets-seat-list__table-scroll {
@@ -100,6 +108,13 @@
   cursor: pointer;
   background: #0277bd;
   color: #ffffff;
+
+  // WCAG 2.4.7 Focus Visible — keyboard focus ring (offset so it reads even
+  // on the filled blue Select button). Mirrors the grid seat focus ring.
+  &:focus-visible {
+    outline: 2px solid #0277bd;
+    outline-offset: 2px;
+  }
 
   &--unselect {
     background: #ffffff;
