@@ -33,7 +33,7 @@ import {
   ENTITY_TYPE_MAP,
 } from '../constants';
 import { BULK_SCALE_BY_ID, DEFAULT_BULK_SCALE } from './bulk-template.service';
-import { getNativeRowHeight } from '../utils/cabin-utils';
+import { getNativeRowBBox, getNativeRowHeight } from '../utils/cabin-utils';
 
 /**
  * Default native-unit gap inserted between a row's physical bbox and a
@@ -578,9 +578,9 @@ export class JetsSeatMapPreparerService {
     const rowBoxes: Array<{ top: number; bottom: number }> = [];
     for (const r of rows) {
       if (r.topOffset == null) continue;
-      const h = getNativeRowHeight(r);
-      if (h <= 0) continue;
-      rowBoxes.push({ top: r.topOffset, bottom: r.topOffset + h });
+      const { topRel, bottomRel } = getNativeRowBBox(r);
+      if (bottomRel <= topRel) continue;
+      rowBoxes.push({ top: r.topOffset + topRel, bottom: r.topOffset + bottomRel });
     }
     if (!rowBoxes.length) return bulks;
 

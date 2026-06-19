@@ -38,6 +38,36 @@ export function getNativeRowHeight(row: IRowData): number {
 }
 
 /**
+ * Native (unscaled) vertical bounding box of a row's non-aisle seats,
+ * relative to the row's own topOffset. Unlike `getNativeRowHeight`, which
+ * only returns `max(seatH)`, this includes per-seat `topOffset` so that
+ * staggered Business pods report their real extent. Example — Lufthansa
+ * A350 row 4: seat 4D sits at topOffset=-172 (pulled forward into the
+ * previous row), seats 4C/4H at +45 (pushed back behind 4A/4K). The true
+ * row bbox is [-172, 45 + 200] = [-172, 245], not [0, 200]. The collision
+ * pass in `_resolveBulkOverlaps` needs the real bbox: when the bottom edge
+ * is under-reported, a galley partition gets falsely shrunk to a sliver
+ * (its `nativeH` lands just above the 20% safety floor) and renders as
+ * an invisible 11-px strip. Aisle seats are ignored.
+ */
+export function getNativeRowBBox(row: IRowData): { topRel: number; bottomRel: number } {
+  const seats = row.seats;
+  if (!seats?.length) return { topRel: 0, bottomRel: 0 };
+  let minTop = Infinity;
+  let maxBottom = -Infinity;
+  for (const s of seats) {
+    if (s.type === 'aisle') continue;
+    const entry = SEAT_SIZE_BY_TYPE[s.seatIconType ?? DEFAULT_SEAT_TYPE];
+    const h = entry ? entry[1] : 100;
+    const t = s.topOffset ?? 0;
+    if (t < minTop) minTop = t;
+    if (t + h > maxBottom) maxBottom = t + h;
+  }
+  if (!isFinite(minTop)) return { topRel: 0, bottomRel: 0 };
+  return { topRel: minTop, bottomRel: maxBottom };
+}
+
+/**
  * Split a deck into per-cabin sub-decks with rebased coordinates.
  * Each sub-deck is self-contained: its rows start at topOffset ≈ 0,
  * and exits/bulkheads are filtered and rebased to match.
