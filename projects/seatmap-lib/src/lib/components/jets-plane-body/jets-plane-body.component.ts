@@ -11,17 +11,34 @@ import { JetsTailComponent } from '../jets-tail/jets-tail.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="jets-plane-body" [style.width.px]="width" [style.background-color]="bgColor">
-      <!-- Nose -->
-      @if (showNose) {
-        <sm-jets-nose
-          [noseType]="noseType"
-          [colorTheme]="colorTheme"
-          [width]="width"
-          [displayScale]="displayScale"
-        />
+      <!-- Leading fuselage end. In horizontal LTR the tail leads (mirrors
+           React PlaneBody/index.js \`isTailFirst\`); otherwise the nose leads. -->
+      @if (isHorizontalLtr) {
+        @if (showTail) {
+          <sm-jets-tail
+            [colorTheme]="colorTheme"
+            [width]="width"
+            [displayScale]="displayScale"
+            [horizontal]="horizontal"
+            [rightToLeft]="rightToLeft"
+          />
+        }
+      } @else {
+        @if (showNose) {
+          <sm-jets-nose
+            [noseType]="noseType"
+            [colorTheme]="colorTheme"
+            [width]="width"
+            [displayScale]="displayScale"
+            [horizontal]="horizontal"
+            [rightToLeft]="rightToLeft"
+          />
+        }
       }
 
-      <!-- Fuselage wrapper — width & border match nose SVG outline -->
+      <!-- Fuselage wrapper — width & border match nose SVG outline.
+           Flipped 180deg in horizontal LTR so the projected decks read the
+           right way up after the parent's 90deg rotation. -->
       <div
         class="jets-plane-body__fuselage"
         [style.background-color]="fuselageFill"
@@ -29,14 +46,34 @@ import { JetsTailComponent } from '../jets-tail/jets-tail.component';
         [style.width.px]="fuselageWidth"
         [style.border-left-width.px]="scaledStrokeWidth"
         [style.border-right-width.px]="scaledStrokeWidth"
+        [style.transform]="deckWrapperTransform || null"
       >
         <!-- Deck content projected here -->
         <ng-content />
       </div>
 
-      <!-- Tail -->
-      @if (showTail) {
-        <sm-jets-tail [colorTheme]="colorTheme" [width]="width" [displayScale]="displayScale" />
+      <!-- Trailing fuselage end (nose in horizontal LTR, tail otherwise). -->
+      @if (isHorizontalLtr) {
+        @if (showNose) {
+          <sm-jets-nose
+            [noseType]="noseType"
+            [colorTheme]="colorTheme"
+            [width]="width"
+            [displayScale]="displayScale"
+            [horizontal]="horizontal"
+            [rightToLeft]="rightToLeft"
+          />
+        }
+      } @else {
+        @if (showTail) {
+          <sm-jets-tail
+            [colorTheme]="colorTheme"
+            [width]="width"
+            [displayScale]="displayScale"
+            [horizontal]="horizontal"
+            [rightToLeft]="rightToLeft"
+          />
+        }
       }
     </div>
   `,
@@ -76,6 +113,23 @@ export class JetsPlaneBodyComponent {
    * border-width here so the visual thickness matches.
    */
   @Input() displayScale = 1;
+  /** Horizontal cabin layout (whole map is rotated 90deg by the parent). */
+  @Input() horizontal = false;
+  /** RTL flips the cabin direction in horizontal mode (mirrors React). */
+  @Input() rightToLeft = false;
+
+  /** Horizontal left-to-right — the orientation that flips nose/tail/decks.
+   *  Mirrors React's `params.isHorizontal && !params.rightToLeft`. */
+  get isHorizontalLtr(): boolean {
+    return this.horizontal && !this.rightToLeft;
+  }
+
+  /** Deck-wrapper transform: flipped 180deg in horizontal LTR so the
+   *  projected decks (and nose/tail) stay consistent. Mirrors React
+   *  PlaneBody/index.js `decksWrapperStyle.transform`. */
+  get deckWrapperTransform(): string {
+    return this.isHorizontalLtr ? 'rotate(180deg)' : '';
+  }
 
   get showNose(): boolean {
     return this.visibleNose ?? this.visibleFuselage;
