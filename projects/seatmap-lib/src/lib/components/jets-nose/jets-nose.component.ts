@@ -10,7 +10,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: ` <div class="jets-nose" [style.width.px]="width" [innerHTML]="svgContent"></div> `,
+  template: ` <div class="jets-nose" [style.width.px]="width" [style.transform]="noseTransform || null" [innerHTML]="svgContent"></div> `,
   styles: [
     `
       .jets-nose {
@@ -35,8 +35,19 @@ export class JetsNoseComponent implements OnChanges {
   /** Display scale (mirrors React's `params.scale`); pre-multiplies the SVG
    *  outline so the nose contour matches the CSS body border thickness. */
   @Input() displayScale = 1;
+  /** Horizontal cabin layout (whole map is rotated 90deg by the parent). */
+  @Input() horizontal = false;
+  /** RTL flips the nose direction in horizontal mode (mirrors React). */
+  @Input() rightToLeft = false;
 
   svgContent: SafeHtml = '';
+
+  /** In horizontal LTR the nose is flipped 180deg so it points the same way
+   *  as the React reference. Mirrors React `Nose/index.js`:
+   *  `isHorizontal && !rightToLeft ? 'rotate(180deg)' : ''`. */
+  get noseTransform(): string {
+    return this.horizontal && !this.rightToLeft ? 'rotate(180deg)' : '';
+  }
 
   constructor(private sanitizer: DomSanitizer) {}
 

@@ -13,7 +13,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: ` <div class="jets-tail" [style.width.px]="width" [innerHTML]="svgContent"></div> `,
+  template: ` <div class="jets-tail" [style.width.px]="width" [style.transform]="tailTransform || null" [innerHTML]="svgContent"></div> `,
   styles: [
     `
       .jets-tail {
@@ -36,8 +36,19 @@ export class JetsTailComponent implements OnChanges {
   /** Display scale (mirrors React's `params.scale`); pre-multiplies the SVG
    *  outline so the tail contour matches the CSS body border thickness. */
   @Input() displayScale = 1;
+  /** Horizontal cabin layout (whole map is rotated 90deg by the parent). */
+  @Input() horizontal = false;
+  /** RTL flips the tail direction in horizontal mode (mirrors React). */
+  @Input() rightToLeft = false;
 
   svgContent: SafeHtml = '';
+
+  /** In horizontal LTR the tail is flipped 180deg to match the React
+   *  reference. Mirrors React `Tail/index.js`:
+   *  `isHorizontal && !rightToLeft ? 'rotate(180deg)' : ''`. */
+  get tailTransform(): string {
+    return this.horizontal && !this.rightToLeft ? 'rotate(180deg)' : '';
+  }
 
   constructor(private sanitizer: DomSanitizer) {}
 
