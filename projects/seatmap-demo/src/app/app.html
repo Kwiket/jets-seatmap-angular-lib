@@ -15,7 +15,7 @@
     }
   </nav>
 
-  <div class="demo-content">
+  <div class="demo-content" [class.demo-content--horizontal]="isHorizontal()">
     <div class="demo-seatmap-wrapper">
       <sm-jets-seat-map
         [flight]="activeFlight()"
