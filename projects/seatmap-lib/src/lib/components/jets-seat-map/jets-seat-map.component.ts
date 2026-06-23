@@ -131,6 +131,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   isSelectAvailable = false;
   activeDeckIndex = 0;
 
+  /** Swapped container dimensions in horizontal mode (the rotor's pre-rotation
+   *  size, measured post-render). `null` in vertical → falls back to width/auto.
+   *  Mirrors React's outer container `width: scaledTotalDecksHeight`. */
+  horizontalContainerWidth: number | null = null;
+  horizontalContainerHeight: number | null = null;
+
   private _flightId: string | null = null;
   private _prevLang: string | null = null;
   private _prevUnits: string | null = null;
@@ -180,13 +186,15 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     };
   }
 
-  /** CSS transform for horizontal layout mode */
+  /**
+   * CSS transform for the horizontal rotor: rotate 90deg then lift by its own
+   * height so the rotated cabin sits at the container's top-left. Angular bakes
+   * the display scale into the deck rendering (not a wrapper zoom), so the
+   * offset is a plain `translateY(-100%)` for both scale types — unlike React,
+   * whose ZOOM wrapper needs `-100/scale%`.
+   */
   get mapTransform(): string {
-    const cfg = this.resolvedConfig;
-    if (!cfg.horizontal) return '';
-    const scaleType = cfg.scaleType ?? SCALE_TYPES.SCALE;
-    const offset = scaleType === SCALE_TYPES.ZOOM ? 'translateY(-100%)' : 'translateY(-100%)';
-    return `rotate(90deg) ${offset}`;
+    return this.resolvedConfig.horizontal ? 'rotate(90deg) translateY(-100%)' : '';
   }
 
   /** CSS transform-origin for horizontal layout */
@@ -744,6 +752,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       // Emit initial layout data after the next tick so DOM size is measurable.
       setTimeout(() => {
         if (this._flightId !== flightId) return;
+        this._updateHorizontalDims();
         const layout = this._buildLayoutData();
         const payload: IInitialLayoutData = {
           ...layout,
@@ -830,8 +839,28 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     const flightId = this._flightId;
     setTimeout(() => {
       if (this._flightId !== flightId || !this.isSeatMapInited) return;
+      this._updateHorizontalDims();
       this.layoutUpdated.emit(this._buildLayoutData());
     }, 0);
+  }
+
+  /**
+   * In horizontal mode the rotor is rotated 90deg, so its rendered footprint is
+   * its pre-rotation size swapped. Reserve that footprint on the un-rotated
+   * container (otherwise it keeps the tall vertical height and leaves a huge
+   * gap below). `offsetWidth/offsetHeight` are immune to the CSS transform.
+   * Mirrors React's outer `width: scaledTotalDecksHeight, height: config.width`.
+   */
+  private _updateHorizontalDims(): void {
+    const rotorEl = this.rotor?.nativeElement;
+    if (this.resolvedConfig.horizontal && rotorEl) {
+      this.horizontalContainerWidth = rotorEl.offsetHeight || null;
+      this.horizontalContainerHeight = rotorEl.offsetWidth || null;
+    } else {
+      this.horizontalContainerWidth = null;
+      this.horizontalContainerHeight = null;
+    }
+    this.cdr.markForCheck();
   }
 
   getDeckIndex(deck: IDeckData): number {

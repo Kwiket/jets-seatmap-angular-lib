@@ -5,7 +5,9 @@
   <div
     #mapContainer
     class="jets-seat-map"
-    [style.width.px]="resolvedConfig.width"
+    [class.jets-seat-map--horizontal]="resolvedConfig.horizontal"
+    [style.width.px]="horizontalContainerWidth ?? resolvedConfig.width"
+    [style.height.px]="horizontalContainerHeight"
     [style.background-color]="resolvedConfig.colorTheme?.seatMapBackgroundColor"
     [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
     (click)="onMapClick($event)"
