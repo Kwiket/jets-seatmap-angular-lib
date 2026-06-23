@@ -287,14 +287,17 @@ export class JetsSeatMapService {
     seatElement: HTMLElement,
     mapElement: HTMLElement,
     nextPassenger: IPassenger | null,
-    lang: string
+    lang: string,
+    isHorizontal = false
   ): ITooltipData {
     const seatRect = seatElement.getBoundingClientRect();
     const mapRect = mapElement.getBoundingClientRect();
 
     // Determine whether to open tooltip above or below the seat.
     // Use the seat's position in the browser viewport (not the map container)
-    // so scrolling the page is accounted for.
+    // so scrolling the page is accounted for. Both axes use SCREEN coords, so
+    // this works in horizontal mode too (the seat is inside the rotated rotor,
+    // but the tooltip is anchored in the un-rotated container).
     const viewportHeight = window.innerHeight;
     const openBelow = seatRect.top < viewportHeight * 0.35;
 
@@ -309,9 +312,19 @@ export class JetsSeatMapService {
       top = seatRect.top - mapRect.top + mapElement.scrollTop - gap;
     }
 
-    // Calculate the horizontal center of the seat relative to the tooltip's left edge.
-    // The tooltip has CSS `left: 8px`, so subtract that offset.
-    const arrowLeft = seatRect.left - mapRect.left + seatRect.width / 2 - 8;
+    // Seat centre, relative to the map container's left edge.
+    const seatCenterLeft = seatRect.left - mapRect.left + seatRect.width / 2;
+
+    if (isHorizontal) {
+      // The rotated cabin is very wide, so anchor the tooltip at the seat's
+      // x (explicit `left`) instead of the vertical `left: 8px` + arrow. The
+      // tooltip lives outside the rotor, so screen-space coords place it
+      // correctly and upright. `--horizontal` CSS frees the `right` constraint.
+      return { seat, top, left: seatCenterLeft, nextPassenger, lang: lang as any, openBelow, horizontal: true };
+    }
+
+    // The tooltip has CSS `left: 8px`, so subtract that offset for the arrow.
+    const arrowLeft = seatCenterLeft - 8;
 
     return { seat, top, left: arrowLeft, nextPassenger, lang: lang as any, openBelow };
   }

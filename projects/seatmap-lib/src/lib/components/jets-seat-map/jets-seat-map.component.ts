@@ -117,6 +117,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   @Output() hasAvailabilityChanged = new EventEmitter<boolean>();
 
   @ViewChild('mapContainer') mapContainer!: ElementRef<HTMLElement>;
+  /** Inner wrapper that carries the horizontal `rotate(90deg)`; the cabin
+   *  content lives here while the tooltip stays in the un-rotated container. */
+  @ViewChild('rotor') rotor?: ElementRef<HTMLElement>;
 
   content: IDeckData[] = [];
   media: IMediaData | null = null;
@@ -785,7 +788,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private _buildLayoutData(): ILayoutData {
-    const container = this.mapContainer?.nativeElement;
+    // Measure the rotor (the element that carries the rotation/scale) so the
+    // layout payload is unchanged by moving the transform off the container.
+    const container = this.rotor?.nativeElement ?? this.mapContainer?.nativeElement;
     // heightInPx must reflect the active deck only, not the stacked total (README contract).
     const activeDeckEl = container?.querySelector(
       `.deck-wrapper[data-deck-index="${this.activeDeckIndex}"]`
@@ -975,7 +980,8 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       element,
       this.mapContainer.nativeElement,
       nextPassenger,
-      this.lang
+      this.lang,
+      this.resolvedConfig.horizontal ?? false
     );
     this.activeTooltip = tooltipData;
 

@@ -8,8 +8,6 @@
     [style.width.px]="resolvedConfig.width"
     [style.background-color]="resolvedConfig.colorTheme?.seatMapBackgroundColor"
     [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
-    [style.transform]="mapTransform || null"
-    [style.transform-origin]="mapTransformOrigin || null"
     (click)="onMapClick($event)"
   >
     <!-- Built-in tooltip (or user-provided override).
@@ -63,6 +61,15 @@
       }
     }
 
+    <!-- Rotor: only the cabin content is rotated in horizontal mode. The
+         tooltip stays a sibling in the un-rotated .jets-seat-map so it renders
+         upright and on-screen (mirrors the React structure). -->
+    <div
+      class="jets-seat-map__rotor"
+      #rotor
+      [style.transform]="mapTransform || null"
+      [style.transform-origin]="mapTransformOrigin || null"
+    >
     @if (content.length) {
       <!-- Aircraft body with decks -->
       <sm-jets-plane-body
@@ -148,6 +155,7 @@
         <sm-jets-not-init [lang]="lang" />
       }
     }
+    </div>
   </div>
 </ng-template>
 

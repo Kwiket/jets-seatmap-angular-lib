@@ -428,6 +428,10 @@ export interface ITooltipData {
   nextPassenger: IPassenger | null;
   lang: TLang;
   openBelow?: boolean;
+  /** Horizontal layout — the tooltip counter-rotates so it stays upright and
+   *  on-screen while the map itself is rotated 90deg. `top`/`left` then carry
+   *  the seat's layout-space position (immune to the CSS rotation). */
+  horizontal?: boolean;
 }
 
 // ─── Events ──────────────────────────────────────────────────────────────────
