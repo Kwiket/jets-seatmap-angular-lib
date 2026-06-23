@@ -51,4 +51,28 @@ describe('JetsNoseComponent', () => {
     const html: string = fixture.nativeElement.innerHTML;
     expect(html).toContain('stroke-width:18');
   });
+
+  // Horizontal nose direction — mirrors React Nose/index.js:41
+  //   transform = isHorizontal && !rightToLeft ? 'rotate(180deg)' : ''
+  const noseEl = () => fixture.nativeElement.querySelector('.jets-nose') as HTMLElement;
+
+  it('does not rotate the nose in vertical mode', () => {
+    fixture.componentRef.setInput('horizontal', false);
+    fixture.detectChanges();
+    expect(noseEl().style.transform).toBe('');
+  });
+
+  it('rotates the nose 180deg in horizontal LTR mode (nose flips to point left)', () => {
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', false);
+    fixture.detectChanges();
+    expect(noseEl().style.transform).toBe('rotate(180deg)');
+  });
+
+  it('does not rotate the nose in horizontal RTL mode', () => {
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', true);
+    fixture.detectChanges();
+    expect(noseEl().style.transform).toBe('');
+  });
 });

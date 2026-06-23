@@ -21,14 +21,14 @@
     <div
       #mapContainer
       class="jets-seat-map"
+      [class.jets-seat-map--horizontal]="resolvedConfig.horizontal"
       [attr.id]="deckPanelId"
       role="tabpanel"
       [attr.aria-labelledby]="activeDeckTabId"
-      [style.width.px]="effectiveView === 'list' ? null : resolvedConfig.width"
+      [style.width.px]="effectiveView === 'list' ? null : (horizontalContainerWidth ?? resolvedConfig.width)"
+      [style.height.px]="effectiveView === 'list' ? null : horizontalContainerHeight"
       [style.background-color]="resolvedConfig.colorTheme?.seatMapBackgroundColor"
       [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
-      [style.transform]="mapTransform || null"
-      [style.transform-origin]="mapTransformOrigin || null"
       (click)="onMapClick($event)"
       (keydown)="onGridKeydown($event)"
       (focusin)="onGridFocusin($event)"
@@ -109,6 +109,15 @@
           (seatUnselected)="onTooltipUnselect($event)"
         />
       } @else if (content.length) {
+        <!-- Rotor: only the cabin content is rotated in horizontal mode. The
+             tooltip stays a sibling in the un-rotated .jets-seat-map so it
+             renders upright and on-screen (mirrors the React structure). -->
+        <div
+          class="jets-seat-map__rotor"
+          #rotor
+          [style.transform]="mapTransform || null"
+          [style.transform-origin]="mapTransformOrigin || null"
+        >
         <!-- Aircraft body with decks -->
         <sm-jets-plane-body
           [decks]="content"
@@ -118,6 +127,8 @@
           [visibleNose]="resolvedConfig.visibleNose"
           [visibleTail]="resolvedConfig.visibleTail"
           [noseType]="noseType"
+          [horizontal]="resolvedConfig.horizontal ?? false"
+          [rightToLeft]="resolvedConfig.rightToLeft ?? false"
           [displayScale]="displayScale"
         >
           @for (deck of visibleDecks; track deck.number; let i = $index) {
@@ -174,6 +185,7 @@
             </div>
           }
         </sm-jets-plane-body>
+        </div>
       } @else if (isLoading) {
         @if (notInitOverride) {
           <ng-container *ngComponentOutlet="notInitOverride; inputs: { lang }" />

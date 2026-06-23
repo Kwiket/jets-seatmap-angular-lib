@@ -705,6 +705,40 @@ describe('JetsSeatMapPreparerService', () => {
       expect(bulk?.height).toBeCloseTo(46 / 0.7, 5);
     });
 
+    it('uses the real row bbox (per-seat topOffset) so a staggered Business pod does not falsely shrink the next bulk', () => {
+      // Repro: Lufthansa A350 LH470 row 4 — seats 4C/4H sit at topOffset=+45 inside the row, so
+      // the row's true bottom extends 45 units past `row.topOffset + max(seatH)`. With the
+      // pre-fix bbox (max-seatH only), the bottom is under-reported, the galley bulk just below
+      // looks merely lightly grazed, and the preparer shrinks it to ~22% — a sliver that renders
+      // as an invisible 11-px strip while the galley sticker still floats above. With the
+      // per-seat bbox the algorithm sees an overlap deep enough to trip the safety floor and
+      // keeps the bulk in its original geometry.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [
+              {
+                topOffset: 1030,
+                seatType: 7,
+                seats: [
+                  { letter: 'A', seatNumber: '4A', topOffset: 0, available: true },
+                  { letter: 'C', seatNumber: '4C', topOffset: 45, available: true },
+                  { letter: 'D', seatNumber: '4D', topOffset: -172, available: true },
+                  { letter: 'H', seatNumber: '4H', topOffset: 45, available: true },
+                  { letter: 'K', seatNumber: '4K', topOffset: 0, available: true },
+                ],
+              },
+            ],
+            bulks: [{ id: '7', iconType: 'G', topOffset: 1066, height: 308, width: 400, align: 'center' }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, baseConfig);
+      const bulk = result[0].extras?.bulks?.[0];
+      expect(bulk?.topOffset).toBe(1066);
+      expect(bulk?.height).toBe(308);
+    });
+
     it('respects a custom partitionGap larger than the default', () => {
       // Row [0,100], bulk [80,130], gap=20 → new top = 100 + 20 = 120, height = 50 - 40 = 10.
       const response: IApiSeatmapResponse = {

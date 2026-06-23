@@ -980,4 +980,42 @@ describe('JetsTooltipComponent', () => {
       expect(component.viewOverride).toBeTruthy();
     });
   });
+
+  // ─── Horizontal layout (P1b: tooltip must stay upright & on-screen) ───────
+  // The tooltip lives OUTSIDE the rotated rotor (architectural fix), so it is
+  // never rotated; it is anchored to the seat with an explicit screen-space
+  // top/left instead of the vertical `left: 8px` + --arrow-left pointer.
+  describe('Horizontal layout', () => {
+    const tipEl = () => fixture.nativeElement.querySelector('.jets-tooltip') as HTMLElement;
+
+    it('is not transformed in vertical mode', () => {
+      component.data = makeTooltipData({ horizontal: false });
+      fixture.detectChanges();
+      expect(tipEl().style.transform).toBe('');
+    });
+
+    it('is not transformed in horizontal mode (rotation lives on the rotor)', () => {
+      component.data = makeTooltipData({ horizontal: true });
+      fixture.detectChanges();
+      expect(tipEl().style.transform).toBe('');
+    });
+
+    it('tags the tooltip with the horizontal class', () => {
+      component.data = makeTooltipData({ horizontal: true });
+      fixture.detectChanges();
+      expect(tipEl().classList.contains('jets-tooltip--horizontal')).toBe(true);
+    });
+
+    it('anchors the tooltip with an explicit left in horizontal mode', () => {
+      component.data = makeTooltipData({ horizontal: true, left: 120, top: 60 });
+      fixture.detectChanges();
+      expect(tipEl().style.left).toBe('120px');
+    });
+
+    it('keeps the CSS left (no inline left) in vertical mode', () => {
+      component.data = makeTooltipData({ horizontal: false, left: 120 });
+      fixture.detectChanges();
+      expect(tipEl().style.left).toBe('');
+    });
+  });
 });

@@ -21,6 +21,14 @@
   overflow: visible;
   margin: 0 auto;
   min-height: 480px;
+
+  // Horizontal: the rotor pivots from the top-left, so align it to the start
+  // (not centred) and drop the vertical min-height — the container reserves the
+  // rotated footprint via the swapped inline width/height.
+  &--horizontal {
+    align-items: flex-start;
+    min-height: 0;
+  }
 }
 
 .jets-seatmap-header {
