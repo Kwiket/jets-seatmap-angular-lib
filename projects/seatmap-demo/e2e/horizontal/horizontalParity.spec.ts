@@ -6,7 +6,7 @@
  *    (regression guard for the P1b off-screen bug).
  */
 import { test, expect } from '@playwright/test';
-import { applyConfigAndReady, clickFirstAvailableSeat } from '../helpers/demo';
+import { applyConfigAndReady, clickFirstAvailableSeat, setConfig, waitForSeatMapReady } from '../helpers/demo';
 
 test.describe('horizontal layout — React parity', () => {
   test('nose points LEFT in horizontal LTR (rightToLeft:false)', async ({ page }) => {
@@ -56,6 +56,24 @@ test.describe('horizontal layout — React parity', () => {
     expect(controlsBox!.width).toBeGreaterThan(200);
     expect(controlsBox!.x).toBeGreaterThanOrEqual(0);
     expect(controlsBox!.x + controlsBox!.width).toBeLessThanOrEqual(vp!.width + 1);
+  });
+
+  test('reserves the rotated footprint when horizontal is toggled on an already-loaded map', async ({ page }) => {
+    // Regression: toggling `horizontal` via a config change (not a full flight
+    // reload) skipped the swapped-dimension measurement, so the container kept
+    // its tall vertical layout height (~3139px) and the rotated strip left a
+    // huge empty gap above the controls. The container must reserve the wide,
+    // short footprint instead.
+    await page.goto('/');
+    await waitForSeatMapReady(page); // default vertical map loads first
+    await setConfig(page, { horizontal: true, visibleFuselage: true }); // in-place toggle
+    await waitForSeatMapReady(page);
+
+    const map = await page.locator('.jets-seat-map').first().boundingBox();
+    expect(map, 'seatmap should render').not.toBeNull();
+    // A horizontal cabin is a wide, short strip: reserved height must be far
+    // smaller than width. (Collapsed bug: height === full tall layout > width.)
+    expect(map!.height).toBeLessThan(map!.width);
   });
 
   test('built-in tooltip stays within the viewport in horizontal mode (P1b)', async ({ page }) => {

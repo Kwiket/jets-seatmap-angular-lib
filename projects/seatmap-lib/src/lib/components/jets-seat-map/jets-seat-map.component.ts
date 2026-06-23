@@ -635,6 +635,16 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       }
       // Re-emit legend when colorTheme changes (colors affect legend swatches)
       if (this.isSeatMapInited) this.legendReady.emit(this.legendItems);
+
+      // A settings-only config change (no reload) can flip the horizontal
+      // layout — e.g. toggling `horizontal`/`rightToLeft`, or fuselage/nose/
+      // tail visibility — which changes the rotated footprint. Re-measure the
+      // swapped container dimensions after the view re-renders; otherwise the
+      // container keeps its previous (often tall vertical) reservation and the
+      // rotated strip leaves a large empty gap below it.
+      if (this.isSeatMapInited) {
+        setTimeout(() => this._updateHorizontalDims(), 0);
+      }
     }
 
     // seatJumpTo: scroll to and open tooltip for a specific seat. Tracked by value
