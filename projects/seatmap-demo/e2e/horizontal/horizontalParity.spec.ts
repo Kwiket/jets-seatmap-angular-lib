@@ -76,6 +76,39 @@ test.describe('horizontal layout — React parity', () => {
     expect(map!.height).toBeLessThan(map!.width);
   });
 
+  test('reserves room for cabin titles, wings and the nose in horizontal mode', async ({ page }) => {
+    // The rotated footprint must include the side cabin labels and wings (which
+    // stick ~20px past the fuselage box) and the nose/tail caps (which stick
+    // past it sideways). With the wrapper clipping overflow, anything outside
+    // the reserved container gets cut — the cabin titles were sheared off the
+    // bottom and the nose ran off the top-left.
+    await page.goto('/');
+    await applyConfigAndReady(page, {
+      horizontal: true,
+      rightToLeft: false,
+      visibleFuselage: true,
+      visibleWings: true,
+      visibleCabinTitles: true,
+    });
+
+    const map = await page.locator('.jets-seat-map').first().boundingBox();
+    const nose = await page.locator('.jets-nose').first().boundingBox();
+    const label = await page.locator('.jets-cabin-label').first().boundingBox();
+    expect(map, 'seatmap should render').not.toBeNull();
+    expect(nose, 'nose should render').not.toBeNull();
+    expect(label, 'cabin label should render').not.toBeNull();
+
+    // Reserved height must exceed the bare fuselage strip so the side overlays
+    // fit (the rotated nose height is the fuselage width).
+    expect(map!.height).toBeGreaterThan(nose!.height);
+
+    // Nothing clips: nose stays within the container's top-left, the cabin
+    // label stays within its bottom. (1px slack for sub-pixel rounding.)
+    expect(nose!.y).toBeGreaterThanOrEqual(map!.y - 1);
+    expect(nose!.x).toBeGreaterThanOrEqual(map!.x - 1);
+    expect(label!.y + label!.height).toBeLessThanOrEqual(map!.y + map!.height + 1);
+  });
+
   test('built-in tooltip stays within the viewport in horizontal mode (P1b)', async ({ page }) => {
     await page.goto('/');
     await applyConfigAndReady(page, { horizontal: true, rightToLeft: false });

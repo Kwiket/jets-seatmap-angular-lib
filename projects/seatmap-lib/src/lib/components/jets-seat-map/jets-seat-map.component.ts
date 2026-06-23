@@ -136,6 +136,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    *  Mirrors React's outer container `width: scaledTotalDecksHeight`. */
   horizontalContainerWidth: number | null = null;
   horizontalContainerHeight: number | null = null;
+  /** Pixels to nudge the rotor so its painted content (side cabin labels,
+   *  wings, nose/tail caps that overflow the fuselage box) is pulled fully
+   *  inside the reserved container instead of being clipped at the top/left. */
+  horizontalOffsetX = 0;
+  horizontalOffsetY = 0;
 
   private _flightId: string | null = null;
   private _prevLang: string | null = null;
@@ -194,7 +199,15 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    * whose ZOOM wrapper needs `-100/scale%`.
    */
   get mapTransform(): string {
-    return this.resolvedConfig.horizontal ? 'rotate(90deg) translateY(-100%)' : '';
+    if (!this.resolvedConfig.horizontal) return '';
+    // The leading translate (applied last, in container space) pulls the
+    // rotated content's top-left overflow back inside the reserved box so the
+    // nose and side labels are not clipped. Zero until `_updateHorizontalDims`
+    // measures the painted footprint.
+    const tx = this.horizontalOffsetX || 0;
+    const ty = this.horizontalOffsetY || 0;
+    const lead = tx || ty ? `translate(${tx}px, ${ty}px) ` : '';
+    return `${lead}rotate(90deg) translateY(-100%)`;
   }
 
   /** CSS transform-origin for horizontal layout */
@@ -861,13 +874,44 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
    */
   private _updateHorizontalDims(): void {
     const rotorEl = this.rotor?.nativeElement;
-    if (this.resolvedConfig.horizontal && rotorEl) {
-      this.horizontalContainerWidth = rotorEl.offsetHeight || null;
-      this.horizontalContainerHeight = rotorEl.offsetWidth || null;
-    } else {
+    const containerEl = this.mapContainer?.nativeElement;
+    if (!(this.resolvedConfig.horizontal && rotorEl && containerEl)) {
       this.horizontalContainerWidth = null;
       this.horizontalContainerHeight = null;
+      this.horizontalOffsetX = 0;
+      this.horizontalOffsetY = 0;
+      this.cdr.markForCheck();
+      return;
     }
+
+    // `offsetWidth/offsetHeight` only cover the fuselage box; the side cabin
+    // labels and wings are absolutely positioned outside it and the nose/tail
+    // caps bleed past it, so they are excluded. Measure the union of every
+    // descendant's painted rect (screen coords, post-rotation) to reserve the
+    // true footprint.
+    const rotorRect = rotorEl.getBoundingClientRect();
+    let minL = rotorRect.left;
+    let minT = rotorRect.top;
+    let maxR = rotorRect.right;
+    let maxB = rotorRect.bottom;
+    rotorEl.querySelectorAll('*').forEach(node => {
+      const r = (node as HTMLElement).getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return;
+      if (r.left < minL) minL = r.left;
+      if (r.top < minT) minT = r.top;
+      if (r.right > maxR) maxR = r.right;
+      if (r.bottom > maxB) maxB = r.bottom;
+    });
+
+    this.horizontalContainerWidth = Math.ceil(maxR - minL) || null;
+    this.horizontalContainerHeight = Math.ceil(maxB - minT) || null;
+
+    // Pull any content overflowing past the container's top-left back inside.
+    // Compensate for the offset already applied so repeated measurements
+    // converge instead of oscillating (content rects include the live offset).
+    const containerRect = containerEl.getBoundingClientRect();
+    this.horizontalOffsetX = Math.max(0, Math.ceil(containerRect.left - minL + this.horizontalOffsetX));
+    this.horizontalOffsetY = Math.max(0, Math.ceil(containerRect.top - minT + this.horizontalOffsetY));
     this.cdr.markForCheck();
   }
 
