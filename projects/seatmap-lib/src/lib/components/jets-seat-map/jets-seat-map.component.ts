@@ -291,9 +291,22 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     return items;
   }
 
+  /** Horizontal left-to-right — the orientation that flips the cabin
+   *  (nose/tail/decks). Mirrors React's `isHorizontal && !rightToLeft`. */
+  get isHorizontalLtr(): boolean {
+    return !!this.resolvedConfig.horizontal && !this.resolvedConfig.rightToLeft;
+  }
+
   get visibleDecks(): IDeckData[] {
     if (this.resolvedConfig.singleDeckMode && this.content.length > 1) {
+      // Single-deck mode shows the active deck regardless of orientation; the
+      // reversed deckToShow in React resolves to the same deck, so no change.
       return [this.content[this.activeDeckIndex]].filter(Boolean);
+    }
+    // Stacked multi-deck: reverse the order in horizontal LTR so the decks read
+    // correctly after the rotor's 90deg rotation (mirrors React decks.reverse()).
+    if (this.isHorizontalLtr && this.content.length > 1) {
+      return [...this.content].reverse();
     }
     return this.content;
   }
