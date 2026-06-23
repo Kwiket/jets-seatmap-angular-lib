@@ -38,7 +38,12 @@ test.describe('seatmap a11y', () => {
     // Default-off `wcag` would have grid semantics, keyboard nav, dialog
     // tooltip, and landmarks dormant and the assertions would observe
     // pre-WCAG parity instead.
-    await applyConfigAndReady(page, { wcag: { enabled: true } });
+    // Pass an empty availability override so every seat renders `available`
+    // (interactive) regardless of the shared sandbox's live booking state.
+    // The keyboard-nav test needs to reach an interactive seat and open its
+    // dialog; without this it flakes whenever the sandbox flight has few free
+    // seats left.
+    await applyConfigAndReady(page, { wcag: { enabled: true } }, { availability: [] });
   });
 
   test('initial page has no axe violations', async ({ page }) => {
