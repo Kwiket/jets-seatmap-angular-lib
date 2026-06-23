@@ -140,6 +140,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   isSeatMapInited = false;
   isLoading = false;
   error: string | null = null;
+
+  // Cache for the merged colorTheme so `resolvedConfig.colorTheme` keeps a
+  // stable reference across change-detection (see resolvedConfig).
+  private _mergedThemeComputed = false;
+  private _mergedThemeKey: IConfig['colorTheme'] = undefined;
+  private _mergedThemeValue: IConfig['colorTheme'] = undefined;
   activeTooltip: ITooltipData | null = null;
   passengersList: IPassenger[] = [];
   activeDeckIndex = 0;
@@ -242,8 +248,20 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     // as the fallback base for unset colour keys only — leaving structural
     // keys, `customSeatColorRanges`, and API-injected per-seat colours
     // untouched.
-    const userTheme = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(this.config?.colorTheme);
-    const colorTheme = userTheme;
+    // Cache the merged theme by the raw `config.colorTheme` reference. Without
+    // this, `mergeColorThemeWithConstraints` builds a NEW object on every
+    // change-detection, so `resolvedConfig.colorTheme` changes identity each
+    // CD; every seat then sees a "new" `colorTheme` input, runs ngOnChanges and
+    // rebuilds its inner SVG — which replaces the <path> between mousedown and
+    // mouseup and swallows the first click. A stable reference fixes that (and
+    // avoids rebuilding every seat on every tick).
+    const rawTheme = this.config?.colorTheme;
+    if (!this._mergedThemeComputed || this._mergedThemeKey !== rawTheme) {
+      this._mergedThemeValue = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(rawTheme);
+      this._mergedThemeKey = rawTheme;
+      this._mergedThemeComputed = true;
+    }
+    const colorTheme = this._mergedThemeValue;
     return {
       ...this.config,
       width: this.config?.width ?? DEFAULT_SEAT_MAP_WIDTH,
