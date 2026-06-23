@@ -2,6 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 const isCI = !!process.env['CI'];
 
+// Allow targeting an already-running dev server (e.g. the dev worktree on
+// :4201) without editing this file. Defaults to the canonical :4200 server
+// that `webServer` boots. When overridden, `reuseExistingServer` lets the
+// suite attach to that server instead of spawning a duplicate.
+const baseURL = process.env['PW_BASE_URL'] ?? 'http://localhost:4200';
+
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
@@ -16,7 +22,7 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
   ],
   use: {
-    baseURL: 'http://localhost:4200',
+    baseURL,
     trace: 'on-first-retry',
     viewport: { width: 1440, height: 900 },
   },
@@ -29,7 +35,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm start --prefix ../../..',
-    url: 'http://localhost:4200',
+    url: baseURL,
     reuseExistingServer: !isCI,
     timeout: 180_000,
     stdout: 'pipe',

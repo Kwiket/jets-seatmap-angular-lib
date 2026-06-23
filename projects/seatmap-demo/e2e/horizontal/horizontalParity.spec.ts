@@ -32,6 +32,32 @@ test.describe('horizontal layout — React parity', () => {
     expect(nose!.x).toBeGreaterThan(tail!.x);
   });
 
+  test('demo stacks controls below the rotated seatmap in horizontal mode', async ({ page }) => {
+    // In horizontal mode the cabin rotates 90deg and can be far wider than the
+    // viewport. The demo's flex-row layout squeezed the controls column to a
+    // sliver pushed off to the right (the helper even needs `force:true` to
+    // click through). The demo must stack the controls *below* the map and keep
+    // them full-width and on-screen.
+    await page.goto('/');
+    await applyConfigAndReady(page, { horizontal: true, rightToLeft: false });
+
+    const mapBox = await page.locator('.jets-seat-map').first().boundingBox();
+    const controlsBox = await page.locator('.demo-controls-panel').first().boundingBox();
+    const vp = page.viewportSize();
+    expect(mapBox, 'seatmap should render').not.toBeNull();
+    expect(controlsBox, 'controls panel should render').not.toBeNull();
+    expect(vp, 'viewport size').not.toBeNull();
+
+    // 1) Controls sit BELOW the seatmap (stacked), not beside it.
+    expect(controlsBox!.y).toBeGreaterThanOrEqual(mapBox!.y + mapBox!.height - 2);
+
+    // 2) Controls keep a usable width and stay within the viewport — not the
+    //    collapsed 42px sliver shoved off-screen by the old row layout.
+    expect(controlsBox!.width).toBeGreaterThan(200);
+    expect(controlsBox!.x).toBeGreaterThanOrEqual(0);
+    expect(controlsBox!.x + controlsBox!.width).toBeLessThanOrEqual(vp!.width + 1);
+  });
+
   test('built-in tooltip stays within the viewport in horizontal mode (P1b)', async ({ page }) => {
     await page.goto('/');
     await applyConfigAndReady(page, { horizontal: true, rightToLeft: false });
