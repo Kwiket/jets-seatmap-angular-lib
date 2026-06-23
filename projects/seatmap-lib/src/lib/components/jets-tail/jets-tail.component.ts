@@ -43,11 +43,35 @@ export class JetsTailComponent implements OnChanges {
 
   svgContent: SafeHtml = '';
 
-  /** In horizontal LTR the tail is flipped 180deg to match the React
-   *  reference. Mirrors React `Tail/index.js`:
-   *  `isHorizontal && !rightToLeft ? 'rotate(180deg)' : ''`. */
+  /** SVG viewBox width — the tail template uses 200. */
+  private static readonly SVG_WIDTH = 200;
+  /** The tail outline meets the fuselage at viewBox x=1.5..198.5 (`…H1.5V0h197…`),
+   *  i.e. inset 1.5 units inside the SVG border, so without compensation it
+   *  renders slightly narrower than the fuselage and a step shows at the join.
+   *  Mirrors React `Tail/index.js` `distanceFromBorder`. */
+  private static readonly OUTLINE_INSET = 1.5;
+
+  /** Transform for the tail div:
+   *  - `scale()` closes the tail↔fuselage join (outline-inset compensation);
+   *  - `rotate(180deg)` in horizontal LTR so the tail points the React way. */
   get tailTransform(): string {
-    return this.horizontal && !this.rightToLeft ? 'rotate(180deg)' : '';
+    const rotation = this.horizontal && !this.rightToLeft ? 'rotate(180deg)' : '';
+    const scale = this._fuselageJoinScale();
+    const scalePart = scale !== 1 ? `scale(${scale})` : '';
+    return [rotation, scalePart].filter(Boolean).join(' ');
+  }
+
+  /** Scale that lines the tail outline centre up with the fuselage border
+   *  centre (outline inset minus the stroke half-width). See JetsNoseComponent. */
+  private _fuselageJoinScale(): number {
+    const svg = JetsTailComponent.SVG_WIDTH;
+    if (!this.width) return 1;
+    const t = this.colorTheme ?? {};
+    const themedStroke = (t.fuselageStrokeWidth ?? DEFAULT_COLOR_THEME.fuselageStrokeWidth) * this.displayScale;
+    const strokeSvg = themedStroke / (this.width / svg);
+    const effectiveInset = JetsTailComponent.OUTLINE_INSET - strokeSvg * 0.5;
+    if (effectiveInset <= 0) return 1;
+    return svg / (svg - 2 * effectiveInset);
   }
 
   constructor(private sanitizer: DomSanitizer) {}

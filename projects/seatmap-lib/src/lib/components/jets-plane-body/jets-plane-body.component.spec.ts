@@ -102,7 +102,7 @@ describe('JetsPlaneBodyComponent', () => {
     fixture.componentRef.setInput('rightToLeft', false);
     fixture.detectChanges();
     const nose = fixture.nativeElement.querySelector('.jets-nose') as HTMLElement;
-    expect(nose.style.transform).toBe('rotate(180deg)');
+    expect(nose.style.transform).toContain('rotate(180deg)');
   });
 
   it('renders nose first, tail last in vertical mode', () => {
