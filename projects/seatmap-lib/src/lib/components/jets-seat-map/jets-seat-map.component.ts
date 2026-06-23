@@ -810,9 +810,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private _buildLayoutData(): ILayoutData {
-    // Measure the rotor (the element that carries the rotation/scale) so the
-    // layout payload is unchanged by moving the transform off the container.
-    const container = this.rotor?.nativeElement ?? this.mapContainer?.nativeElement;
+    const container = this.mapContainer?.nativeElement;
     // heightInPx must reflect the active deck only, not the stacked total (README contract).
     const activeDeckEl = container?.querySelector(
       `.deck-wrapper[data-deck-index="${this.activeDeckIndex}"]`
