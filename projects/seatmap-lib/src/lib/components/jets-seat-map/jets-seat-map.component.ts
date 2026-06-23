@@ -922,8 +922,16 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     // browser sees the native key (default tab order) — pre-WCAG parity.
     if (!flags.keyboardNavigation) return;
 
-    const key = this.gridNav.classifyKey(event);
-    if (!key) return;
+    const rawKey = this.gridNav.classifyKey(event);
+    if (!rawKey) return;
+
+    // Remap arrows to the on-screen direction when the cabin is rotated
+    // (horizontal). Vertical mode and non-arrow keys are unchanged.
+    const key = this.gridNav.remapForOrientation(
+      rawKey,
+      this.resolvedConfig.horizontal ?? false,
+      this.resolvedConfig.rightToLeft ?? false,
+    );
 
     const next = this.gridNav.move(this.focusedCell, key, this.content);
     if (next === this.focusedCell) return;

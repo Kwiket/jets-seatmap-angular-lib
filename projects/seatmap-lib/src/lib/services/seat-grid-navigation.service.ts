@@ -93,6 +93,36 @@ export class SeatGridNavigationService {
   }
 
   /**
+   * Remap the four arrow keys so they match the ON-SCREEN direction when the
+   * cabin is rendered horizontally (the map is rotated 90deg). In horizontal
+   * LTR the cabin is additionally flipped 180deg by the deck wrapper, so the
+   * visual rotation is opposite to RTL. Non-arrow keys (Home/End/Page/Ctrl…)
+   * pass through unchanged, as does every key in vertical mode.
+   *
+   * Measured on the demo (model key → visual direction):
+   *   LTR: ArrowRight → UP,   ArrowDown → RIGHT
+   *   RTL: ArrowRight → DOWN, ArrowDown → LEFT
+   * so a user's arrow is rotated to the model key that produces the matching
+   * visual movement.
+   */
+  remapForOrientation(key: TGridKey, horizontal: boolean, rightToLeft: boolean): TGridKey {
+    if (!horizontal) return key;
+    const ltr: Partial<Record<TGridKey, TGridKey>> = {
+      ArrowRight: 'ArrowDown',
+      ArrowDown: 'ArrowLeft',
+      ArrowLeft: 'ArrowUp',
+      ArrowUp: 'ArrowRight',
+    };
+    const rtl: Partial<Record<TGridKey, TGridKey>> = {
+      ArrowRight: 'ArrowUp',
+      ArrowDown: 'ArrowRight',
+      ArrowLeft: 'ArrowDown',
+      ArrowUp: 'ArrowLeft',
+    };
+    return (rightToLeft ? rtl : ltr)[key] ?? key;
+  }
+
+  /**
    * Compute the next focused cell given current position, the key, and the
    * deck data. Returns the SAME `ICellPos` (referentially) if no move was
    * possible.

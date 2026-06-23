@@ -543,4 +543,38 @@ describe('SeatGridNavigationService', () => {
       expect(svc.move(from, 'ArrowRight', [d])).toBe(from);
     });
   });
+
+  // ─── Horizontal arrow remap (P1a) ──────────────────────────────────────────
+  // The cabin is rotated 90deg; in horizontal LTR it is additionally flipped
+  // 180deg (deck wrapper), so the visual rotation is opposite to RTL. Remap the
+  // four arrow keys so they match the on-screen direction. Measured on the demo:
+  //   LTR: model ArrowRight → visually UP, ArrowDown → visually RIGHT
+  //   RTL: model ArrowRight → visually DOWN, ArrowDown → visually LEFT
+  describe('remapForOrientation', () => {
+    it('passes keys through unchanged in vertical mode', () => {
+      for (const k of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'] as TGridKey[]) {
+        expect(svc.remapForOrientation(k, false, false)).toBe(k);
+      }
+    });
+
+    it('rotates arrows so they match the screen in horizontal LTR', () => {
+      expect(svc.remapForOrientation('ArrowRight', true, false)).toBe('ArrowDown');
+      expect(svc.remapForOrientation('ArrowDown', true, false)).toBe('ArrowLeft');
+      expect(svc.remapForOrientation('ArrowLeft', true, false)).toBe('ArrowUp');
+      expect(svc.remapForOrientation('ArrowUp', true, false)).toBe('ArrowRight');
+    });
+
+    it('rotates arrows the opposite way in horizontal RTL', () => {
+      expect(svc.remapForOrientation('ArrowRight', true, true)).toBe('ArrowUp');
+      expect(svc.remapForOrientation('ArrowDown', true, true)).toBe('ArrowRight');
+      expect(svc.remapForOrientation('ArrowLeft', true, true)).toBe('ArrowDown');
+      expect(svc.remapForOrientation('ArrowUp', true, true)).toBe('ArrowLeft');
+    });
+
+    it('leaves non-arrow keys unchanged in horizontal mode', () => {
+      for (const k of ['Home', 'End', 'CtrlHome', 'PageUp'] as TGridKey[]) {
+        expect(svc.remapForOrientation(k, true, false)).toBe(k);
+      }
+    });
+  });
 });
