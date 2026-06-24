@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, Type } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
-import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
+import { IColorTheme, ISeatData, ISeatFeature, ITooltipData } from '../../types';
 import { LOCALES_MAP } from '../../constants';
 
 @Component({
