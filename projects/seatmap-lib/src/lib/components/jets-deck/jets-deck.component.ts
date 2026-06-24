@@ -97,7 +97,6 @@ interface ICabinSection {
             [colorTheme]="colorTheme"
             [showPrice]="showPrice"
             [currencyOverride]="currencyOverride"
-            [colorfulSeatsByClass]="colorfulSeatsByClass"
             [scale]="scale"
             [seatOverride]="seatOverride"
             [prevRowTopOffset]="i > 0 ? (deck.rows[i - 1].topOffset ?? 0) : 0"
@@ -196,7 +195,6 @@ export class JetsDeckComponent {
   @Input() showPrice = false;
   @Input() currencyOverride?: string;
   @Input() flatBulks = false;
-  @Input() colorfulSeatsByClass = false;
   @Input() bodyWidth = 350;
   @Input() fuselageWidth = 350;
   @Input() visibleCabinTitles = true;

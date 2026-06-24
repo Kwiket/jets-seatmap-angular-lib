@@ -18,7 +18,6 @@ import {
   DEFAULT_SEAT_TYPE,
 } from '../../constants';
 import { seatTemplateService, ISeatStyle } from '../../services/seat-template.service';
-import { tintSeatColorForClass } from '../../utils/color-tint';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
@@ -114,11 +113,6 @@ export class JetsSeatComponent implements OnChanges {
    * forced to a single currency without mutating data.
    */
   @Input() currencyOverride?: string;
-  /**
-   * Tint `available` seats by cabin class so different cabins are visually
-   * distinguishable. Driven by `config.colorfulSeatsByClass`. Default false.
-   */
-  @Input() colorfulSeatsByClass = false;
   @Input() scale = 1;
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
@@ -434,13 +428,10 @@ export class JetsSeatComponent implements OnChanges {
     let fillColor: string;
     switch (this.data.status) {
       case 'available': {
-        let base =
+        const base =
           force || availOverride
             ? (theme.seatAvailableColor ?? def.seatAvailableColor)
             : (this.data.color ?? def.seatAvailableColor);
-        if (this.colorfulSeatsByClass) {
-          base = tintSeatColorForClass(base, classType, theme.seatClassTints);
-        }
         fillColor = base;
         break;
       }

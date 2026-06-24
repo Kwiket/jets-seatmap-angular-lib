@@ -21,7 +21,6 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
                   colorTheme: colorTheme,
                   showPrice: showPrice,
                   currencyOverride: currencyOverride,
-                  colorfulSeatsByClass: colorfulSeatsByClass,
                   scale: scale,
                 }
               "
@@ -32,7 +31,6 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
               [colorTheme]="colorTheme"
               [showPrice]="showPrice"
               [currencyOverride]="currencyOverride"
-              [colorfulSeatsByClass]="colorfulSeatsByClass"
               [scale]="scale"
               (seatClick)="seatClick.emit($event)"
               (seatMouseEnter)="seatMouseEnter.emit($event)"
@@ -67,7 +65,6 @@ export class JetsRowComponent {
   @Input() colorTheme?: IColorTheme;
   @Input() showPrice = false;
   @Input() currencyOverride?: string;
-  @Input() colorfulSeatsByClass = false;
   @Input() prevRowTopOffset?: number;
   @Input() prevRowHeight = 0;
   @Input() scale = 1;
