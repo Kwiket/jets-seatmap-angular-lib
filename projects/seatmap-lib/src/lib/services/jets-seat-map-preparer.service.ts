@@ -14,6 +14,7 @@ import {
   IRowData,
   ISeatData,
   ISeatFeature,
+  TCabinClass,
   TSeatStatus,
   TSeatType,
   IWingsInfo,
@@ -1260,6 +1261,17 @@ export class JetsSeatMapPreparerService {
     return found?.color ?? null;
   }
 
+  static _calculateSeatColorByClass(
+    classCode: string | undefined,
+    classMap?: Partial<Record<TCabinClass, string>>
+  ): string | null {
+    if (!classCode || !classMap) {
+      return null;
+    }
+    const color = classMap[classCode.toUpperCase() as TCabinClass];
+    return typeof color === 'string' && color.length > 0 ? color : null;
+  }
+
   /** Merge user-provided color theme with defaults and apply constraints */
   static mergeColorThemeWithConstraints(
     theme: import('../types').IColorTheme | undefined
@@ -1281,6 +1293,17 @@ export class JetsSeatMapPreparerService {
           typeof r.color === 'string' &&
           r.color.length > 0
       );
+    }
+    // Validate customSeatColorClasses — keep only non-empty string colours
+    if (merged.customSeatColorClasses) {
+      const cleaned: Partial<Record<TCabinClass, string>> = {};
+      for (const key of Object.keys(merged.customSeatColorClasses) as TCabinClass[]) {
+        const value = merged.customSeatColorClasses[key];
+        if (typeof value === 'string' && value.length > 0) {
+          cleaned[key] = value;
+        }
+      }
+      merged.customSeatColorClasses = cleaned;
     }
     return merged;
   }

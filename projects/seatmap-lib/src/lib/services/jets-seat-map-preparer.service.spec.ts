@@ -499,6 +499,29 @@ describe('JetsSeatMapPreparerService', () => {
     });
   });
 
+  // ─── _calculateSeatColorByClass (static) ─────────────────────────────────
+
+  describe('_calculateSeatColorByClass', () => {
+    it('returns the mapped colour for the seat class (case-insensitive)', () => {
+      const map = { F: '#ff0000', E: '#0000ff' };
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('F', map)).toBe('#ff0000');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('e', map)).toBe('#0000ff');
+    });
+
+    it('returns null when the class has no mapping', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('B', { F: '#ff0000' })).toBeNull();
+    });
+
+    it('returns null for missing class code or map', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass(undefined, { F: '#ff0000' })).toBeNull();
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('F', undefined)).toBeNull();
+    });
+
+    it('returns null for an empty colour string', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('F', { F: '' })).toBeNull();
+    });
+  });
+
   // ─── mergeColorThemeWithConstraints (static) ──────────────────────────────
 
   describe('mergeColorThemeWithConstraints', () => {
@@ -536,6 +559,13 @@ describe('JetsSeatMapPreparerService', () => {
       const result = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(theme);
       expect(result.seatAvailableColor).toBe('#123456');
       expect(result.floorColor).toBe('#654321');
+    });
+
+    it('should filter invalid customSeatColorClasses entries', () => {
+      const result = JetsSeatMapPreparerService.mergeColorThemeWithConstraints({
+        customSeatColorClasses: { F: '#FF0000', E: '', B: 123 as unknown as string },
+      });
+      expect(result.customSeatColorClasses).toEqual({ F: '#FF0000' });
     });
   });
 

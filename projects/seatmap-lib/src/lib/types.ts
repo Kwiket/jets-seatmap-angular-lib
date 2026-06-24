@@ -130,6 +130,12 @@ export interface IColorTheme {
   // Score-based seat coloring
   customSeatColorRanges?: Array<{ range: [number, number]; color: string }>;
   /**
+   * Per-class flat colour palette. When a colour is set for a seat's cabin
+   * class, available seats of that class render in it (below score ranges,
+   * above the API seat colour). Data-driven counterpart to customSeatColorRanges.
+   */
+  customSeatColorClasses?: Partial<Record<TCabinClass, string>>;
+  /**
    * Optional per-class override palette used when `colorfulSeatsByClass`
    * is enabled in IConfig. If a key is present for a cabin class, the
    * algorithmic HSL tint is skipped and this colour wins.
