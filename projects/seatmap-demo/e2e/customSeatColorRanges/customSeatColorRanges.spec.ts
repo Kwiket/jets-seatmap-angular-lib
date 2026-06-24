@@ -97,34 +97,23 @@ test.describe('customSeatColorRanges', () => {
     });
   });
 
-  test('disabled — colorfulSeatsByScore:false ignores ranges (QT888)', async ({ page }) => {
-    // Use sentinel colours the API never returns so we can tell the matcher
-    // didn't fire. (The production RANGES above happen to overlap with the
-    // sandbox API's per-seat colours, which would mask whether the gate
-    // worked.)
-    const SENTINELS = [
-      { color: '#FF00FF', range: [1, 4] as [number, number] },
-      { color: '#00FFFF', range: [4.01, 10] as [number, number] },
-    ];
+  test('ranges always apply when present (no gate)', async ({ page }) => {
     await page.goto('/');
     await applyConfigAndReady(
       page,
-      {
-        colorfulSeatsByScore: false,
-        colorTheme: { customSeatColorRanges: SENTINELS },
-      },
-      { availability: WILDCARD_AVAILABILITY }
+      { colorTheme: { customSeatColorRanges: [{ range: [1, 10], color: '#abcdef' }] } },
+      { availability: [] }
     );
-
-    const hits = await countCustomFills(
-      page,
-      SENTINELS.map(r => r.color)
-    );
-    const total = Object.values(hits).reduce((a, b) => a + b, 0);
-    expect(total, `colorfulSeatsByScore:false must suppress sentinel range colours, got ${JSON.stringify(hits)}`).toBe(
-      0
-    );
-
-    await screenshotSeatMap(page, __dirname, 'customSeatColorRanges-disabled');
+    const hits = await page.evaluate(() => {
+      const seats = Array.from(document.querySelectorAll('.jets-seat--available')) as HTMLElement[];
+      let n = 0;
+      for (const seat of seats) {
+        for (const p of Array.from(seat.querySelectorAll('svg path'))) {
+          if ((p.getAttribute('fill') || '').toLowerCase() === '#abcdef') { n++; break; }
+        }
+      }
+      return n;
+    });
+    expect(hits, 'sentinel range colour must appear on available seats').toBeGreaterThan(0);
   });
 });
