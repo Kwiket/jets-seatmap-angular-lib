@@ -167,7 +167,7 @@ export class App {
   }
 
   private updateTextareasForFlight(flight: DemoFlight): void {
-    const { config, availability, passengers, ...rest } = flight;
+    const { config } = flight;
     const { apiUrl, apiAppId, apiKey, colorTheme, ...displayConfig } = config;
     this.textareas.set({
       config: JSON.stringify(displayConfig, null, 2),

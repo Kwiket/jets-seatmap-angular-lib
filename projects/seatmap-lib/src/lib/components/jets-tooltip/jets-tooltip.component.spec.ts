@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { JetsTooltipComponent } from './jets-tooltip.component';
-import { ISeatData, ITooltipData, IPassenger } from '../../types';
+import { ISeatData, ITooltipData } from '../../types';
 import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../../constants';
 
 function makeSeat(overrides: Partial<ISeatData> = {}): ISeatData {
