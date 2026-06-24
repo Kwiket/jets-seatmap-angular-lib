@@ -375,21 +375,15 @@ describe('JetsSeatMapPreparerService', () => {
         expect(seat.color).toBe('#6CB64A');
       });
 
-      it('new format: API seat.color wins when colorfulSeatsByScore is false', () => {
+      it('new format: class colour fills in when score has no matching range', () => {
         const response: IApiSeatmapResponse = {
           decks: [
             {
               rows: [
                 {
+                  classCode: 'F',
                   seats: [
-                    {
-                      letter: 'A',
-                      seatNumber: '1A',
-                      type: 0,
-                      seatType: 0,
-                      score: 2,
-                      color: '#6CB64A',
-                    } as any,
+                    { letter: 'A', seatNumber: '1A', type: 0, seatType: 0, score: 11, color: '#6CB64A' } as any,
                   ],
                 },
               ],
@@ -397,10 +391,34 @@ describe('JetsSeatMapPreparerService', () => {
           ],
         };
         const seat = service.prepareContent(response, {
-          ...configWithRanges,
-          colorfulSeatsByScore: false,
+          ...baseConfig,
+          colorTheme: { customSeatColorRanges: ranges, customSeatColorClasses: { F: '#123456' } },
         })[0].rows[0].seats[0];
-        expect(seat.color).toBe('#6CB64A');
+        // score 11 is out of every range -> class palette (#123456) wins over API #6CB64A
+        expect(seat.color).toBe('#123456');
+      });
+
+      it('new format: score range wins over class palette when both match', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  classCode: 'F',
+                  seats: [
+                    { letter: 'A', seatNumber: '1A', type: 0, seatType: 0, score: 2, color: '#6CB64A' } as any,
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, {
+          ...baseConfig,
+          colorTheme: { customSeatColorRanges: ranges, customSeatColorClasses: { F: '#123456' } },
+        })[0].rows[0].seats[0];
+        // score 2 in [1,3] -> #FF0000 wins over class palette
+        expect(seat.color).toBe('#FF0000');
       });
 
       it('new format: API seat.color wins when no ranges are configured', () => {
@@ -489,13 +507,12 @@ describe('JetsSeatMapPreparerService', () => {
       expect(JetsSeatMapPreparerService._calculateSeatColorByScore(10, ranges)).toBe('#00FF00');
     });
 
-    it('returns null when the score gate is off, even with valid score and ranges', () => {
-      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges, false)).toBeNull();
+    it('returns the matched range colour for a valid in-range score', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges)).toBe('#FFFF00');
     });
 
-    it('defaults the score gate to enabled', () => {
-      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges)).toBe('#FFFF00');
-      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges, true)).toBe('#FFFF00');
+    it('returns null when score is out of every range', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(11, ranges)).toBeNull();
     });
   });
 

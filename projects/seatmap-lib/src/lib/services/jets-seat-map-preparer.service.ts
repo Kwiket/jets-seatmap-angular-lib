@@ -182,8 +182,7 @@ export class JetsSeatMapPreparerService {
         config.lang,
         config.colorTheme,
         flightAmenities,
-        config.units,
-        config.colorfulSeatsByScore ?? true
+        config.units
       );
       if (classChanged) rendered.cabinClassCode = cabinClass.toUpperCase();
       // Always propagate cabinClassCode for cabin filtering
@@ -231,8 +230,7 @@ export class JetsSeatMapPreparerService {
     lang = 'EN',
     colorTheme?: import('../types').IColorTheme,
     flightAmenities: ISeatFeature[] = [],
-    units?: string,
-    colorfulSeatsByScore = true
+    units?: string
   ): IRowData {
     const seats = row.seats ?? [];
     // Row-level seatType fallback (matches React's _rowSeatType)
@@ -308,21 +306,13 @@ export class JetsSeatMapPreparerService {
       const seatAmenities = seatFeatures.filter(f => !f.key || !flightKeys.has(f.key));
       const features = [...flightAmenities, ...seatAmenities];
       // React parity (data-preparer.js:371): score-range colour wins over the
-      // API's `seat.color`. The customSeatColorRanges contract is "the theme
-      // overrides whatever the seat ships with for this score band" — so the
-      // matcher comes first; if it returns null (no ranges configured, gate
-      // off, score missing/out of band), we fall back to the per-seat API
-      // colour.
+      // API's `seat.color`. Resolution order: score range > class palette > API colour.
+      const classCode = (row.classCode ?? row.cabinClass ?? s.classType ?? 'E').toUpperCase();
       const seatColor =
-        JetsSeatMapPreparerService._calculateSeatColorByScore(
-          s.score,
-          colorTheme?.customSeatColorRanges,
-          colorfulSeatsByScore
-        ) ??
+        JetsSeatMapPreparerService._calculateSeatColorByScore(s.score, colorTheme?.customSeatColorRanges) ??
+        JetsSeatMapPreparerService._calculateSeatColorByClass(classCode, colorTheme?.customSeatColorClasses) ??
         s.color ??
         undefined;
-
-      const classCode = (row.classCode ?? row.cabinClass ?? s.classType ?? 'E').toUpperCase();
       return {
         id: `seat-${rowIndex}-${i}`,
         uniqId: genFeatureId(),
@@ -827,17 +817,13 @@ export class JetsSeatMapPreparerService {
       const seatScore = newSeat?.score ?? legacyAny?.score;
       const seatApiColor = newSeat?.color ?? legacyAny?.color;
       const seatAvailable = newSeat?.available ?? legacyAny?.available;
-      // React parity — see new-format path above for the rationale.
+      // React parity — resolution order: score range > class palette > API colour.
+      const classCode = (row.classCode ?? row.cabinClass ?? newSeat?.classType ?? 'E').toUpperCase();
       const seatColor =
-        JetsSeatMapPreparerService._calculateSeatColorByScore(
-          seatScore,
-          config.colorTheme?.customSeatColorRanges,
-          config.colorfulSeatsByScore ?? true
-        ) ??
+        JetsSeatMapPreparerService._calculateSeatColorByScore(seatScore, config.colorTheme?.customSeatColorRanges) ??
+        JetsSeatMapPreparerService._calculateSeatColorByClass(classCode, config.colorTheme?.customSeatColorClasses) ??
         seatApiColor ??
         undefined;
-
-      const classCode = (row.classCode ?? row.cabinClass ?? newSeat?.classType ?? 'E').toUpperCase();
       return {
         id: `seat-${rowIndex}-${i}`,
         uniqId: genFeatureId(),
@@ -1244,11 +1230,9 @@ export class JetsSeatMapPreparerService {
   /** Map seat score (1-10) to color using configurable ranges */
   static _calculateSeatColorByScore(
     score: number | undefined,
-    colorRanges?: Array<{ range: [number, number]; color: string }>,
-    enabled = true
+    colorRanges?: Array<{ range: [number, number]; color: string }>
   ): string | null {
     if (
-      !enabled ||
       typeof score !== 'number' ||
       score < 1 ||
       score > 10 ||
