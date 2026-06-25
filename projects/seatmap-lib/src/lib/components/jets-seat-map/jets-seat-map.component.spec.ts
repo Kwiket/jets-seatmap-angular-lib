@@ -4,7 +4,7 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { JetsSeatMapComponent } from './jets-seat-map.component';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
 import { resetCachedEnvironmentInfo } from '../../services/environment.service';
-import { IConfig, IDeckData, IFlight, IPassenger, ISeatData, IInitialLayoutData, TSeatAvailability } from '../../types';
+import { IConfig, IDeckData, IFlight, IPassenger, ISeatData, TSeatAvailability } from '../../types';
 import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../../constants';
 
 // ─── Test data factories ────────────────────────────────────────────────────
@@ -548,6 +548,23 @@ describe('JetsSeatMapComponent', () => {
     it('should show single deck in singleDeckMode', () => {
       component.config = makeConfig({ singleDeckMode: true });
       expect(component.visibleDecks).toHaveLength(1);
+    });
+
+    // Horizontal LTR reverses the stacking order so decks read correctly once
+    // the rotor is rotated 90deg (mirrors React PlaneBody decks.reverse()).
+    it('reverses deck order in horizontal LTR (stacked multi-deck)', () => {
+      component.config = makeConfig({ singleDeckMode: false, horizontal: true, rightToLeft: false });
+      expect(component.visibleDecks.map(d => d.number)).toEqual([2, 1]);
+    });
+
+    it('keeps deck order in horizontal RTL', () => {
+      component.config = makeConfig({ singleDeckMode: false, horizontal: true, rightToLeft: true });
+      expect(component.visibleDecks.map(d => d.number)).toEqual([1, 2]);
+    });
+
+    it('keeps deck order in vertical multi-deck', () => {
+      component.config = makeConfig({ singleDeckMode: false, horizontal: false });
+      expect(component.visibleDecks.map(d => d.number)).toEqual([1, 2]);
     });
 
     it('should hide deck selector when builtInDeckSelector is false', () => {

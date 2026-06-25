@@ -375,21 +375,15 @@ describe('JetsSeatMapPreparerService', () => {
         expect(seat.color).toBe('#6CB64A');
       });
 
-      it('new format: API seat.color wins when colorfulSeatsByScore is false', () => {
+      it('new format: class colour fills in when score has no matching range', () => {
         const response: IApiSeatmapResponse = {
           decks: [
             {
               rows: [
                 {
+                  classCode: 'F',
                   seats: [
-                    {
-                      letter: 'A',
-                      seatNumber: '1A',
-                      type: 0,
-                      seatType: 0,
-                      score: 2,
-                      color: '#6CB64A',
-                    } as any,
+                    { letter: 'A', seatNumber: '1A', type: 0, seatType: 0, score: 11, color: '#6CB64A' } as any,
                   ],
                 },
               ],
@@ -397,10 +391,34 @@ describe('JetsSeatMapPreparerService', () => {
           ],
         };
         const seat = service.prepareContent(response, {
-          ...configWithRanges,
-          colorfulSeatsByScore: false,
+          ...baseConfig,
+          colorTheme: { customSeatColorRanges: ranges, customSeatColorClasses: { F: '#123456' } },
         })[0].rows[0].seats[0];
-        expect(seat.color).toBe('#6CB64A');
+        // score 11 is out of every range -> class palette (#123456) wins over API #6CB64A
+        expect(seat.color).toBe('#123456');
+      });
+
+      it('new format: score range wins over class palette when both match', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  classCode: 'F',
+                  seats: [
+                    { letter: 'A', seatNumber: '1A', type: 0, seatType: 0, score: 2, color: '#6CB64A' } as any,
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, {
+          ...baseConfig,
+          colorTheme: { customSeatColorRanges: ranges, customSeatColorClasses: { F: '#123456' } },
+        })[0].rows[0].seats[0];
+        // score 2 in [1,3] -> #FF0000 wins over class palette
+        expect(seat.color).toBe('#FF0000');
       });
 
       it('new format: API seat.color wins when no ranges are configured', () => {
@@ -448,6 +466,56 @@ describe('JetsSeatMapPreparerService', () => {
         const seat = service.prepareContent(response, configWithRanges)[0].rows[0].seats[0];
         expect(seat.color).toBe('#00FF00');
       });
+
+      it('legacy format: class colour fills in when score has no matching range', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  seatScheme: 'S',
+                  seatType: 0,
+                  number: 1,
+                  name: '1',
+                  classCode: 'F',
+                  apiSeats: [{ letter: 'A', score: 11, color: '#6CB64A', available: true } as any],
+                } as any,
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, {
+          ...baseConfig,
+          colorTheme: { customSeatColorRanges: ranges, customSeatColorClasses: { F: '#123456' } },
+        })[0].rows[0].seats[0];
+        // score 11 is out of every range -> class palette (#123456) wins over API #6CB64A
+        expect(seat.color).toBe('#123456');
+      });
+
+      it('legacy format: score range wins over class palette when both match', () => {
+        const response: IApiSeatmapResponse = {
+          decks: [
+            {
+              rows: [
+                {
+                  seatScheme: 'S',
+                  seatType: 0,
+                  number: 1,
+                  name: '1',
+                  classCode: 'F',
+                  apiSeats: [{ letter: 'A', score: 2, color: '#6CB64A', available: true } as any],
+                } as any,
+              ],
+            },
+          ],
+        };
+        const seat = service.prepareContent(response, {
+          ...baseConfig,
+          colorTheme: { customSeatColorRanges: ranges, customSeatColorClasses: { F: '#123456' } },
+        })[0].rows[0].seats[0];
+        // score 2 in [1,3] -> #FF0000 wins over class palette
+        expect(seat.color).toBe('#FF0000');
+      });
     });
   });
 
@@ -489,13 +557,28 @@ describe('JetsSeatMapPreparerService', () => {
       expect(JetsSeatMapPreparerService._calculateSeatColorByScore(10, ranges)).toBe('#00FF00');
     });
 
-    it('returns null when the score gate is off, even with valid score and ranges', () => {
-      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges, false)).toBeNull();
+  });
+
+  // ─── _calculateSeatColorByClass (static) ─────────────────────────────────
+
+  describe('_calculateSeatColorByClass', () => {
+    it('returns the mapped colour for the seat class (case-insensitive)', () => {
+      const map = { F: '#ff0000', E: '#0000ff' };
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('F', map)).toBe('#ff0000');
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('e', map)).toBe('#0000ff');
     });
 
-    it('defaults the score gate to enabled', () => {
-      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges)).toBe('#FFFF00');
-      expect(JetsSeatMapPreparerService._calculateSeatColorByScore(5, ranges, true)).toBe('#FFFF00');
+    it('returns null when the class has no mapping', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('B', { F: '#ff0000' })).toBeNull();
+    });
+
+    it('returns null for missing class code or map', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass(undefined, { F: '#ff0000' })).toBeNull();
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('F', undefined)).toBeNull();
+    });
+
+    it('returns null for an empty colour string', () => {
+      expect(JetsSeatMapPreparerService._calculateSeatColorByClass('F', { F: '' })).toBeNull();
     });
   });
 
@@ -536,6 +619,13 @@ describe('JetsSeatMapPreparerService', () => {
       const result = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(theme);
       expect(result.seatAvailableColor).toBe('#123456');
       expect(result.floorColor).toBe('#654321');
+    });
+
+    it('should filter invalid customSeatColorClasses entries', () => {
+      const result = JetsSeatMapPreparerService.mergeColorThemeWithConstraints({
+        customSeatColorClasses: { F: '#FF0000', E: '', B: 123 as unknown as string },
+      });
+      expect(result.customSeatColorClasses).toEqual({ F: '#FF0000' });
     });
   });
 
@@ -707,6 +797,40 @@ describe('JetsSeatMapPreparerService', () => {
       // API-space height divides out the same bulkScale that jets-bulk applies at render time,
       // so the rendered pixel height equals the corrected native height.
       expect(bulk?.height).toBeCloseTo(46 / 0.7, 5);
+    });
+
+    it('uses the real row bbox (per-seat topOffset) so a staggered Business pod does not falsely shrink the next bulk', () => {
+      // Repro: Lufthansa A350 LH470 row 4 — seats 4C/4H sit at topOffset=+45 inside the row, so
+      // the row's true bottom extends 45 units past `row.topOffset + max(seatH)`. With the
+      // pre-fix bbox (max-seatH only), the bottom is under-reported, the galley bulk just below
+      // looks merely lightly grazed, and the preparer shrinks it to ~22% — a sliver that renders
+      // as an invisible 11-px strip while the galley sticker still floats above. With the
+      // per-seat bbox the algorithm sees an overlap deep enough to trip the safety floor and
+      // keeps the bulk in its original geometry.
+      const response: IApiSeatmapResponse = {
+        decks: [
+          {
+            rows: [
+              {
+                topOffset: 1030,
+                seatType: 7,
+                seats: [
+                  { letter: 'A', seatNumber: '4A', topOffset: 0, available: true },
+                  { letter: 'C', seatNumber: '4C', topOffset: 45, available: true },
+                  { letter: 'D', seatNumber: '4D', topOffset: -172, available: true },
+                  { letter: 'H', seatNumber: '4H', topOffset: 45, available: true },
+                  { letter: 'K', seatNumber: '4K', topOffset: 0, available: true },
+                ],
+              },
+            ],
+            bulks: [{ id: '7', iconType: 'G', topOffset: 1066, height: 308, width: 400, align: 'center' }],
+          },
+        ],
+      };
+      const result = service.prepareContent(response, baseConfig);
+      const bulk = result[0].extras?.bulks?.[0];
+      expect(bulk?.topOffset).toBe(1066);
+      expect(bulk?.height).toBe(308);
     });
 
     it('respects a custom partitionGap larger than the default', () => {

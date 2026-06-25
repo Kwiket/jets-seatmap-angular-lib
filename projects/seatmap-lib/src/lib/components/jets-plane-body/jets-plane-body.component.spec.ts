@@ -55,4 +55,68 @@ describe('JetsPlaneBodyComponent', () => {
     fixture.detectChanges();
     expect(component.noseType).toBe('by-type');
   });
+
+  // ─── Horizontal layout (React PlaneBody/index.js parity) ──────────────────
+  const fuselageEl = () =>
+    fixture.nativeElement.querySelector('.jets-plane-body__fuselage') as HTMLElement;
+  // DOM order of the three structural blocks, top→bottom.
+  const blockOrder = (): string[] =>
+    Array.from(
+      fixture.nativeElement.querySelectorAll(
+        '.jets-nose, .jets-plane-body__fuselage, .jets-tail'
+      )
+    ).map(el =>
+      (el as HTMLElement).classList.contains('jets-nose')
+        ? 'nose'
+        : (el as HTMLElement).classList.contains('jets-tail')
+          ? 'tail'
+          : 'fuselage'
+    );
+
+  it('does not rotate the deck wrapper in vertical mode', () => {
+    component.decks = [makeDeck()];
+    fixture.componentRef.setInput('horizontal', false);
+    fixture.detectChanges();
+    expect(fuselageEl().style.transform).toBe('');
+  });
+
+  it('rotates the deck wrapper 180deg in horizontal LTR', () => {
+    component.decks = [makeDeck()];
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', false);
+    fixture.detectChanges();
+    expect(fuselageEl().style.transform).toBe('rotate(180deg)');
+  });
+
+  it('does not rotate the deck wrapper in horizontal RTL', () => {
+    component.decks = [makeDeck()];
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', true);
+    fixture.detectChanges();
+    expect(fuselageEl().style.transform).toBe('');
+  });
+
+  it('passes horizontal/rightToLeft down so the nose flips in horizontal LTR', () => {
+    component.decks = [makeDeck()];
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', false);
+    fixture.detectChanges();
+    const nose = fixture.nativeElement.querySelector('.jets-nose') as HTMLElement;
+    expect(nose.style.transform).toContain('rotate(180deg)');
+  });
+
+  it('renders nose first, tail last in vertical mode', () => {
+    component.decks = [makeDeck()];
+    fixture.componentRef.setInput('horizontal', false);
+    fixture.detectChanges();
+    expect(blockOrder()).toEqual(['nose', 'fuselage', 'tail']);
+  });
+
+  it('swaps to tail first, nose last in horizontal LTR', () => {
+    component.decks = [makeDeck()];
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', false);
+    fixture.detectChanges();
+    expect(blockOrder()).toEqual(['tail', 'fuselage', 'nose']);
+  });
 });

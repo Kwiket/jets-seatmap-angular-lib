@@ -41,4 +41,39 @@ describe('JetsTailComponent', () => {
     const html: string = fixture.nativeElement.innerHTML;
     expect(html).toContain('stroke-width:18');
   });
+
+  // Horizontal tail direction — mirrors React Tail/index.js:55
+  //   transform = isHorizontal && !rightToLeft ? 'rotate(180deg)' : ''
+  const tailEl = () => fixture.nativeElement.querySelector('.jets-tail') as HTMLElement;
+
+  it('does not rotate the tail in vertical mode', () => {
+    fixture.componentRef.setInput('horizontal', false);
+    fixture.detectChanges();
+    expect(tailEl().style.transform).not.toContain('rotate');
+  });
+
+  it('rotates the tail 180deg in horizontal LTR mode', () => {
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', false);
+    fixture.detectChanges();
+    expect(tailEl().style.transform).toContain('rotate(180deg)');
+  });
+
+  it('does not rotate the tail in horizontal RTL mode', () => {
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', true);
+    fixture.detectChanges();
+    expect(tailEl().style.transform).not.toContain('rotate');
+  });
+
+  it('scales the tail up to close the fuselage join', () => {
+    fixture.componentRef.setInput('width', 360);
+    fixture.componentRef.setInput('colorTheme', { fuselageStrokeWidth: 4 });
+    fixture.detectChanges();
+    const t = tailEl().style.transform;
+    expect(t).toContain('scale(');
+    const scale = Number(t.match(/scale\(([^)]+)\)/)?.[1]);
+    expect(scale).toBeGreaterThan(1);
+    expect(scale).toBeLessThan(1.05);
+  });
 });

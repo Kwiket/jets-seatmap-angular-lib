@@ -5,11 +5,11 @@
   <div
     #mapContainer
     class="jets-seat-map"
-    [style.width.px]="resolvedConfig.width"
+    [class.jets-seat-map--horizontal]="resolvedConfig.horizontal"
+    [style.width.px]="horizontalContainerWidth ?? resolvedConfig.width"
+    [style.height.px]="horizontalContainerHeight"
     [style.background-color]="resolvedConfig.colorTheme?.seatMapBackgroundColor"
     [style.font-family]="resolvedConfig.colorTheme?.fontFamily || null"
-    [style.transform]="mapTransform || null"
-    [style.transform-origin]="mapTransformOrigin || null"
     (click)="onMapClick($event)"
   >
     <!-- Built-in tooltip (or user-provided override).
@@ -63,6 +63,15 @@
       }
     }
 
+    <!-- Rotor: only the cabin content is rotated in horizontal mode. The
+         tooltip stays a sibling in the un-rotated .jets-seat-map so it renders
+         upright and on-screen (mirrors the React structure). -->
+    <div
+      class="jets-seat-map__rotor"
+      #rotor
+      [style.transform]="mapTransform || null"
+      [style.transform-origin]="mapTransformOrigin || null"
+    >
     @if (content.length) {
       <!-- Aircraft body with decks -->
       <sm-jets-plane-body
@@ -73,6 +82,8 @@
         [visibleNose]="resolvedConfig.visibleNose"
         [visibleTail]="resolvedConfig.visibleTail"
         [noseType]="noseType"
+        [horizontal]="resolvedConfig.horizontal ?? false"
+        [rightToLeft]="resolvedConfig.rightToLeft ?? false"
         [displayScale]="displayScale"
       >
         @for (deck of visibleDecks; track deck.number; let i = $index) {
@@ -104,7 +115,6 @@
                 [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
                 [currencyOverride]="resolvedConfig.currencySign || ''"
                 [flatBulks]="resolvedConfig.flatBulks ?? false"
-                [colorfulSeatsByClass]="resolvedConfig.colorfulSeatsByClass ?? false"
                 [bodyWidth]="resolvedConfig.width"
                 [fuselageWidth]="fuselageBodyWidth"
                 [visibleCabinTitles]="resolvedConfig.visibleCabinTitles !== false"
@@ -146,6 +156,7 @@
         <sm-jets-not-init [lang]="lang" />
       }
     }
+    </div>
   </div>
 </ng-template>
 

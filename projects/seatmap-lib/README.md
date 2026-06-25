@@ -540,6 +540,20 @@ The seatmap supports dynamic seat coloring based on score values. When a seat ha
 
 **Priority order:** Score-based color > Original seat color > Default color.
 
+### Seat colour priority
+
+Available seats resolve their colour top-down:
+
+1. `colorTheme.seatAvailableColor` / `forceThemeSeatColors` — forces every available seat to one colour.
+2. `availability[].color` (individual entry > `*` wildcard) when the `availability` input is supplied.
+3. `colorTheme.customSeatColorRanges` — score → colour; applied whenever ranges are defined and the seat `score` ∈ [1,10] matches.
+4. `colorTheme.customSeatColorClasses` — `Partial<Record<'F'|'B'|'P'|'E'|'A', string>>`; per-class flat colour.
+5. The seat's API `color`.
+6. Theme default available colour.
+
+There is no `colorfulSeatsByScore` / `colorfulSeatsByClass` flag — enable each axis by providing the
+corresponding palette; for a flat look set `seatAvailableColor`.
+
 &nbsp;
 
 ### <a name="seatjumpto"></a> seatJumpTo

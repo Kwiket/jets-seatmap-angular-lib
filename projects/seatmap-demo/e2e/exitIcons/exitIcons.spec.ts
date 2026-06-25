@@ -34,8 +34,6 @@ const CONFIG_JSON = {
   visibleFuselage: true,
   visibleSeatPriceLabels: true,
   flatBulks: false,
-  colorfulSeatsByClass: false,
-  colorfulSeatsByScore: true,
   width: 380,
   colorTheme: {
     exitIconUrlLeft: ICON_URL,

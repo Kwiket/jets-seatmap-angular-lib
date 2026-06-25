@@ -96,6 +96,20 @@
   margin: 0 auto;
 }
 
+// Horizontal cabin mode: the rotated seatmap can be much wider than the
+// controls column. Stack the controls *below* the map (full width) instead of
+// beside it, and let the wide map scroll horizontally inside its own wrapper so
+// it never squeezes the page controls off-screen.
+.demo-content--horizontal {
+  flex-direction: column;
+  align-items: stretch;
+
+  .demo-seatmap-wrapper {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+}
+
 .demo-right-column {
   flex: 1;
   display: flex;

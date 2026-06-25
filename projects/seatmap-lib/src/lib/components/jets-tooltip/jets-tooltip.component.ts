@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, Type } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
-import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
+import { IColorTheme, ISeatData, ISeatFeature, ITooltipData } from '../../types';
 import { LOCALES_MAP } from '../../constants';
 
 @Component({
@@ -31,7 +31,9 @@ import { LOCALES_MAP } from '../../constants';
         class="jets-tooltip"
         [class.jets-tooltip--below]="!sidePanel && data.openBelow"
         [class.jets-tooltip--side-panel]="sidePanel"
+        [class.jets-tooltip--horizontal]="data.horizontal"
         [style.top.px]="sidePanel ? null : data.top"
+        [style.left.px]="data.horizontal ? data.left : null"
         [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
         [style.font-family]="colorTheme?.fontFamily || null"
         [style.--tooltip-bg]="colorTheme?.tooltipBackgroundColor || null"

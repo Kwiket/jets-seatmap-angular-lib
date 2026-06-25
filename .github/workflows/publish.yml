@@ -45,9 +45,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: npm
 
-      - name: Upgrade npm to >= 11.5.1 (required by Trusted Publishing)
+      - name: Upgrade npm to 11.5.1 (required by Trusted Publishing)
+        # Pin to an exact version instead of @latest for reproducible builds
+        # and to satisfy Scorecard Pinned-Dependencies.
         run: |
-          npm install -g npm@latest
+          npm install -g npm@11.5.1
           npm --version
 
       - name: Verify package.json version matches release tag

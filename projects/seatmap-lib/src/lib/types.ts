@@ -130,11 +130,11 @@ export interface IColorTheme {
   // Score-based seat coloring
   customSeatColorRanges?: Array<{ range: [number, number]; color: string }>;
   /**
-   * Optional per-class override palette used when `colorfulSeatsByClass`
-   * is enabled in IConfig. If a key is present for a cabin class, the
-   * algorithmic HSL tint is skipped and this colour wins.
+   * Per-class flat colour palette. When a colour is set for a seat's cabin
+   * class, available seats of that class render in it (below score ranges,
+   * above the API seat colour). Data-driven counterpart to customSeatColorRanges.
    */
-  seatClassTints?: Partial<Record<TCabinClass, string>>;
+  customSeatColorClasses?: Partial<Record<TCabinClass, string>>;
   /** When true, theme seat colors override API-provided per-seat colors */
   forceThemeSeatColors?: boolean;
 }
@@ -183,20 +183,6 @@ export interface IConfig {
    * upper/lower split. Default false keeps the existing two-tone look.
    */
   flatBulks?: boolean;
-  /**
-   * When true, `available` seats are tinted by cabin class so the
-   * boundaries between F / B / P / E are visible. The tint is applied
-   * on top of any score-based or API colour. Default false.
-   */
-  colorfulSeatsByClass?: boolean;
-  /**
-   * Gate the `IColorTheme.customSeatColorRanges` score-based seat
-   * colouring. Default true keeps the legacy behaviour — when the theme
-   * provides ranges and a seat has a `score`, the seat picks up the
-   * matched colour. Set false to ignore ranges and fall back to
-   * `seatAvailableColor` (so only `colorfulSeatsByClass` remains).
-   */
-  colorfulSeatsByScore?: boolean;
   currencySign?: string;
   externalPassengerManagement?: boolean;
   scaleType?: TScaleType;
@@ -428,6 +414,10 @@ export interface ITooltipData {
   nextPassenger: IPassenger | null;
   lang: TLang;
   openBelow?: boolean;
+  /** Horizontal layout — the tooltip counter-rotates so it stays upright and
+   *  on-screen while the map itself is rotated 90deg. `top`/`left` then carry
+   *  the seat's layout-space position (immune to the CSS rotation). */
+  horizontal?: boolean;
 }
 
 // ─── Events ──────────────────────────────────────────────────────────────────

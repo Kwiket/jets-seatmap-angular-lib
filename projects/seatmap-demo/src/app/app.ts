@@ -137,6 +137,11 @@ export class App {
     return merged;
   });
 
+  /** True when the active config renders the cabin horizontally. The demo
+   *  stacks its controls below the map in this mode (the rotated cabin can be
+   *  far wider than the controls column, so a flex row squeezes them off-screen). */
+  isHorizontal = computed<boolean>(() => this.activeConfig().horizontal === true);
+
   activeFlight = computed<IFlight>(() => {
     const base = this.flights[this.selectedIndex()].flight;
     const override = this.flightOverride();
@@ -162,7 +167,7 @@ export class App {
   }
 
   private updateTextareasForFlight(flight: DemoFlight): void {
-    const { config, availability, passengers, ...rest } = flight;
+    const { config } = flight;
     const { apiUrl, apiAppId, apiKey, colorTheme, ...displayConfig } = config;
     this.textareas.set({
       config: JSON.stringify(displayConfig, null, 2),

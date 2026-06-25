@@ -51,4 +51,41 @@ describe('JetsNoseComponent', () => {
     const html: string = fixture.nativeElement.innerHTML;
     expect(html).toContain('stroke-width:18');
   });
+
+  // Horizontal nose direction — mirrors React Nose/index.js:41
+  //   transform = isHorizontal && !rightToLeft ? 'rotate(180deg)' : ''
+  const noseEl = () => fixture.nativeElement.querySelector('.jets-nose') as HTMLElement;
+
+  it('does not rotate the nose in vertical mode', () => {
+    fixture.componentRef.setInput('horizontal', false);
+    fixture.detectChanges();
+    expect(noseEl().style.transform).not.toContain('rotate');
+  });
+
+  it('rotates the nose 180deg in horizontal LTR mode (nose flips to point left)', () => {
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', false);
+    fixture.detectChanges();
+    expect(noseEl().style.transform).toContain('rotate(180deg)');
+  });
+
+  it('does not rotate the nose in horizontal RTL mode', () => {
+    fixture.componentRef.setInput('horizontal', true);
+    fixture.componentRef.setInput('rightToLeft', true);
+    fixture.detectChanges();
+    expect(noseEl().style.transform).not.toContain('rotate');
+  });
+
+  // Fuselage-join compensation: the nose is scaled up slightly so its outline
+  // lines up with the fuselage border (closes the visible step at the join).
+  it('scales the nose up to close the fuselage join', () => {
+    fixture.componentRef.setInput('width', 360);
+    fixture.componentRef.setInput('colorTheme', { fuselageStrokeWidth: 4 });
+    fixture.detectChanges();
+    const t = noseEl().style.transform;
+    expect(t).toContain('scale(');
+    const scale = Number(t.match(/scale\(([^)]+)\)/)?.[1]);
+    expect(scale).toBeGreaterThan(1);
+    expect(scale).toBeLessThan(1.05);
+  });
 });

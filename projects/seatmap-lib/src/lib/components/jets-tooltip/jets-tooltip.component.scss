@@ -35,6 +35,20 @@
       border-bottom: 9px solid var(--tooltip-bg, #fff);
     }
   }
+
+  // Horizontal layout: the tooltip lives outside the rotated rotor and is
+  // anchored by an explicit inline `left`/`top` (the seat's screen position).
+  // Release the `right: 8px` constraint (which would otherwise squeeze the
+  // width to a sliver) and drop the vertical translate + seat pointer.
+  &--horizontal {
+    right: auto;
+    width: max-content;
+    max-width: 320px;
+
+    &::after {
+      display: none;
+    }
+  }
 }
 
 .jets-tooltip--body {
