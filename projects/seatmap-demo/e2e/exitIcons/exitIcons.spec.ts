@@ -34,8 +34,6 @@ const CONFIG_JSON = {
   visibleFuselage: true,
   visibleSeatPriceLabels: true,
   flatBulks: false,
-  colorfulSeatsByClass: false,
-  colorfulSeatsByScore: true,
   width: 380,
   colorTheme: {
     exitIconUrlLeft: ICON_URL,
@@ -44,16 +42,12 @@ const CONFIG_JSON = {
 };
 
 test.describe('colorTheme: exitIconUrlLeft / exitIconUrlRight', () => {
-  test('UA953 — custom exit icons render on both sides and full page screenshot is saved', async ({
-    page,
-  }) => {
+  test('UA953 — custom exit icons render on both sides and full page screenshot is saved', async ({ page }) => {
     await page.goto('/');
 
     // Switch to UA953 flight tab — its baseline config has no custom exit
     // icons, so any icons we see in the screenshot must come from our override.
-    await page
-      .getByRole('button', { name: /UA953 · ORD → MUC/, exact: false })
-      .click({ force: true });
+    await page.getByRole('button', { name: /UA953 · ORD → MUC/, exact: false }).click({ force: true });
     await waitForSeatMapReady(page);
 
     // Replace the INIT textarea with our config and re-init the seatmap.
@@ -63,12 +57,8 @@ test.describe('colorTheme: exitIconUrlLeft / exitIconUrlRight', () => {
     const initTextarea = initRow.locator('textarea.demo-control-textarea');
     const json = JSON.stringify(CONFIG_JSON, null, 2);
     await initTextarea.fill(json);
-    await initTextarea.evaluate(el =>
-      el.dispatchEvent(new Event('input', { bubbles: true })),
-    );
-    await page
-      .getByRole('button', { name: 'INIT SEAT MAP', exact: true })
-      .click({ force: true });
+    await initTextarea.evaluate(el => el.dispatchEvent(new Event('input', { bubbles: true })));
+    await page.getByRole('button', { name: 'INIT SEAT MAP', exact: true }).click({ force: true });
     await waitForSeatMapReady(page);
 
     // Pre-fetch the icon so the screenshot below is guaranteed to capture the
@@ -93,16 +83,16 @@ test.describe('colorTheme: exitIconUrlLeft / exitIconUrlRight', () => {
     // timeout instead of a single read (Chromium fires `load` asynchronously
     // and the network is shared with the dev-server HMR socket).
     await expect
-      .poll(
-        () => leftImg.evaluate((el: HTMLImageElement) => el.naturalWidth),
-        { timeout: 15_000, message: 'left exit icon failed to load' },
-      )
+      .poll(() => leftImg.evaluate((el: HTMLImageElement) => el.naturalWidth), {
+        timeout: 15_000,
+        message: 'left exit icon failed to load',
+      })
       .toBeGreaterThan(0);
     await expect
-      .poll(
-        () => rightImg.evaluate((el: HTMLImageElement) => el.naturalWidth),
-        { timeout: 15_000, message: 'right exit icon failed to load' },
-      )
+      .poll(() => rightImg.evaluate((el: HTMLImageElement) => el.naturalWidth), {
+        timeout: 15_000,
+        message: 'right exit icon failed to load',
+      })
       .toBeGreaterThan(0);
 
     // Full-page screenshot: both the config we sent (visible in the textarea)

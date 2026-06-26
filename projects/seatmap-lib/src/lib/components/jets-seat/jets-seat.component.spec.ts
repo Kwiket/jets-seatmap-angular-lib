@@ -637,67 +637,6 @@ describe('JetsSeatComponent', () => {
     });
   });
 
-  // ─── colorfulSeatsByClass ─────────────────────────────────────────────
-  //
-  // When the flag is off, every available seat picks up the same theme
-  // colour regardless of cabin class. When on, the per-class HSL tint
-  // (or seatClassTints override) makes F / B / P / E visibly distinct.
-
-  describe('colorfulSeatsByClass', () => {
-    const THEME = { seatAvailableColor: '#888888', forceThemeSeatColors: true };
-
-    function styleFor(
-      classType: string,
-      status: ISeatData['status'] = ENTITY_STATUS_MAP.available
-    ): { fillColor: string } {
-      component.colorTheme = THEME;
-      component.data = makeSeat({ status, color: undefined, classType });
-      // Access the private method to assert the colour decision directly,
-      // without depending on which SVG template the seat-template-service
-      // happens to pick for a given (class, iconType) pair.
-      return (component as unknown as { _resolveStyle(c: string): { fillColor: string } })._resolveStyle(classType);
-    }
-
-    it('default (off) — economy and first share the same fill', () => {
-      component.colorfulSeatsByClass = false;
-      expect(styleFor('E').fillColor).toBe('#888888');
-      expect(styleFor('F').fillColor).toBe('#888888');
-    });
-
-    it('on — economy renders a lighter tint, first a darker one', () => {
-      component.colorfulSeatsByClass = true;
-      const economy = styleFor('E').fillColor;
-      const first = styleFor('F').fillColor;
-      expect(economy).not.toBe('#888888');
-      expect(first).not.toBe('#888888');
-      expect(economy).not.toBe(first);
-    });
-
-    it('on — seatClassTints override beats the algorithmic tint', () => {
-      component.colorfulSeatsByClass = true;
-      component.colorTheme = { ...THEME, seatClassTints: { B: '#ff0000' } };
-      component.data = makeSeat({
-        status: ENTITY_STATUS_MAP.available,
-        color: undefined,
-        classType: 'B',
-      });
-      const style = (component as unknown as { _resolveStyle(c: string): { fillColor: string } })._resolveStyle('B');
-      expect(style.fillColor).toBe('#ff0000');
-    });
-
-    it('on — unavailable seats are not tinted', () => {
-      component.colorfulSeatsByClass = true;
-      component.colorTheme = { ...THEME, seatUnavailableColor: '#cccccc' };
-      component.data = makeSeat({
-        status: ENTITY_STATUS_MAP.unavailable,
-        color: undefined,
-        classType: 'F',
-      });
-      const style = (component as unknown as { _resolveStyle(c: string): { fillColor: string } })._resolveStyle('F');
-      expect(style.fillColor).toBe('#cccccc');
-    });
-  });
-
   // ─── Grid cell semantics (commit 6) ─────────────────────────────────────
 
   describe('Grid cell semantics (commit 6)', () => {

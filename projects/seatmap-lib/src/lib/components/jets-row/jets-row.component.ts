@@ -26,7 +26,6 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
                   colorTheme: colorTheme,
                   showPrice: showPrice,
                   currencyOverride: currencyOverride,
-                  colorfulSeatsByClass: colorfulSeatsByClass,
                   scale: scale,
                   ariaLabel: ariaLabel,
                   ariaSelected: ariaSelected,
@@ -45,7 +44,6 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
               [wcagPalette]="wcagPalette"
               [showPrice]="showPrice"
               [currencyOverride]="currencyOverride"
-              [colorfulSeatsByClass]="colorfulSeatsByClass"
               [scale]="scale"
               [ariaLabel]="ariaLabel"
               [ariaSelected]="ariaSelected"
@@ -89,7 +87,6 @@ export class JetsRowComponent {
   @Input() wcagPalette = false;
   @Input() showPrice = false;
   @Input() currencyOverride?: string;
-  @Input() colorfulSeatsByClass = false;
   @Input() prevRowTopOffset?: number;
   @Input() prevRowHeight = 0;
   @Input() scale = 1;

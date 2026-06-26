@@ -5,7 +5,7 @@ import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { JetsSeatMapComponent } from './jets-seat-map.component';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
 import { resetCachedEnvironmentInfo } from '../../services/environment.service';
-import { IConfig, IDeckData, IFlight, IPassenger, ISeatData, IInitialLayoutData, TSeatAvailability } from '../../types';
+import { IConfig, IDeckData, IFlight, IPassenger, ISeatData, TSeatAvailability } from '../../types';
 import { ENTITY_STATUS_MAP, ENTITY_TYPE_MAP } from '../../constants';
 
 // ─── Test data factories ────────────────────────────────────────────────────

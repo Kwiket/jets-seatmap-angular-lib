@@ -278,8 +278,6 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       visibleFuselage: this.config?.visibleFuselage ?? true,
       visibleSeatPriceLabels: this.config?.visibleSeatPriceLabels ?? false,
       flatBulks: this.config?.flatBulks ?? false,
-      colorfulSeatsByClass: this.config?.colorfulSeatsByClass ?? false,
-      colorfulSeatsByScore: this.config?.colorfulSeatsByScore ?? true,
       colorTheme,
       scaleType,
     };
@@ -971,7 +969,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     const key = this.gridNav.remapForOrientation(
       rawKey,
       this.resolvedConfig.horizontal ?? false,
-      this.resolvedConfig.rightToLeft ?? false,
+      this.resolvedConfig.rightToLeft ?? false
     );
 
     const next = this.gridNav.move(this.focusedCell, key, this.content);

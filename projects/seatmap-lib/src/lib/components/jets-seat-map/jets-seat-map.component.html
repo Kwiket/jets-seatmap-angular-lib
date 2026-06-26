@@ -118,73 +118,72 @@
           [style.transform]="mapTransform || null"
           [style.transform-origin]="mapTransformOrigin || null"
         >
-        <!-- Aircraft body with decks -->
-        <sm-jets-plane-body
-          [decks]="content"
-          [colorTheme]="resolvedConfig.colorTheme"
-          [width]="fuselageBodyWidth"
-          [visibleFuselage]="showFuselage"
-          [visibleNose]="resolvedConfig.visibleNose"
-          [visibleTail]="resolvedConfig.visibleTail"
-          [noseType]="noseType"
-          [horizontal]="resolvedConfig.horizontal ?? false"
-          [rightToLeft]="resolvedConfig.rightToLeft ?? false"
-          [displayScale]="displayScale"
-        >
-          @for (deck of visibleDecks; track deck.number; let i = $index) {
-            @if (i > 0) {
-              <sm-jets-deck-separator [colorTheme]="resolvedConfig.colorTheme" />
-            }
-            <div
-              class="deck-wrapper"
-              [attr.data-deck-index]="getDeckIndex(deck)"
-              style="position: relative; width: 100%; display: flex; flex-direction: column; align-items: center"
-            >
-              <div
-                class="deck-floor"
-                [style.background-color]="resolvedConfig.colorTheme?.floorColor || '#555'"
-                [style.width]="getDeckFloorWidth(deck)"
-                [style.box-sizing]="'border-box'"
-                [style.border-left-style]="'solid'"
-                [style.border-right-style]="'solid'"
-                [style.border-left-color]="getDeckFloorLiningColor()"
-                [style.border-right-color]="getDeckFloorLiningColor()"
-                [style.border-left-width.px]="getDeckFloorLiningWidth(deck)"
-                [style.border-right-width.px]="getDeckFloorLiningWidth(deck)"
-              >
-                <sm-jets-deck
-                  [deck]="deck"
-                  [lang]="lang"
-                  [showNumber]="showDeckNumbers"
-                  [colorTheme]="resolvedConfig.colorTheme"
-                  [wcagPalette]="wcagFlags.defaultColorTheme"
-                  [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
-                  [currencyOverride]="resolvedConfig.currencySign || ''"
-                  [flatBulks]="resolvedConfig.flatBulks ?? false"
-                  [colorfulSeatsByClass]="resolvedConfig.colorfulSeatsByClass ?? false"
-                  [bodyWidth]="resolvedConfig.width"
-                  [fuselageWidth]="fuselageBodyWidth"
-                  [visibleCabinTitles]="resolvedConfig.visibleCabinTitles !== false"
-                  [horizontalCabinTitles]="false"
-                  [cabinLabelGap]="getDeckCabinLabelGap(deck)"
-                  [seatOverride]="seatOverride"
-                  (seatClick)="onSeatClick($event)"
-                  (seatMouseEnter)="onSeatMouseEnter($event)"
-                  (seatMouseLeave)="onSeatMouseLeave($event)"
-                />
-              </div>
-              @if (resolvedConfig.visibleWings !== false && getDeckWingsInfo(deck); as wingsInfo) {
-                <sm-jets-wing
-                  [wingsInfo]="wingsInfo"
-                  [colorTheme]="resolvedConfig.colorTheme"
-                  [bodyWidth]="fuselageBodyWidth"
-                  [scale]="deck.scale ?? 1"
-                  [topAdjust]="getDeckWingTopAdjust(deck)"
-                />
+          <!-- Aircraft body with decks -->
+          <sm-jets-plane-body
+            [decks]="content"
+            [colorTheme]="resolvedConfig.colorTheme"
+            [width]="fuselageBodyWidth"
+            [visibleFuselage]="showFuselage"
+            [visibleNose]="resolvedConfig.visibleNose"
+            [visibleTail]="resolvedConfig.visibleTail"
+            [noseType]="noseType"
+            [horizontal]="resolvedConfig.horizontal ?? false"
+            [rightToLeft]="resolvedConfig.rightToLeft ?? false"
+            [displayScale]="displayScale"
+          >
+            @for (deck of visibleDecks; track deck.number; let i = $index) {
+              @if (i > 0) {
+                <sm-jets-deck-separator [colorTheme]="resolvedConfig.colorTheme" />
               }
-            </div>
-          }
-        </sm-jets-plane-body>
+              <div
+                class="deck-wrapper"
+                [attr.data-deck-index]="getDeckIndex(deck)"
+                style="position: relative; width: 100%; display: flex; flex-direction: column; align-items: center"
+              >
+                <div
+                  class="deck-floor"
+                  [style.background-color]="resolvedConfig.colorTheme?.floorColor || '#555'"
+                  [style.width]="getDeckFloorWidth(deck)"
+                  [style.box-sizing]="'border-box'"
+                  [style.border-left-style]="'solid'"
+                  [style.border-right-style]="'solid'"
+                  [style.border-left-color]="getDeckFloorLiningColor()"
+                  [style.border-right-color]="getDeckFloorLiningColor()"
+                  [style.border-left-width.px]="getDeckFloorLiningWidth(deck)"
+                  [style.border-right-width.px]="getDeckFloorLiningWidth(deck)"
+                >
+                  <sm-jets-deck
+                    [deck]="deck"
+                    [lang]="lang"
+                    [showNumber]="showDeckNumbers"
+                    [colorTheme]="resolvedConfig.colorTheme"
+                    [wcagPalette]="wcagFlags.defaultColorTheme"
+                    [showPrice]="resolvedConfig.visibleSeatPriceLabels ?? false"
+                    [currencyOverride]="resolvedConfig.currencySign || ''"
+                    [flatBulks]="resolvedConfig.flatBulks ?? false"
+                    [bodyWidth]="resolvedConfig.width"
+                    [fuselageWidth]="fuselageBodyWidth"
+                    [visibleCabinTitles]="resolvedConfig.visibleCabinTitles !== false"
+                    [horizontalCabinTitles]="false"
+                    [cabinLabelGap]="getDeckCabinLabelGap(deck)"
+                    [seatOverride]="seatOverride"
+                    (seatClick)="onSeatClick($event)"
+                    (seatMouseEnter)="onSeatMouseEnter($event)"
+                    (seatMouseLeave)="onSeatMouseLeave($event)"
+                  />
+                </div>
+                @if (resolvedConfig.visibleWings !== false && getDeckWingsInfo(deck); as wingsInfo) {
+                  <sm-jets-wing
+                    [wingsInfo]="wingsInfo"
+                    [colorTheme]="resolvedConfig.colorTheme"
+                    [bodyWidth]="fuselageBodyWidth"
+                    [scale]="deck.scale ?? 1"
+                    [topAdjust]="getDeckWingTopAdjust(deck)"
+                  />
+                }
+              </div>
+            }
+          </sm-jets-plane-body>
         </div>
       } @else if (isLoading) {
         @if (notInitOverride) {
