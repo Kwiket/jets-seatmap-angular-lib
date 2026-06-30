@@ -172,7 +172,11 @@ export class JetsPlaneBodyComponent {
   }
 
   get fuselageFill(): string {
-    return this.colorTheme?.fuselageFillColor ?? DEFAULT_COLOR_THEME.fuselageFillColor;
+    // Keep the deprecated `hullColor` as a fallback so a consumer theming only
+    // `hullColor` still gets a branded fuselage (the wings honour it too —
+    // jets-wing.component.ts). Dropping it produced a default-grey fuselage
+    // next to branded wings, a visible mismatch.
+    return this.colorTheme?.fuselageFillColor ?? this.colorTheme?.hullColor ?? DEFAULT_COLOR_THEME.fuselageFillColor;
   }
 
   get fuselageStroke(): string {

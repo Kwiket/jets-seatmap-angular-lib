@@ -252,12 +252,7 @@ export class SeatGridNavigationService {
    * rows. Returns `from` if no seat row is reachable (or if it resolves back
    * to the current cell).
    */
-  private stepVertical(
-    from: ICellPos,
-    rows: IDeckData['rows'],
-    startRowIdx: number,
-    dir: 1 | -1,
-  ): ICellPos {
+  private stepVertical(from: ICellPos, rows: IDeckData['rows'], startRowIdx: number, dir: 1 | -1): ICellPos {
     for (let r = startRowIdx; r >= 0 && r < rows.length; r += dir) {
       const seats = rows[r]?.seats;
       if (!seats) continue;
@@ -322,11 +317,9 @@ export class SeatGridNavigationService {
   }
 
   /**
-   * Skim within the current row toward `dir` (+1 or -1). Returns the next
-   * interactive seat encountered. If no further interactive seat exists in
-   * the requested direction, returns the LAST interactive cell encountered
-   * during the scan (i.e. stays at the furthest interactive cell that the
-   * scan reached). If the row contains no interactive cell at all in that
+   * Skim within the current row toward `dir` (+1 or -1). Returns the FIRST
+   * interactive seat encountered in that direction ("hop to the next playable
+   * seat"). If the row contains no interactive cell beyond `from` in that
    * direction, returns `from` unchanged.
    */
   private skim(from: ICellPos, decks: IDeckData[], dir: 1 | -1): ICellPos {
@@ -335,24 +328,16 @@ export class SeatGridNavigationService {
     const row = deck.rows[from.rowIdx];
     if (!row || !row.seats || row.seats.length === 0) return from;
 
-    let lastInteractive: number | null = null;
     let c = from.colIdx + dir;
     while (c >= 0 && c < row.seats.length) {
       if (this.isSeatInteractive(row.seats[c])) {
-        lastInteractive = c;
-        // Stop at the FIRST interactive cell in the requested direction —
-        // skim mode is "hop to the next playable seat".
         return { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: c };
       }
       c += dir;
     }
 
     // No further interactive cell in this direction: stay where we are.
-    // (The brief says "stop at the last interactive cell encountered" —
-    //  since we encountered none beyond `from`, we don't move.)
-    return lastInteractive === null
-      ? from
-      : { deckIdx: from.deckIdx, rowIdx: from.rowIdx, colIdx: lastInteractive };
+    return from;
   }
 
   private isSeatInteractive(seat: ISeatData | undefined): boolean {

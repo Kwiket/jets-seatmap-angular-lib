@@ -4,7 +4,7 @@
  * Strictly diagnostic — output goes to stdout, not artefacts.
  */
 import { expect, test } from '@playwright/test';
-import { applyConfigAndReady, setAvailability, waitForSeatMapReady } from '../helpers/demo';
+import { applyConfigAndReady, waitForSeatMapReady } from '../helpers/demo';
 
 test('dump DOM offset heights for DL898 with vs without wcag.enabled', async ({ page }) => {
   test.setTimeout(60_000);

@@ -2191,6 +2191,22 @@ describe('JetsSeatMapComponent', () => {
       component.onGridFocusin(ev);
       expect(component.focusedCell).toMatchObject({ rowIdx: 1, colIdx: 2 });
     });
+
+    it("focusin records the focused seat's real deck from the ancestor .deck-wrapper", () => {
+      // singleDeckMode=false renders every deck at once; a seat in deck 1 must
+      // record deckIdx=1 even while activeDeckIndex is still 0, otherwise arrow
+      // nav would index the wrong deck's rows.
+      component.activeDeckIndex = 0;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'deck-wrapper';
+      wrapper.setAttribute('data-deck-index', '1');
+      const el = document.createElement('button');
+      el.setAttribute('aria-rowindex', '2');
+      el.setAttribute('aria-colindex', '3');
+      wrapper.appendChild(el);
+      component.onGridFocusin({ target: el } as unknown as FocusEvent);
+      expect(component.focusedCell).toMatchObject({ deckIdx: 1, rowIdx: 1, colIdx: 2 });
+    });
   });
 
   // ─── Hover tooltip — focus-aware + hoverable (commit 8 / SC 1.4.13) ────

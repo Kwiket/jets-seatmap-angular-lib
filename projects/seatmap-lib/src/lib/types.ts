@@ -87,8 +87,9 @@ export interface IColorTheme {
   armrestColor?: string;
   exitColor?: string;
   /**
-   * @deprecated No longer used by the renderer — use `fuselageFillColor`
-   * instead. Kept on the type so existing consumer themes still compile.
+   * @deprecated Prefer `fuselageFillColor` (body) / `fuselageWingsColor`
+   * (wings). Still honoured as a fallback by both the fuselage fill and the
+   * wings, so existing consumer themes keep their branded colour.
    */
   hullColor?: string;
   // Passenger badge

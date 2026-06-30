@@ -585,7 +585,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     //
     // Multiply by displayScale so the visible lining matches React's
     // CSS-zoom-scaled rendering — same as scaledStrokeWidth on the body.
-    const innerW = this.fuselageBodyWidth - 2 * stroke;
+    //
+    // `fuselageBodyWidth` is in scaled CSS px, but the body border subtracted
+    // here is `fuselageStrokeWidth * displayScale` (see jets-plane-body's
+    // `scaledStrokeWidth`), not the raw config value — so scale `stroke` to the
+    // same space, otherwise the lining is off by `2*stroke*(displayScale-1)`.
+    const innerW = this.fuselageBodyWidth - 2 * stroke * this.displayScale;
     const deckW = deck.deckWidth ?? innerW;
     return Math.max((innerW - deckW) * 0.5, stroke) * this.displayScale;
   }
@@ -1000,7 +1005,16 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     const rowIdx = parseInt(rowAttr, 10) - 1;
     const colIdx = parseInt(colAttr, 10) - 1;
     if (isNaN(rowIdx) || isNaN(colIdx)) return;
-    this.focusedCell = { deckIdx: this.activeDeckIndex, rowIdx, colIdx };
+    // With `singleDeckMode: false` every deck renders at once, so the focused
+    // seat may belong to a deck other than `activeDeckIndex`. Read the real
+    // deck off the ancestor `.deck-wrapper[data-deck-index]` (single-deck mode
+    // renders only the active deck, so the attribute resolves to it anyway).
+    // Without this, arrow nav would index `decks[activeDeckIndex].rows` and
+    // jump into the wrong deck.
+    const deckAttr = el.closest?.('.deck-wrapper')?.getAttribute('data-deck-index');
+    const parsedDeck = deckAttr != null ? parseInt(deckAttr, 10) : NaN;
+    const deckIdx = !isNaN(parsedDeck) ? parsedDeck : this.activeDeckIndex;
+    this.focusedCell = { deckIdx, rowIdx, colIdx };
     this._applyRovingTabindex();
 
     // WCAG 2.1 SC 1.4.13 — focus parity for hover tooltip.
@@ -1546,8 +1560,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       color: resolvedColor,
       originalColor: originalColor ?? resolvedColor,
       currency,
-      // `price` becomes the formatted string; `priceValue` carries the number.
-      price: priceStr as unknown as number,
+      // `price` becomes the formatted string (the public type is
+      // `number | string`); `priceValue` carries the raw number for arithmetic.
+      price: priceStr,
       priceValue: numericPrice,
       passengerTypes,
       rotation: emittedRotation,
