@@ -491,4 +491,208 @@ describe('JetsSeatComponent', () => {
     });
   });
 
+  // ─── ARIA semantics (commit 5) ────────────────────────────────────────
+  //
+  // Commit 5 makes every seat a real <button> so screen readers identify it
+  // correctly and keyboard activation (Enter/Space) works natively. Non-seat
+  // cells (aisle/empty/index) stay as <div> because they aren't interactive.
+
+  describe('ARIA semantics', () => {
+    it('renders a <button> for seat cells and a <div> for aisle/empty cells', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.seat });
+      fixture.detectChanges();
+      let root = fixture.nativeElement.querySelector('.jets-seat');
+      expect(root?.tagName).toBe('BUTTON');
+      expect(root.getAttribute('type')).toBe('button');
+
+      // Re-mount with a non-interactive cell.
+      fixture = TestBed.createComponent(JetsSeatComponent);
+      component = fixture.componentInstance;
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle, letter: '' });
+      fixture.detectChanges();
+      root = fixture.nativeElement.querySelector('.jets-seat');
+      expect(root?.tagName).toBe('DIV');
+    });
+
+    it('preserves the .jets-seat class on the button (regression guard)', () => {
+      component.data = makeSeat();
+      fixture.detectChanges();
+      const root = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(root).toBeTruthy();
+    });
+
+    it('preserves data-seat-number on the button (regression guard for _jumpToSeat)', () => {
+      component.data = makeSeat({ number: '7C' });
+      fixture.detectChanges();
+      const root = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(root?.getAttribute('data-seat-number')).toBe('7C');
+    });
+
+    it('reflects ariaLabel input as the aria-label attribute', () => {
+      component.data = makeSeat();
+      component.ariaLabel = 'Seat 1A, Economy, available';
+      fixture.detectChanges();
+      const btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.getAttribute('aria-label')).toBe('Seat 1A, Economy, available');
+    });
+
+    it('omits aria-label when the input is empty/undefined', () => {
+      component.data = makeSeat();
+      fixture.detectChanges();
+      const btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('reflects ariaSelected when explicitly set (true / false), omits when null', () => {
+      // OnPush change-detection: use setInput so the binding re-evaluates
+      // on subsequent value changes.
+      fixture.componentRef.setInput('data', makeSeat());
+      fixture.componentRef.setInput('ariaSelected', true);
+      fixture.detectChanges();
+      let btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.getAttribute('aria-selected')).toBe('true');
+
+      fixture.componentRef.setInput('ariaSelected', false);
+      fixture.detectChanges();
+      btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.getAttribute('aria-selected')).toBe('false');
+
+      fixture.componentRef.setInput('ariaSelected', null);
+      fixture.detectChanges();
+      btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.hasAttribute('aria-selected')).toBe(false);
+    });
+
+    it('reflects ariaDisabled as aria-disabled="true" and never sets native disabled', () => {
+      component.data = makeSeat();
+      component.ariaDisabled = true;
+      fixture.detectChanges();
+      const btn = fixture.nativeElement.querySelector('button.jets-seat') as HTMLButtonElement;
+      expect(btn.getAttribute('aria-disabled')).toBe('true');
+      // Critical: native `disabled` removes focusability and would break the
+      // grid roving tabindex landing in commits 6/7.
+      expect(btn.hasAttribute('disabled')).toBe(false);
+      expect(btn.disabled).toBe(false);
+    });
+
+    it('defaults tabindex to 0 and honours rovingTabindex when supplied', () => {
+      fixture.componentRef.setInput('data', makeSeat());
+      fixture.detectChanges();
+      let btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.getAttribute('tabindex')).toBe('0');
+
+      fixture.componentRef.setInput('rovingTabindex', -1);
+      fixture.detectChanges();
+      btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.getAttribute('tabindex')).toBe('-1');
+    });
+
+    it('reflects colIndex/rowIndex as aria-colindex/aria-rowindex when set', () => {
+      component.data = makeSeat();
+      component.colIndex = 3;
+      component.rowIndex = 5;
+      fixture.detectChanges();
+      const btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.getAttribute('aria-colindex')).toBe('3');
+      expect(btn.getAttribute('aria-rowindex')).toBe('5');
+    });
+
+    it('omits aria-colindex / aria-rowindex when not supplied', () => {
+      component.data = makeSeat();
+      fixture.detectChanges();
+      const btn = fixture.nativeElement.querySelector('button.jets-seat');
+      expect(btn.hasAttribute('aria-colindex')).toBe(false);
+      expect(btn.hasAttribute('aria-rowindex')).toBe(false);
+    });
+
+    it('does NOT emit seatClick when ariaDisabled=true even on an otherwise interactive seat', () => {
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available });
+      component.ariaDisabled = true;
+      fixture.detectChanges();
+
+      const spy = vi.fn();
+      component.seatClick.subscribe(spy);
+
+      const btn = fixture.nativeElement.querySelector('button.jets-seat') as HTMLButtonElement;
+      btn.click();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('does NOT emit mouse events when ariaDisabled=true', () => {
+      component.data = makeSeat({ status: ENTITY_STATUS_MAP.available });
+      component.ariaDisabled = true;
+      fixture.detectChanges();
+
+      const enterSpy = vi.fn();
+      const leaveSpy = vi.fn();
+      component.seatMouseEnter.subscribe(enterSpy);
+      component.seatMouseLeave.subscribe(leaveSpy);
+
+      const btn = fixture.nativeElement.querySelector('button.jets-seat') as HTMLButtonElement;
+      btn.dispatchEvent(new MouseEvent('mouseenter'));
+      btn.dispatchEvent(new MouseEvent('mouseleave'));
+
+      expect(enterSpy).not.toHaveBeenCalled();
+      expect(leaveSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Grid cell semantics (commit 6) ─────────────────────────────────────
+
+  describe('Grid cell semantics (commit 6)', () => {
+    it('sets role="gridcell" on the seat button', () => {
+      component.data = makeSeat();
+      fixture.detectChanges();
+      const btn = (fixture.nativeElement as HTMLElement).querySelector('button.jets-seat');
+      expect(btn?.getAttribute('role')).toBe('gridcell');
+    });
+
+    it('sets role="gridcell" on aisle / empty cells (div branch)', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle, number: undefined });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('role')).toBe('gridcell');
+    });
+
+    it('aisle gets localised aria-label (English fallback)', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle, number: undefined });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('aria-label')).toBe('aisle');
+    });
+
+    it('empty gets localised aria-label (English fallback)', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.empty, number: undefined });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('aria-label')).toBe('empty');
+    });
+
+    it('index cell surfaces "Row {number}" when number is present', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.index, number: '14' });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('aria-label')).toBe('Row 14');
+    });
+
+    it('non-seat cells have tabindex="-1" by default (reachable via arrow nav, not Tab)', () => {
+      component.data = makeSeat({ type: ENTITY_TYPE_MAP.aisle });
+      fixture.detectChanges();
+      const div = (fixture.nativeElement as HTMLElement).querySelector('div.jets-seat');
+      expect(div?.getAttribute('tabindex')).toBe('-1');
+    });
+
+    it('seat cells default to tabindex="0" (focusable via Tab); rovingTabindex input overrides', () => {
+      component.data = makeSeat();
+      fixture.detectChanges();
+      let btn = (fixture.nativeElement as HTMLElement).querySelector('button.jets-seat');
+      expect(btn?.getAttribute('tabindex')).toBe('0');
+
+      // OnPush requires setInput to mark the view dirty.
+      fixture.componentRef.setInput('rovingTabindex', -1);
+      fixture.detectChanges();
+      btn = (fixture.nativeElement as HTMLElement).querySelector('button.jets-seat');
+      expect(btn?.getAttribute('tabindex')).toBe('-1');
+    });
+  });
 });

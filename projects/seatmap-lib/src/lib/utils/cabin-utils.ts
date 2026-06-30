@@ -125,10 +125,7 @@ export function getCabinSubDecks(deck: IDeckData): { title: string; cabinCode: s
     const isLastGroup = groupIdx === groups.length - 1;
 
     const cabinExits = (deck.extras?.exits ?? [])
-      .filter(
-        e =>
-          (isFirstGroup || e.topOffset >= baseOffset - 50) && (isLastGroup || e.topOffset <= rangeEnd + 50)
-      )
+      .filter(e => (isFirstGroup || e.topOffset >= baseOffset - 50) && (isLastGroup || e.topOffset <= rangeEnd + 50))
       .map(e => ({ ...e, topOffset: e.topOffset - baseOffset }));
 
     const cabinBulks = (deck.extras?.bulks ?? [])

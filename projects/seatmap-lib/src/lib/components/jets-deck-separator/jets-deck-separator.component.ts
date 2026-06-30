@@ -9,12 +9,27 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="jets-deck-separator" [style.background]="fillColor" [style.height.px]="separationHeight"></div>
+    <div
+      class="jets-deck-separator"
+      aria-hidden="true"
+      [style.background]="fillColor"
+      [style.height.px]="separationHeight"
+    ></div>
   `,
   styles: [
     `
       .jets-deck-separator {
         width: 100%;
+      }
+
+      /* Windows High Contrast / forced-colors mode.
+         The bar uses a parameterised theme background that the browser
+         neutralises under forced-colors, leaving an invisible gap between
+         decks. Force CanvasText so the separator stays perceivable. */
+      @media (forced-colors: active) {
+        .jets-deck-separator {
+          background: CanvasText !important;
+        }
       }
     `,
   ],

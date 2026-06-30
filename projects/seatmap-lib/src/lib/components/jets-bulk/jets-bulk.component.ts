@@ -65,6 +65,7 @@ const BULK_BASE_RATIO: Record<string, number> = {
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { 'aria-hidden': 'true' },
   template: `
     @for (item of views; track $index) {
       <div

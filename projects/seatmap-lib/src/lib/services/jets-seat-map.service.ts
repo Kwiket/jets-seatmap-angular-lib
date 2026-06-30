@@ -29,8 +29,7 @@ function buildPassengerSeat(seat: ISeatData): IPassenger['seat'] {
   const seatLabel = seat.number as string;
   const numericPrice = typeof seat.price === 'number' ? seat.price : undefined;
   const currency = seat.currency;
-  const price =
-    numericPrice != null ? `${currency ?? ''}${currency ? ' ' : ''}${numericPrice}` : undefined;
+  const price = numericPrice != null ? `${currency ?? ''}${currency ? ' ' : ''}${numericPrice}` : undefined;
 
   const payload: NonNullable<IPassenger['seat']> = { seatLabel };
   if (price !== undefined) payload.price = price;

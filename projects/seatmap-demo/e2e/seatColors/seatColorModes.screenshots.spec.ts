@@ -58,8 +58,14 @@ const OUT_DIR = path.join(__dirname, 'screenshots');
 
 const MODES: Array<{ file: string; theme: ConfigOverrides }> = [
   { file: 'mode-1_score-OFF_class-OFF_(seatAvailableColor).png', theme: { ...BASE_THEME, seatAvailableColor: FLAT } },
-  { file: 'mode-2_score-ON_class-OFF_(customSeatColorRanges).png', theme: { ...BASE_THEME, customSeatColorRanges: RANGES } },
-  { file: 'mode-3_score-OFF_class-ON_(customSeatColorClasses).png', theme: { ...BASE_THEME, customSeatColorClasses: CLASSES } },
+  {
+    file: 'mode-2_score-ON_class-OFF_(customSeatColorRanges).png',
+    theme: { ...BASE_THEME, customSeatColorRanges: RANGES },
+  },
+  {
+    file: 'mode-3_score-OFF_class-ON_(customSeatColorClasses).png',
+    theme: { ...BASE_THEME, customSeatColorClasses: CLASSES },
+  },
   {
     file: 'mode-4_score-ON_class-ON_(ranges+classes_score-wins).png',
     theme: { ...BASE_THEME, customSeatColorRanges: RANGES, customSeatColorClasses: CLASSES },
@@ -77,7 +83,10 @@ test.describe('seat colour modes — demo emulation screenshots', () => {
         { availability: [] }
       );
       await page.waitForTimeout(400);
-      await page.locator('.demo-seatmap-wrapper').first().screenshot({ path: path.join(OUT_DIR, mode.file) });
+      await page
+        .locator('.demo-seatmap-wrapper')
+        .first()
+        .screenshot({ path: path.join(OUT_DIR, mode.file) });
     });
   }
 });

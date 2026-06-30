@@ -21,7 +21,7 @@ test.describe('currencySign', () => {
       await applyConfigAndReady(
         page,
         { visibleSeatPriceLabels: true, currencySign: v.sign },
-        { availability: AVAILABILITY },
+        { availability: AVAILABILITY }
       );
       // Full deck shows the broad layout, but the pill is ~13×11 px at this
       // scale — the symbol is unreadable. Capture a zoomed crop of the first

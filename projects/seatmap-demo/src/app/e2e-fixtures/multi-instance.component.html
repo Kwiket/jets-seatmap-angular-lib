@@ -6,18 +6,18 @@
 
   <div class="mi-grid">
     @for (cfg of configs; track $index; let i = $index) {
-    <section class="mi-cell" [attr.data-instance-idx]="i">
-      <div class="mi-badge">{{ cfg.title }}</div>
-      <div class="mi-seatmap-wrapper">
-        <sm-jets-seat-map
-          [flight]="cfg.flight"
-          [config]="cfg.config"
-          [passengers]="cfg.passengers"
-          (seatMapInited)="onInited(i, $event)"
-          (seatSelected)="onSelected(i, $event)"
-        />
-      </div>
-    </section>
+      <section class="mi-cell" [attr.data-instance-idx]="i">
+        <div class="mi-badge">{{ cfg.title }}</div>
+        <div class="mi-seatmap-wrapper">
+          <sm-jets-seat-map
+            [flight]="cfg.flight"
+            [config]="cfg.config"
+            [passengers]="cfg.passengers"
+            (seatMapInited)="onInited(i, $event)"
+            (seatSelected)="onSelected(i, $event)"
+          />
+        </div>
+      </section>
     }
   </div>
 </div>

@@ -116,8 +116,10 @@ export const SEAT_SIZE_BY_TYPE: [number, number][] = [
   [100, 100],
 ];
 
-// Default color theme
-export const DEFAULT_COLOR_THEME = {
+// Legacy color theme — pre-WCAG palette used by main. This is what
+// `DEFAULT_COLOR_THEME` resolves to so consumers upgrading to a WCAG
+// release see the same visuals until they opt into `wcag.defaultColorTheme`.
+export const LEGACY_COLOR_THEME = {
   // Seat
   seatAvailableColor: '#4CAF50',
   seatUnavailableColor: '#b0bec5',
@@ -183,6 +185,66 @@ export const DEFAULT_COLOR_THEME = {
   // Typography
   fontFamily: '',
 };
+
+// WCAG 2.1/2.2 AA compliant color theme — opt-in via `config.wcag.defaultColorTheme`.
+//
+// All colour pairs that carry information were audited against WCAG SC 1.4.3
+// (text contrast, minimum 4.5:1) and SC 1.4.11 (non-text / UI boundary
+// contrast, minimum 3:1). Contrast values below were computed with the
+// standard relative-luminance formula (https://www.w3.org/TR/WCAG21/#dfn-relative-luminance)
+// using opaque hex values — alpha colours are deliberately avoided because
+// effective contrast then depends on the host page background and cannot be
+// certified.
+//
+// Verified pairs (label on fill — text, SC 1.4.3, ≥ 4.5:1):
+//   seatLabelColor          #1a1a1a on seatAvailableColor      #A5D6A7 → 10.59:1 ✓
+//   seatLabelColor          #1a1a1a on seatSelectedColor       #90CAF9 →  9.95:1 ✓
+//   seatLabelColor          #1a1a1a on seatPreferredColor      #FFCC80 → 11.77:1 ✓
+//   seatLabelColor          #1a1a1a on seatExtraColor          #CE93D8 →  7.28:1 ✓
+//   seatLabelColor          #1a1a1a on notAvailableSeatsColor  #BDBDBD →  9.26:1 ✓
+//   seatLabelColor          #1a1a1a on seatUnavailableColor    #BDBDBD →  9.26:1 ✓
+//
+// Verified pairs (UI boundary / status indicator, SC 1.4.11, ≥ 3:1):
+//   seatStrokeColor         #757575 on seatMapBackgroundColor  #ffffff →  4.61:1 ✓
+//
+// Verified pairs (tooltip text + buttons, SC 1.4.3, ≥ 4.5:1):
+//   tooltipFontColor        #333333 on tooltipBackgroundColor          #ffffff → 12.63:1 ✓
+//   tooltipSelectButtonTextColor #ffffff on tooltipSelectButtonBackgroundColor rgb(0,68,153) →  9.18:1 ✓
+//   tooltipCancelButtonTextColor #333333 on tooltipCancelButtonBackgroundColor #f0f0f0       → 11.09:1 ✓
+//   defaultPassengerBadgeLabelColor #ffffff on defaultPassengerBadgeColor #1565C0            →  6.73:1 ✓
+//
+// Verified pairs (incidental text on background):
+//   cabinTitlesLabelColor   #0277BD on seatMapBackgroundColor  #ffffff →  4.80:1 ✓
+//
+// ⚠ When updating ANY colour above, recompute the affected pairs and refresh
+// the table above. Consumers who pass a custom `colorTheme` are unaffected
+// and own their own contrast budget.
+export const WCAG_COLOR_THEME: typeof LEGACY_COLOR_THEME = {
+  ...LEGACY_COLOR_THEME,
+  // Seat — re-tuned for AA contrast against #1a1a1a label.
+  seatAvailableColor: '#A5D6A7',
+  seatUnavailableColor: '#BDBDBD',
+  seatSelectedColor: '#90CAF9',
+  seatPreferredColor: '#FFCC80',
+  seatExtraColor: '#CE93D8',
+  seatLabelColor: '#1a1a1a',
+  seatStrokeColor: '#757575',
+  notAvailableSeatsColor: '#BDBDBD',
+  // Passenger badge — darker blues for 6.7:1 vs white label.
+  defaultPassengerBadgeColor: '#1565C0',
+  defaultPassengerBadgeBorderColor: '#0D47A1',
+  // Cabin titles — replace bright sky-blue (1.4.3 fail vs white) with AA-compliant.
+  cabinTitlesLabelColor: '#0277BD',
+};
+
+/**
+ * Default color theme exported for backward compatibility. Aliases to
+ * `LEGACY_COLOR_THEME` so consumers and existing component-level fallbacks
+ * (`colorTheme?.X ?? DEFAULT_COLOR_THEME.X`) keep their pre-WCAG palette
+ * until they opt into `wcag.defaultColorTheme`. New code that wants the
+ * AA palette unconditionally should import `WCAG_COLOR_THEME` directly.
+ */
+export const DEFAULT_COLOR_THEME = LEGACY_COLOR_THEME;
 
 // ─── Localisations ────────────────────────────────────────────────────────────
 // React parity: shared keys mirror jets-seatmap-react-lib-pub/src/common/i18n.languages.js
@@ -266,6 +328,30 @@ export const LOCALIZATION_EN: Record<string, string> = {
   gallery: 'Aircraft gallery',
   allCabins: 'All cabins',
   seatsIn: 'Seats in',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'window',
+  seatPositionAisle: 'aisle',
+  seatPositionMiddle: 'middle',
+  seatExtraLegroom: 'extra legroom',
+  seatExitRow: 'exit row',
+  seatAvailable: 'available',
+  seatUnavailable: 'unavailable',
+  seatSelected: 'selected',
+  seatSelectedFor: 'selected for',
+  seatRestrictedFor: 'not available for',
+  close: 'Close',
+  moveToSeat: 'Move to seat',
+  gridLabel: 'Seat map',
+  allSeats: 'All seats',
+  row: 'Row',
+  seat: 'Seat',
+  cabin: 'Cabin',
+  position: 'Position',
+  features: 'Features',
+  price: 'Price',
+  status: 'Status',
+  action: 'Action',
 };
 
 export const LOCALIZATION_RU: Record<string, string> = {
@@ -341,6 +427,30 @@ export const LOCALIZATION_RU: Record<string, string> = {
   gallery: 'Галерея самолёта',
   allCabins: 'Все кабины',
   seatsIn: 'Места в',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'у окна',
+  seatPositionAisle: 'у прохода',
+  seatPositionMiddle: 'среднее',
+  seatExtraLegroom: 'увеличенное пространство для ног',
+  seatExitRow: 'аварийный выход',
+  seatAvailable: 'доступно',
+  seatUnavailable: 'недоступно',
+  seatSelected: 'выбрано',
+  seatSelectedFor: 'выбрано для',
+  seatRestrictedFor: 'недоступно для',
+  close: 'Закрыть',
+  moveToSeat: 'Перейти к месту',
+  gridLabel: 'Схема мест',
+  allSeats: 'Все места',
+  row: 'Ряд',
+  seat: 'Место',
+  cabin: 'Кабина',
+  position: 'Расположение',
+  features: 'Удобства',
+  price: 'Цена',
+  status: 'Статус',
+  action: 'Действие',
 };
 
 export const LOCALIZATION_CN: Record<string, string> = {
@@ -416,6 +526,30 @@ export const LOCALIZATION_CN: Record<string, string> = {
   gallery: '飞机图库',
   allCabins: '所有客舱',
   seatsIn: '座位在',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: '靠窗',
+  seatPositionAisle: '靠过道',
+  seatPositionMiddle: '中间',
+  seatExtraLegroom: '宽敞腿部空间',
+  seatExitRow: '紧急出口排',
+  seatAvailable: '可选',
+  seatUnavailable: '不可用',
+  seatSelected: '已选',
+  seatSelectedFor: '已选给',
+  seatRestrictedFor: '不可用于',
+  close: '关闭',
+  moveToSeat: '前往座位',
+  gridLabel: '座位图',
+  allSeats: '所有座位',
+  row: '排',
+  seat: '座位',
+  cabin: '客舱',
+  position: '位置',
+  features: '功能',
+  price: '价格',
+  status: '状态',
+  action: '操作',
 };
 
 export const LOCALIZATION_DE: Record<string, string> = {
@@ -491,6 +625,30 @@ export const LOCALIZATION_DE: Record<string, string> = {
   gallery: 'Flugzeuggalerie',
   allCabins: 'Alle Kabinen',
   seatsIn: 'Sitze in',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'Fenster',
+  seatPositionAisle: 'Gang',
+  seatPositionMiddle: 'Mitte',
+  seatExtraLegroom: 'mehr Beinfreiheit',
+  seatExitRow: 'Notausgangsreihe',
+  seatAvailable: 'verfügbar',
+  seatUnavailable: 'nicht verfügbar',
+  seatSelected: 'ausgewählt',
+  seatSelectedFor: 'ausgewählt für',
+  seatRestrictedFor: 'nicht verfügbar für',
+  close: 'Schließen',
+  moveToSeat: 'Zum Sitz',
+  gridLabel: 'Sitzplan',
+  allSeats: 'Alle Sitze',
+  row: 'Reihe',
+  seat: 'Sitz',
+  cabin: 'Kabine',
+  position: 'Position',
+  features: 'Ausstattung',
+  price: 'Preis',
+  status: 'Status',
+  action: 'Aktion',
 };
 
 export const LOCALIZATION_FR: Record<string, string> = {
@@ -566,6 +724,30 @@ export const LOCALIZATION_FR: Record<string, string> = {
   gallery: 'Galerie de l’avion',
   allCabins: 'Toutes les cabines',
   seatsIn: 'Places en',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'hublot',
+  seatPositionAisle: 'couloir',
+  seatPositionMiddle: 'milieu',
+  seatExtraLegroom: 'espace jambes accru',
+  seatExitRow: 'rangée de sortie',
+  seatAvailable: 'disponible',
+  seatUnavailable: 'indisponible',
+  seatSelected: 'sélectionné',
+  seatSelectedFor: 'sélectionné pour',
+  seatRestrictedFor: 'indisponible pour',
+  close: 'Fermer',
+  moveToSeat: 'Aller au siège',
+  gridLabel: 'Plan des sièges',
+  allSeats: 'Tous les sièges',
+  row: 'Rangée',
+  seat: 'Siège',
+  cabin: 'Cabine',
+  position: 'Position',
+  features: 'Caractéristiques',
+  price: 'Prix',
+  status: 'Statut',
+  action: 'Action',
 };
 
 // Canadian French. Shared keys mirror jets-seatmap-react-lib-pub's
@@ -646,6 +828,30 @@ export const LOCALIZATION_FR_CA: Record<string, string> = {
   gallery: 'Galerie de l’avion',
   allCabins: 'Toutes les cabines',
   seatsIn: 'Places en',
+
+  // WCAG a11y keys (commit 3) — Canadian French mirrors FR
+  seatPositionWindow: 'hublot',
+  seatPositionAisle: 'couloir',
+  seatPositionMiddle: 'milieu',
+  seatExtraLegroom: 'espace jambes accru',
+  seatExitRow: 'rangée de sortie',
+  seatAvailable: 'disponible',
+  seatUnavailable: 'indisponible',
+  seatSelected: 'sélectionné',
+  seatSelectedFor: 'sélectionné pour',
+  seatRestrictedFor: 'indisponible pour',
+  close: 'Fermer',
+  moveToSeat: 'Aller au siège',
+  gridLabel: 'Plan des sièges',
+  allSeats: 'Tous les sièges',
+  row: 'Rangée',
+  seat: 'Siège',
+  cabin: 'Cabine',
+  position: 'Position',
+  features: 'Caractéristiques',
+  price: 'Prix',
+  status: 'Statut',
+  action: 'Action',
 };
 
 export const LOCALIZATION_ES: Record<string, string> = {
@@ -721,6 +927,30 @@ export const LOCALIZATION_ES: Record<string, string> = {
   gallery: 'Galería del avión',
   allCabins: 'Todas las cabinas',
   seatsIn: 'Asientos en',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'ventana',
+  seatPositionAisle: 'pasillo',
+  seatPositionMiddle: 'central',
+  seatExtraLegroom: 'mayor espacio para piernas',
+  seatExitRow: 'fila de salida',
+  seatAvailable: 'disponible',
+  seatUnavailable: 'no disponible',
+  seatSelected: 'seleccionado',
+  seatSelectedFor: 'seleccionado para',
+  seatRestrictedFor: 'no disponible para',
+  close: 'Cerrar',
+  moveToSeat: 'Ir al asiento',
+  gridLabel: 'Mapa de asientos',
+  allSeats: 'Todos los asientos',
+  row: 'Fila',
+  seat: 'Asiento',
+  cabin: 'Cabina',
+  position: 'Posición',
+  features: 'Características',
+  price: 'Precio',
+  status: 'Estado',
+  action: 'Acción',
 };
 
 export const LOCALIZATION_IT: Record<string, string> = {
@@ -796,6 +1026,30 @@ export const LOCALIZATION_IT: Record<string, string> = {
   gallery: 'Galleria dell’aereo',
   allCabins: 'Tutte le cabine',
   seatsIn: 'Posti in',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'finestrino',
+  seatPositionAisle: 'corridoio',
+  seatPositionMiddle: 'centrale',
+  seatExtraLegroom: 'maggiore spazio per le gambe',
+  seatExitRow: 'fila di uscita',
+  seatAvailable: 'disponibile',
+  seatUnavailable: 'non disponibile',
+  seatSelected: 'selezionato',
+  seatSelectedFor: 'selezionato per',
+  seatRestrictedFor: 'non disponibile per',
+  close: 'Chiudi',
+  moveToSeat: 'Vai al posto',
+  gridLabel: 'Mappa dei posti',
+  allSeats: 'Tutti i posti',
+  row: 'Fila',
+  seat: 'Posto',
+  cabin: 'Cabina',
+  position: 'Posizione',
+  features: 'Caratteristiche',
+  price: 'Prezzo',
+  status: 'Stato',
+  action: 'Azione',
 };
 
 export const LOCALIZATION_PT: Record<string, string> = {
@@ -871,6 +1125,30 @@ export const LOCALIZATION_PT: Record<string, string> = {
   gallery: 'Galeria da aeronave',
   allCabins: 'Todas as cabines',
   seatsIn: 'Assentos em',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'janela',
+  seatPositionAisle: 'corredor',
+  seatPositionMiddle: 'meio',
+  seatExtraLegroom: 'mais espaço para as pernas',
+  seatExitRow: 'fila de saída',
+  seatAvailable: 'disponível',
+  seatUnavailable: 'indisponível',
+  seatSelected: 'selecionado',
+  seatSelectedFor: 'selecionado para',
+  seatRestrictedFor: 'indisponível para',
+  close: 'Fechar',
+  moveToSeat: 'Ir para o lugar',
+  gridLabel: 'Mapa de lugares',
+  allSeats: 'Todos os lugares',
+  row: 'Fila',
+  seat: 'Lugar',
+  cabin: 'Cabine',
+  position: 'Posição',
+  features: 'Características',
+  price: 'Preço',
+  status: 'Estado',
+  action: 'Ação',
 };
 
 export const LOCALIZATION_PT_BR: Record<string, string> = {
@@ -946,6 +1224,30 @@ export const LOCALIZATION_PT_BR: Record<string, string> = {
   gallery: 'Galeria do avião',
   allCabins: 'Todas as cabines',
   seatsIn: 'Assentos em',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'janela',
+  seatPositionAisle: 'corredor',
+  seatPositionMiddle: 'meio',
+  seatExtraLegroom: 'mais espaço para as pernas',
+  seatExitRow: 'fileira de saída',
+  seatAvailable: 'disponível',
+  seatUnavailable: 'indisponível',
+  seatSelected: 'selecionado',
+  seatSelectedFor: 'selecionado para',
+  seatRestrictedFor: 'indisponível para',
+  close: 'Fechar',
+  moveToSeat: 'Ir para o assento',
+  gridLabel: 'Mapa de assentos',
+  allSeats: 'Todos os assentos',
+  row: 'Fileira',
+  seat: 'Assento',
+  cabin: 'Cabine',
+  position: 'Posição',
+  features: 'Recursos',
+  price: 'Preço',
+  status: 'Status',
+  action: 'Ação',
 };
 
 export const LOCALIZATION_AR: Record<string, string> = {
@@ -1021,6 +1323,30 @@ export const LOCALIZATION_AR: Record<string, string> = {
   gallery: 'معرض الطائرة',
   allCabins: 'جميع المقصورات',
   seatsIn: 'المقاعد في',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'بجوار النافذة',
+  seatPositionAisle: 'بجوار الممر',
+  seatPositionMiddle: 'في الوسط',
+  seatExtraLegroom: 'مساحة إضافية للساقين',
+  seatExitRow: 'صف مخرج الطوارئ',
+  seatAvailable: 'متاح',
+  seatUnavailable: 'غير متاح',
+  seatSelected: 'مختار',
+  seatSelectedFor: 'مختار لـ',
+  seatRestrictedFor: 'غير متاح لـ',
+  close: 'إغلاق',
+  moveToSeat: 'الانتقال إلى المقعد',
+  gridLabel: 'خريطة المقاعد',
+  allSeats: 'جميع المقاعد',
+  row: 'صف',
+  seat: 'مقعد',
+  cabin: 'المقصورة',
+  position: 'الموضع',
+  features: 'المزايا',
+  price: 'السعر',
+  status: 'الحالة',
+  action: 'إجراء',
 };
 
 export const LOCALIZATION_JA: Record<string, string> = {
@@ -1096,6 +1422,30 @@ export const LOCALIZATION_JA: Record<string, string> = {
   gallery: '機内ギャラリー',
   allCabins: 'すべてのキャビン',
   seatsIn: '座席:',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: '窓側',
+  seatPositionAisle: '通路側',
+  seatPositionMiddle: '中央',
+  seatExtraLegroom: '広い足元スペース',
+  seatExitRow: '非常口列',
+  seatAvailable: '空席',
+  seatUnavailable: '利用不可',
+  seatSelected: '選択済み',
+  seatSelectedFor: '選択中の乗客',
+  seatRestrictedFor: '利用不可の乗客タイプ',
+  close: '閉じる',
+  moveToSeat: '座席へ移動',
+  gridLabel: '座席マップ',
+  allSeats: 'すべての座席',
+  row: '列',
+  seat: '座席',
+  cabin: 'キャビン',
+  position: '位置',
+  features: '設備',
+  price: '価格',
+  status: '状態',
+  action: '操作',
 };
 
 export const LOCALIZATION_KO: Record<string, string> = {
@@ -1171,6 +1521,30 @@ export const LOCALIZATION_KO: Record<string, string> = {
   gallery: '항공기 갤러리',
   allCabins: '모든 캐빈',
   seatsIn: '좌석:',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: '창측',
+  seatPositionAisle: '복도측',
+  seatPositionMiddle: '가운데',
+  seatExtraLegroom: '넓은 다리 공간',
+  seatExitRow: '비상구 열',
+  seatAvailable: '이용 가능',
+  seatUnavailable: '이용 불가',
+  seatSelected: '선택됨',
+  seatSelectedFor: '선택된 승객',
+  seatRestrictedFor: '이용 불가 승객',
+  close: '닫기',
+  moveToSeat: '좌석으로 이동',
+  gridLabel: '좌석 맵',
+  allSeats: '전체 좌석',
+  row: '행',
+  seat: '좌석',
+  cabin: '캐빈',
+  position: '위치',
+  features: '기능',
+  price: '가격',
+  status: '상태',
+  action: '작업',
 };
 
 export const LOCALIZATION_TR: Record<string, string> = {
@@ -1246,6 +1620,30 @@ export const LOCALIZATION_TR: Record<string, string> = {
   gallery: 'Uçak galerisi',
   allCabins: 'Tüm kabinler',
   seatsIn: 'Koltuklar:',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'pencere',
+  seatPositionAisle: 'koridor',
+  seatPositionMiddle: 'orta',
+  seatExtraLegroom: 'geniş bacak mesafesi',
+  seatExitRow: 'çıkış sırası',
+  seatAvailable: 'müsait',
+  seatUnavailable: 'müsait değil',
+  seatSelected: 'seçildi',
+  seatSelectedFor: 'şunun için seçildi',
+  seatRestrictedFor: 'şunun için müsait değil',
+  close: 'Kapat',
+  moveToSeat: 'Koltuğa git',
+  gridLabel: 'Koltuk haritası',
+  allSeats: 'Tüm koltuklar',
+  row: 'Sıra',
+  seat: 'Koltuk',
+  cabin: 'Kabin',
+  position: 'Konum',
+  features: 'Özellikler',
+  price: 'Fiyat',
+  status: 'Durum',
+  action: 'İşlem',
 };
 
 export const LOCALIZATION_NL: Record<string, string> = {
@@ -1321,6 +1719,30 @@ export const LOCALIZATION_NL: Record<string, string> = {
   gallery: 'Vliegtuiggalerij',
   allCabins: 'Alle cabines',
   seatsIn: 'Stoelen in',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'raam',
+  seatPositionAisle: 'gangpad',
+  seatPositionMiddle: 'midden',
+  seatExtraLegroom: 'extra beenruimte',
+  seatExitRow: 'nooduitgangrij',
+  seatAvailable: 'beschikbaar',
+  seatUnavailable: 'niet beschikbaar',
+  seatSelected: 'geselecteerd',
+  seatSelectedFor: 'geselecteerd voor',
+  seatRestrictedFor: 'niet beschikbaar voor',
+  close: 'Sluiten',
+  moveToSeat: 'Naar stoel',
+  gridLabel: 'Stoelplan',
+  allSeats: 'Alle stoelen',
+  row: 'Rij',
+  seat: 'Stoel',
+  cabin: 'Cabine',
+  position: 'Positie',
+  features: 'Voorzieningen',
+  price: 'Prijs',
+  status: 'Status',
+  action: 'Actie',
 };
 
 export const LOCALIZATION_PL: Record<string, string> = {
@@ -1396,6 +1818,30 @@ export const LOCALIZATION_PL: Record<string, string> = {
   gallery: 'Galeria samolotu',
   allCabins: 'Wszystkie kabiny',
   seatsIn: 'Miejsca w',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'przy oknie',
+  seatPositionAisle: 'przy przejściu',
+  seatPositionMiddle: 'środkowe',
+  seatExtraLegroom: 'większa przestrzeń na nogi',
+  seatExitRow: 'rząd wyjścia awaryjnego',
+  seatAvailable: 'dostępne',
+  seatUnavailable: 'niedostępne',
+  seatSelected: 'wybrane',
+  seatSelectedFor: 'wybrane dla',
+  seatRestrictedFor: 'niedostępne dla',
+  close: 'Zamknij',
+  moveToSeat: 'Przejdź do miejsca',
+  gridLabel: 'Plan miejsc',
+  allSeats: 'Wszystkie miejsca',
+  row: 'Rząd',
+  seat: 'Miejsce',
+  cabin: 'Kabina',
+  position: 'Położenie',
+  features: 'Udogodnienia',
+  price: 'Cena',
+  status: 'Status',
+  action: 'Akcja',
 };
 
 export const LOCALIZATION_CS: Record<string, string> = {
@@ -1471,6 +1917,30 @@ export const LOCALIZATION_CS: Record<string, string> = {
   gallery: 'Galerie letadla',
   allCabins: 'Všechny kabiny',
   seatsIn: 'Sedadla v',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'u okna',
+  seatPositionAisle: 'u uličky',
+  seatPositionMiddle: 'uprostřed',
+  seatExtraLegroom: 'více místa na nohy',
+  seatExitRow: 'řada nouzového východu',
+  seatAvailable: 'k dispozici',
+  seatUnavailable: 'nedostupné',
+  seatSelected: 'vybráno',
+  seatSelectedFor: 'vybráno pro',
+  seatRestrictedFor: 'nedostupné pro',
+  close: 'Zavřít',
+  moveToSeat: 'Přejít na sedadlo',
+  gridLabel: 'Plánek sedadel',
+  allSeats: 'Všechna sedadla',
+  row: 'Řada',
+  seat: 'Sedadlo',
+  cabin: 'Kabina',
+  position: 'Poloha',
+  features: 'Vybavení',
+  price: 'Cena',
+  status: 'Stav',
+  action: 'Akce',
 };
 
 export const LOCALIZATION_UK: Record<string, string> = {
@@ -1546,6 +2016,30 @@ export const LOCALIZATION_UK: Record<string, string> = {
   gallery: 'Галерея літака',
   allCabins: 'Усі кабіни',
   seatsIn: 'Місця в',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'біля вікна',
+  seatPositionAisle: 'біля проходу',
+  seatPositionMiddle: 'середнє',
+  seatExtraLegroom: 'більший простір для ніг',
+  seatExitRow: 'ряд аварійного виходу',
+  seatAvailable: 'доступно',
+  seatUnavailable: 'недоступно',
+  seatSelected: 'вибрано',
+  seatSelectedFor: 'вибрано для',
+  seatRestrictedFor: 'недоступно для',
+  close: 'Закрити',
+  moveToSeat: 'Перейти до місця',
+  gridLabel: 'Схема місць',
+  allSeats: 'Всі місця',
+  row: 'Ряд',
+  seat: 'Місце',
+  cabin: 'Кабіна',
+  position: 'Положення',
+  features: 'Зручності',
+  price: 'Ціна',
+  status: 'Статус',
+  action: 'Дія',
 };
 
 export const LOCALIZATION_VI: Record<string, string> = {
@@ -1621,6 +2115,30 @@ export const LOCALIZATION_VI: Record<string, string> = {
   gallery: 'Bộ sưu tập máy bay',
   allCabins: 'Tất cả khoang',
   seatsIn: 'Ghế trong',
+
+  // WCAG a11y keys (commit 3)
+  seatPositionWindow: 'cạnh cửa sổ',
+  seatPositionAisle: 'cạnh lối đi',
+  seatPositionMiddle: 'giữa',
+  seatExtraLegroom: 'thêm chỗ để chân',
+  seatExitRow: 'hàng cửa thoát hiểm',
+  seatAvailable: 'còn trống',
+  seatUnavailable: 'không khả dụng',
+  seatSelected: 'đã chọn',
+  seatSelectedFor: 'đã chọn cho',
+  seatRestrictedFor: 'không khả dụng cho',
+  close: 'Đóng',
+  moveToSeat: 'Đến ghế',
+  gridLabel: 'Sơ đồ ghế',
+  allSeats: 'Tất cả ghế',
+  row: 'Hàng',
+  seat: 'Ghế',
+  cabin: 'Khoang',
+  position: 'Vị trí',
+  features: 'Tính năng',
+  price: 'Giá',
+  status: 'Trạng thái',
+  action: 'Hành động',
 };
 
 export const LOCALES_MAP: Record<string, Record<string, string>> = {

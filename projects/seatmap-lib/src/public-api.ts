@@ -18,6 +18,7 @@ export * from './lib/components/jets-bulk/jets-bulk.component';
 export * from './lib/components/jets-deck-exit/jets-deck-exit.component';
 export * from './lib/components/jets-deck-selector/jets-deck-selector.component';
 export * from './lib/components/jets-deck-separator/jets-deck-separator.component';
+export * from './lib/components/jets-seat-list/jets-seat-list.component';
 
 export * from './lib/components/jets-not-init/jets-not-init.component';
 export * from './lib/components/jets-no-data/jets-no-data.component';
@@ -51,6 +52,8 @@ export {
   ENTITY_TYPE_MAP,
   CLASS_CODE_MAP,
   DEFAULT_COLOR_THEME,
+  LEGACY_COLOR_THEME,
+  WCAG_COLOR_THEME,
   DEFAULT_LANG,
   DEFAULT_SEAT_MAP_WIDTH,
   DEFAULT_SEAT_SIZE,

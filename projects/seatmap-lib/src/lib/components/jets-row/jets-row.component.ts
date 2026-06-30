@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Type } from '@angular/core';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { ISeatData, IRowData, IColorTheme } from '../../types';
+import { DEFAULT_LANG } from '../../constants';
 import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
 
 @Component({
@@ -8,10 +9,14 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
   standalone: true,
   imports: [CommonModule, NgComponentOutlet, JetsSeatComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    role: 'row',
+    '[attr.aria-rowindex]': 'rowIndex ?? null',
+  },
   template: `
     <div class="jets-row" [class.jets-row--has-offset]="row.topOffset != null" [style.margin-top.px]="rowMarginTop">
       <div class="jets-row__seats">
-        @for (seat of row.seats; track seat.id) {
+        @for (seat of row.seats; track seat.id; let i = $index) {
           @if (seatOverride) {
             <ng-container
               *ngComponentOutlet="
@@ -22,6 +27,13 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
                   showPrice: showPrice,
                   currencyOverride: currencyOverride,
                   scale: scale,
+                  ariaLabel: ariaLabel,
+                  ariaSelected: ariaSelected,
+                  ariaDisabled: ariaDisabled,
+                  rovingTabindex: rovingTabindex,
+                  colIndex: i + 1,
+                  rowIndex: rowIndex,
+                  lang: lang,
                 }
               "
             />
@@ -29,9 +41,17 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
             <sm-jets-seat
               [data]="seat"
               [colorTheme]="colorTheme"
+              [wcagPalette]="wcagPalette"
               [showPrice]="showPrice"
               [currencyOverride]="currencyOverride"
               [scale]="scale"
+              [ariaLabel]="ariaLabel"
+              [ariaSelected]="ariaSelected"
+              [ariaDisabled]="ariaDisabled"
+              [rovingTabindex]="rovingTabindex"
+              [colIndex]="i + 1"
+              [rowIndex]="rowIndex"
+              [lang]="lang"
               (seatClick)="seatClick.emit($event)"
               (seatMouseEnter)="seatMouseEnter.emit($event)"
               (seatMouseLeave)="seatMouseLeave.emit($event)"
@@ -63,6 +83,8 @@ import { JetsSeatComponent } from '../jets-seat/jets-seat.component';
 export class JetsRowComponent {
   @Input() row!: IRowData;
   @Input() colorTheme?: IColorTheme;
+  /** Forwarded to `JetsSeatComponent` — selects WCAG vs LEGACY palette fallback. */
+  @Input() wcagPalette = false;
   @Input() showPrice = false;
   @Input() currencyOverride?: string;
   @Input() prevRowTopOffset?: number;
@@ -70,6 +92,24 @@ export class JetsRowComponent {
   @Input() scale = 1;
   /** Override component for the seat, propagated from componentOverrides.JetsSeat. */
   @Input() seatOverride?: Type<unknown> | null;
+
+  // ─── A11y pass-throughs (WCAG commit 5) ─────────────────────────────
+  // Plumbing for the grid scaffold (commit 6) and roving tabindex (commit 7).
+  // The parent map (`jets-seat-map`) wires real values in commit 6; here we
+  // simply forward whatever it provides down to the seat.
+  @Input() ariaLabel?: string;
+  @Input() ariaSelected?: boolean | null;
+  @Input() ariaDisabled?: boolean;
+  @Input() rovingTabindex?: number;
+  /**
+   * @deprecated colIndex is computed per-seat from the @for index (1-based) in commit 6.
+   * The input is preserved for API stability but no longer flows through to seats.
+   */
+  @Input() colIndex?: number;
+  /** 1-based row index for `aria-rowindex` (commit 6 grid scaffold). */
+  @Input() rowIndex?: number;
+  /** Language tag forwarded to seat for non-seat aria-labels (commit 6). */
+  @Input() lang: string = DEFAULT_LANG;
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
     element: HTMLElement;

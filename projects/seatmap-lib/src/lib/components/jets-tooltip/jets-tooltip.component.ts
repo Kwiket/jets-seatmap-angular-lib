@@ -1,8 +1,49 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, Type } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  EventEmitter,
+  inject,
+  Input,
+  Output,
+  Type,
+  ViewChild,
+} from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
-import { IColorTheme, ISeatData, ISeatFeature, ITooltipData } from '../../types';
+import { IColorTheme, IPassenger, ISeatData, ISeatFeature, ITooltipData } from '../../types';
 import { LOCALES_MAP } from '../../constants';
+
+/**
+ * Structured "why is Select disabled" payload, surfaced to AT (3.3.1 Error
+ * Identification, 3.3.3 Error Suggestion) and to host code that wants to
+ * react programmatically (e.g. analytics on blocked attempts).
+ *
+ * - `disabled: false` — Select is actionable. `reason` and `message` are absent.
+ * - `disabled: true, reason: 'noPassengerLeft'` — host has no `nextPassenger`
+ *   to assign (or `isSelectAvailable` is false for the broader "nothing to
+ *   put here" cases).
+ * - `disabled: true, reason: 'passengerTypeRestricted'` — `seat.passengerTypes`
+ *   excludes `nextPassenger.passengerType` (e.g. infant on an exit row).
+ * - `disabled: true, reason: 'other'` — disabled for an unclassified reason.
+ */
+export interface ISelectDisabledReason {
+  disabled: boolean;
+  reason?: 'noPassengerLeft' | 'passengerTypeRestricted' | 'other';
+  /** Localised, ready-to-display human-readable explanation. */
+  message?: string;
+}
+
+/** Counter for per-instance unique DOM ids — avoids `Math.random()` so it's SSR-deterministic. */
+let _selectReasonUid = 0;
+/**
+ * Separate counter for the dialog-related ids (header label / amenities or
+ * dimensions description target). Kept distinct from `_selectReasonUid` so
+ * the two streams of ids stay independently monotonic and easy to reason
+ * about in DOM dumps. Same module-scope pattern as `nextSeatMapInstanceId`.
+ */
+let _tooltipDialogUid = 0;
 
 @Component({
   selector: 'sm-jets-tooltip',
@@ -32,6 +73,11 @@ import { LOCALES_MAP } from '../../constants';
         [class.jets-tooltip--below]="!sidePanel && data.openBelow"
         [class.jets-tooltip--side-panel]="sidePanel"
         [class.jets-tooltip--horizontal]="data.horizontal"
+        [attr.role]="sidePanel ? 'region' : dialogMode ? 'dialog' : null"
+        [attr.aria-labelledby]="sidePanel || dialogMode ? headerTitleId : null"
+        [attr.aria-describedby]="(sidePanel || dialogMode) && describedById ? describedById : null"
+        (keydown.escape)="dialogMode ? onEscapeKey($event) : null"
+        (keydown)="dialogMode ? onDialogKeydown($event) : null"
         [style.top.px]="sidePanel ? null : data.top"
         [style.left.px]="data.horizontal ? data.left : null"
         [style.--arrow-left]="sidePanel ? null : data.left + 'px'"
@@ -49,7 +95,9 @@ import { LOCALES_MAP } from '../../constants';
             <!-- Header -->
             <div class="jets-tooltip--header" [style.direction]="textDirection">
               <div class="jets-tooltip--header-title">
-                <span>{{ data.seat.name || data.seat.rowName || getClassType() }} {{ data.seat.number }}</span>
+                <span [id]="headerTitleId"
+                  >{{ data.seat.name || data.seat.rowName || getClassType() }} {{ data.seat.number }}</span
+                >
                 @if (hasNumericPrice() && getNumericPrice() > 0) {
                   <span class="jets-tooltip--header-price"
                     >{{ resolvedCurrency }}{{ currencySeparator }}{{ getNumericPrice() }}</span
@@ -59,8 +107,8 @@ import { LOCALES_MAP } from '../../constants';
                   <span class="jets-tooltip--header-price">Free</span>
                 }
                 @if (!sidePanel) {
-                  <button class="jets-tooltip--close-btn" (click)="close.emit()" aria-label="Close">
-                    <svg width="12" height="12" viewBox="0 0 12 12">
+                  <button class="jets-tooltip--close-btn" (click)="close.emit()" [attr.aria-label]="closeLabel">
+                    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
                       <line
                         x1="1"
                         y1="1"
@@ -96,7 +144,7 @@ import { LOCALES_MAP } from '../../constants';
 
             <!-- Amenities list -->
             @if (amenities.length) {
-              <div class="jets-tooltip--amenities" [style.direction]="textDirection">
+              <div class="jets-tooltip--amenities" [id]="amenitiesId" [style.direction]="textDirection">
                 @for (amenity of amenities; track amenity.uniqId || amenity.key) {
                   <div
                     class="jets-tooltip--amenity"
@@ -106,6 +154,7 @@ import { LOCALES_MAP } from '../../constants';
                     <span
                       class="jets-tooltip--amenity-icon"
                       [class]="amenity.cssClass ? amenity.cssClass + '-icon' : ''"
+                      aria-hidden="true"
                       [innerHTML]="safeSvg(amenity.icon)"
                     ></span>
                     <span
@@ -120,10 +169,10 @@ import { LOCALES_MAP } from '../../constants';
 
             <!-- Seat dimensions (pitch / width / recline) -->
             @if (dimensions.length) {
-              <div class="jets-tooltip--dimensions">
+              <div class="jets-tooltip--dimensions" [id]="dimensionsId">
                 @for (dim of dimensions; track dim.uniqId || dim.key) {
                   <div class="jets-tooltip--dimension">
-                    <div class="jets-tooltip--dim-icon" [innerHTML]="safeSvg(dim.icon)"></div>
+                    <div class="jets-tooltip--dim-icon" aria-hidden="true" [innerHTML]="safeSvg(dim.icon)"></div>
                     <div class="jets-tooltip--dim-label">{{ dim.title }}</div>
                     <div class="jets-tooltip--dim-value">{{ dim.value }}</div>
                   </div>
@@ -146,6 +195,7 @@ import { LOCALES_MAP } from '../../constants';
 
               @if (data.seat.passenger) {
                 <button
+                  #primaryActionBtn
                   class="jets-btn jets-tooltip--btn jets-select-btn"
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
                   [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
@@ -155,17 +205,29 @@ import { LOCALES_MAP } from '../../constants';
                   {{ locale['unselect'] }}
                 </button>
               } @else {
+                @let _reason = getSelectDisabledReason();
                 <button
+                  #primaryActionBtn
                   class="jets-btn jets-tooltip--btn jets-select-btn"
+                  [class.jets-select-btn--aria-disabled]="_reason.disabled"
                   [style.color]="colorTheme?.tooltipSelectButtonTextColor || ''"
                   [style.background-color]="colorTheme?.tooltipSelectButtonBackgroundColor || ''"
-                  [disabled]="isSelectDisabled()"
-                  (click)="select.emit(data.seat)"
+                  [attr.aria-disabled]="_reason.disabled ? 'true' : null"
+                  [attr.aria-describedby]="
+                    showSelectRestrictionReason && _reason.disabled && _reason.message ? selectReasonId : null
+                  "
+                  (click)="onSelectClick(_reason)"
                 >
                   {{ locale['select'] }}
                 </button>
               }
             </div>
+            @let _bottomReason = data.seat.passenger ? null : getSelectDisabledReason();
+            @if (showSelectRestrictionReason && _bottomReason && _bottomReason.disabled && _bottomReason.message) {
+              <p class="jets-tooltip--select-reason" [id]="selectReasonId" [style.direction]="textDirection">
+                {{ _bottomReason.message }}
+              </p>
+            }
           }
         </div>
       </div>
@@ -173,8 +235,18 @@ import { LOCALES_MAP } from '../../constants';
   `,
   styleUrls: ['./jets-tooltip.component.scss'],
 })
-export class JetsTooltipComponent {
+export class JetsTooltipComponent implements AfterViewInit {
   private sanitizer = inject(DomSanitizer);
+  private host: ElementRef<HTMLElement> = inject(ElementRef);
+
+  /**
+   * Primary action button (Select when no passenger, Unselect when seat carries
+   * one). Used by `ngAfterViewInit` to move keyboard focus into the dialog so
+   * keyboard / AT users land on the most likely action (WCAG 2.4.3 Focus Order).
+   * Optional because the actions block is gated behind `showActions` and we
+   * must never throw when the host renders the tooltip without action buttons.
+   */
+  @ViewChild('primaryActionBtn') primaryActionBtnRef?: ElementRef<HTMLButtonElement>;
 
   /**
    * Optional override for the tooltip view (presentational layer). When provided,
@@ -197,6 +269,24 @@ export class JetsTooltipComponent {
    * mirroring the behaviour of the per-seat price pill.
    */
   @Input() currencyOverride?: string;
+  /**
+   * WCAG opt-in: render a visible explanation line under a disabled Select
+   * button (e.g. "The seat is only for: adults") and wire it to the button
+   * via `aria-describedby`. Default `false` keeps the pre-WCAG silent-disabled
+   * behaviour. The parent component flips this via `config.wcag.visibleRestrictionReason`.
+   */
+  @Input() showSelectRestrictionReason = false;
+  /**
+   * WCAG opt-in: render the (non-sidePanel) tooltip with the full dialog
+   * contract — `role="dialog"`, `aria-labelledby` + `aria-describedby` on
+   * the wrapper, and an Escape-to-close handler that's active when focus is
+   * inside the tooltip. The parent flips this via `config.wcag.tooltipDialog`.
+   *
+   * Default `false`: the tooltip renders without ARIA dialog wiring and
+   * Escape inside the tooltip falls through to the host page. Sidepanel
+   * mode is unaffected — it always carries `role="region"`.
+   */
+  @Input() dialogMode = false;
 
   /** Config-level override wins over per-seat currency; falls back to the seat's own currency. */
   get resolvedCurrency(): string {
@@ -223,6 +313,57 @@ export class JetsTooltipComponent {
   @Output() select = new EventEmitter<ISeatData>();
   @Output() unselect = new EventEmitter<ISeatData>();
   @Output() close = new EventEmitter<void>();
+  /**
+   * Fired when the user clicks the Select button while it is disabled (the
+   * disabled state is rendered via `aria-disabled` so the click event still
+   * reaches us — native `disabled` would swallow it). Host code (the seat
+   * map's LiveAnnouncer, commit 9) consumes this to announce the reason via
+   * a polite live-region so AT users hear *why* nothing happened.
+   */
+  @Output() selectAttemptBlocked = new EventEmitter<{
+    seat: ISeatData;
+    reason: NonNullable<ISelectDisabledReason['reason']>;
+    message: string;
+  }>();
+
+  /** Stable per-instance id so multiple tooltips on a page don't collide. */
+  readonly selectReasonId = `jets-tooltip-select-reason-${++_selectReasonUid}`;
+
+  // ─── Dialog ARIA ids (commit 11) ───────────────────────────────────────
+  // The non-sidePanel branch renders as `role="dialog"` (non-modal — see the
+  // Decisions log entry 2026-06-04: the map is not overlaid, click-outside
+  // closes the tooltip, so `aria-modal="true"` would lie about the contract).
+  // The sidePanel branch is rendered inline in the page and uses `role="region"`
+  // with the same `aria-labelledby` so AT users get a navigable landmark.
+  /** Id of the visible seat label inside the header — target of `aria-labelledby`. */
+  readonly _dialogUid = ++_tooltipDialogUid;
+  readonly headerTitleId = `jets-tooltip-title-${this._dialogUid}`;
+  readonly amenitiesId = `jets-tooltip-amenities-${this._dialogUid}`;
+  readonly dimensionsId = `jets-tooltip-dimensions-${this._dialogUid}`;
+
+  /**
+   * `aria-describedby` target chosen from whichever descriptive block is
+   * actually rendered. Prefers amenities (richer content) and falls back to
+   * dimensions; returns `null` when neither is present so we don't dangle a
+   * pointer to a missing id (some screen readers warn about that).
+   */
+  get describedById(): string | null {
+    if (this.amenities.length) return this.amenitiesId;
+    if (this.dimensions.length) return this.dimensionsId;
+    return null;
+  }
+
+  /**
+   * Localised label for the header close (×) button. Falls back to the English
+   * `'Close'` when the active locale is missing the `close` key.
+   *
+   * TODO(commit 17 docs): if any locale ever drops the `close` key, document
+   * the fallback policy here. (constants.ts is owned by another commit — we
+   * never edit it from here; the inline English fallback is the safety net.)
+   */
+  get closeLabel(): string {
+    return LOCALES_MAP[this.data?.lang]?.['close'] || 'Close';
+  }
 
   get locale(): Record<string, string> {
     return LOCALES_MAP[this.data?.lang] || LOCALES_MAP['EN'];
@@ -327,17 +468,193 @@ export class JetsTooltipComponent {
     return this.data.seat.classType || 'Seat';
   }
 
+  /**
+   * Boolean facade preserved for backwards compatibility: existing templates
+   * and `componentOverrides.JetsTooltip` consumers may still call this from
+   * their overrides as `[disabled]="isSelectDisabled()"`. New code (and our
+   * own template) reads `getSelectDisabledReason()` for the structured shape.
+   */
   isSelectDisabled(): boolean {
-    if (!this.isSelectAvailable) return true;
-    const nextPassenger = this.data.nextPassenger;
-    const seat = this.data.seat;
+    return this.getSelectDisabledReason().disabled;
+  }
+
+  /**
+   * Structured "why disabled" — see {@link ISelectDisabledReason}. Used by
+   * the template to render a visible reason under the Select button and to
+   * tie it via `aria-describedby` (WCAG 3.3.1 / 3.3.3).
+   */
+  getSelectDisabledReason(): ISelectDisabledReason {
+    const seat = this.data?.seat;
+    const nextPassenger = this.data?.nextPassenger;
+
+    // Passenger-type restriction takes priority: even if isSelectAvailable
+    // happens to be false alongside, the actionable explanation for the user
+    // is "wrong passenger type", not "queue empty".
     if (
       nextPassenger?.passengerType &&
-      seat.passengerTypes?.length &&
+      seat?.passengerTypes?.length &&
       !seat.passengerTypes.includes(nextPassenger.passengerType)
     ) {
-      return true;
+      return {
+        disabled: true,
+        reason: 'passengerTypeRestricted',
+        message: this.buildRestrictedPassengerTypeMessage(nextPassenger),
+      };
     }
-    return false;
+
+    if (!this.isSelectAvailable) {
+      return {
+        disabled: true,
+        reason: 'noPassengerLeft',
+        message: this.buildNoPassengerLeftMessage(),
+      };
+    }
+
+    return { disabled: false };
+  }
+
+  /**
+   * Click handler for the Select button. Because the button is rendered with
+   * `aria-disabled` (not native `disabled`) so AT can still focus it and the
+   * click event still fires, we gate the actual `select.emit()` here and, on
+   * a blocked click, emit `selectAttemptBlocked` for the host's LiveAnnouncer.
+   */
+  onSelectClick(reason: ISelectDisabledReason): void {
+    if (reason.disabled) {
+      if (reason.reason && reason.message) {
+        this.selectAttemptBlocked.emit({
+          seat: this.data.seat,
+          reason: reason.reason,
+          message: reason.message,
+        });
+      }
+      return;
+    }
+    this.select.emit(this.data.seat);
+  }
+
+  /**
+   * Builds the localised "not available for {passengerType}" sentence.
+   *
+   * TODO(commit 17 docs): add 'tooltipSelectRestrictedPassengerType' key
+   * across all locales so the message body is fully localisable as one
+   * unit (currently we glue locale fragments + English fallback).
+   */
+  private buildRestrictedPassengerTypeMessage(nextPassenger: IPassenger): string {
+    const loc = this.locale;
+    // Prefer the human label the host provided (e.g. "Infant"), then the
+    // localised passenger-type abbreviation (loc['INF']), then the raw code.
+    const passengerLabel =
+      nextPassenger.passengerLabel?.trim() ||
+      (nextPassenger.passengerType ? loc[nextPassenger.passengerType] : '') ||
+      nextPassenger.passengerType ||
+      'this passenger';
+    // `seatRestrictedFor` is present in every locale (commit 3). English
+    // fallback is structurally identical so we never produce broken text.
+    const prefix = loc['seatRestrictedFor'] || 'not available for';
+    // Sentence case + period: "Not available for infant passengers."
+    const sentence = `${prefix} ${passengerLabel}`;
+    return this.capitaliseFirst(sentence) + '.';
+  }
+
+  /**
+   * Builds the localised "no passenger left to seat" sentence. There is no
+   * existing locale key for this — leave a TODO so commit 17/docs can add a
+   * dedicated key across all locales. For now use an English fallback so the
+   * AT user still gets a meaningful explanation.
+   *
+   * TODO(commit 17 docs): add 'tooltipSelectNoPassengerLeft' key across all
+   * locales (constants.ts is owned by commit 4 in parallel — do not touch).
+   */
+  private buildNoPassengerLeftMessage(): string {
+    // English fallback only — no locale key yet. Document the gap above.
+    return 'No passenger available to assign to this seat.';
+  }
+
+  private capitaliseFirst(s: string): string {
+    if (!s) return s;
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  /**
+   * On view init, drop keyboard focus on the primary action button so
+   * keyboard / AT users land directly on the most likely next action
+   * (WCAG 2.4.3 Focus Order). Skipped in `sidePanel` mode — that branch
+   * is an inline page region, not a dialog, so auto-focus would steal
+   * the cursor mid-scroll. `setTimeout(0)` defers past the current change
+   * detection tick so the button is actually painted; `preventScroll`
+   * stops the page from jumping when the tooltip is below the fold.
+   */
+  ngAfterViewInit(): void {
+    if (this.sidePanel) return;
+    // Auto-focus the primary action is the dialog-contract behaviour. Without
+    // the flag the tooltip stays where it is and the user keeps focus on
+    // the seat they hovered/clicked — pre-WCAG parity.
+    if (!this.dialogMode) return;
+    setTimeout(() => {
+      try {
+        // Prefer the primary action (Select / Unselect). When the seat has no
+        // actions (e.g. an info-only tooltip), fall back to the first
+        // focusable button (the × close) so focus still lands inside the
+        // dialog — otherwise it would stay on the trigger seat and arrow keys
+        // would keep moving the grid behind the open dialog.
+        const target = this.primaryActionBtnRef?.nativeElement ?? this._focusableButtons()[0];
+        target?.focus({ preventScroll: true });
+      } catch {
+        /* no-op: jsdom and old browsers may throw on focus options */
+      }
+    }, 0);
+  }
+
+  /**
+   * Focusable buttons inside the tooltip, in DOM order (× close, Cancel,
+   * Select / Unselect). Drives the auto-focus fallback and arrow-key roving.
+   */
+  private _focusableButtons(): HTMLButtonElement[] {
+    return Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLButtonElement>('button:not([disabled])'),
+    );
+  }
+
+  /**
+   * Arrow-key roving between the dialog's buttons. The tooltip lives inside
+   * the seat-grid container, so without `stopPropagation` these keys would
+   * bubble to the grid and move seat focus out of the open dialog. Active
+   * only in dialog mode; Tab still works natively as the standard path.
+   */
+  onDialogKeydown(event: KeyboardEvent): void {
+    if (!this.dialogMode) return;
+    if (
+      event.key !== 'ArrowLeft' &&
+      event.key !== 'ArrowRight' &&
+      event.key !== 'ArrowUp' &&
+      event.key !== 'ArrowDown'
+    ) {
+      return;
+    }
+    // Keep the keystroke inside the dialog regardless of how many buttons
+    // there are, so it never leaks to the grid navigation handler.
+    event.preventDefault();
+    event.stopPropagation();
+    const btns = this._focusableButtons();
+    if (btns.length < 2) return;
+    const active = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
+    const current = active ? btns.indexOf(active as HTMLButtonElement) : -1;
+    const dir = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+    const start = current < 0 ? 0 : current;
+    const next = (start + dir + btns.length) % btns.length;
+    btns[next].focus();
+  }
+
+  /**
+   * Escape inside the tooltip closes it and stops propagation so the
+   * surrounding seat-map's global Escape handler doesn't also fire. This
+   * is the in-dialog dismiss path; the seat-map keeps its own handler as
+   * a safety net for keyboards that don't deliver the event to the
+   * tooltip (e.g. focus parked back on the trigger seat).
+   */
+  onEscapeKey(event: Event): void {
+    this.close.emit();
+    event.stopPropagation();
   }
 }

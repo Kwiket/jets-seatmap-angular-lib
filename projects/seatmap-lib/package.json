@@ -1,6 +1,6 @@
 {
   "name": "@seatmaps.com/angular-lib",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Jets seatmap angular library.",
   "keywords": [
     "angular",
@@ -28,6 +28,7 @@
     "provenance": true
   },
   "peerDependencies": {
+    "@angular/cdk": "^21.2.0",
     "@angular/common": "^21.2.0",
     "@angular/core": "^21.2.0"
   },

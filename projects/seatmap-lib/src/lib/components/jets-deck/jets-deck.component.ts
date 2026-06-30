@@ -18,6 +18,12 @@ interface ICabinSection {
   standalone: true,
   imports: [CommonModule, JetsRowComponent, JetsDeckExitComponent, JetsBulkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    role: 'grid',
+    '[attr.aria-label]': 'gridAriaLabel',
+    '[attr.aria-rowcount]': 'rowCount',
+    '[attr.aria-colcount]': 'colCount',
+  },
   template: `
     <div class="jets-deck" [style.padding-top.px]="deckHeightSpacingPx" [style.padding-bottom.px]="deckHeightSpacingPx">
       @if (deck.title && showNumber) {
@@ -95,12 +101,15 @@ interface ICabinSection {
           <sm-jets-row
             [row]="row"
             [colorTheme]="colorTheme"
+            [wcagPalette]="wcagPalette"
             [showPrice]="showPrice"
             [currencyOverride]="currencyOverride"
             [scale]="scale"
             [seatOverride]="seatOverride"
             [prevRowTopOffset]="i > 0 ? (deck.rows[i - 1].topOffset ?? 0) : 0"
             [prevRowHeight]="i > 0 ? _getRowHeight(deck.rows[i - 1]) : 0"
+            [rowIndex]="i + 1"
+            [lang]="lang"
             (seatClick)="seatClick.emit($event)"
             (seatMouseEnter)="seatMouseEnter.emit($event)"
             (seatMouseLeave)="seatMouseLeave.emit($event)"
@@ -192,6 +201,8 @@ export class JetsDeckComponent {
   @Input() lang = 'EN';
   @Input() showNumber = false;
   @Input() colorTheme?: IColorTheme;
+  /** Forwarded to `JetsRowComponent` → `JetsSeatComponent`. */
+  @Input() wcagPalette = false;
   @Input() showPrice = false;
   @Input() currencyOverride?: string;
   @Input() flatBulks = false;
@@ -222,6 +233,39 @@ export class JetsDeckComponent {
 
   get deckLabel(): string {
     return LOCALES_MAP[this.lang]?.['deck'] ?? 'Deck';
+  }
+
+  /**
+   * Accessible label for `role="grid"` host. Mirrors APG Layout Grid pattern.
+   * Prefers the locale's `gridLabel` (commit 3) over an English fallback,
+   * and surfaces the deck title / number so multi-deck planes are
+   * distinguishable to AT.
+   */
+  get gridAriaLabel(): string {
+    const loc = LOCALES_MAP[this.lang] ?? {};
+    const base = loc['gridLabel'] || 'Seat map';
+    const ctx = this.deck?.title || (this.deck?.number != null ? `${this.deckLabel} ${this.deck.number}` : '');
+    return ctx ? `${base} — ${ctx}` : base;
+  }
+
+  /** 1-based row total (rows.length) for `aria-rowcount`. */
+  get rowCount(): number {
+    return this.deck?.rows?.length ?? 0;
+  }
+
+  /**
+   * 1-based column count for `aria-colcount`: maximum seats-in-row across
+   * every row, including aisle/empty cells so the geometry doesn't lie to AT
+   * (Decisions log 2026-06-04 — full Layout Grid pattern).
+   */
+  get colCount(): number {
+    const rows = this.deck?.rows ?? [];
+    let max = 0;
+    for (const r of rows) {
+      const n = r.seats?.length ?? 0;
+      if (n > max) max = n;
+    }
+    return max;
   }
 
   get hasExits(): boolean {

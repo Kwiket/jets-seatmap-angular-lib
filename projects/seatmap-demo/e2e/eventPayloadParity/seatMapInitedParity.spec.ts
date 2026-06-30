@@ -38,7 +38,7 @@ test('seatMapInited payload — React parity proof', async ({ page }) => {
   await page.waitForFunction(
     () => (window as Window & { __lastSeatMapInited?: unknown }).__lastSeatMapInited != null,
     null,
-    { timeout: 25_000 },
+    { timeout: 25_000 }
   );
 
   const captured = await page.evaluate(() => {
@@ -48,7 +48,7 @@ test('seatMapInited payload — React parity proof', async ({ page }) => {
     // invariant `native × scaleFactor === actual rendered pixels`.
     const container = document.querySelector('.jets-seat-map') as HTMLElement | null;
     const deck = document.querySelector(
-      `.deck-wrapper[data-deck-index="${raw['currentDeckIndex'] ?? 0}"]`,
+      `.deck-wrapper[data-deck-index="${raw['currentDeckIndex'] ?? 0}"]`
     ) as HTMLElement | null;
     const renderedHeight = (deck ?? container)?.getBoundingClientRect().height ?? 0;
     const renderedWidth = container?.getBoundingClientRect().width ?? 0;
@@ -62,7 +62,7 @@ test('seatMapInited payload — React parity proof', async ({ page }) => {
           return `<svg … fill="${fill}" …>`;
         }
         return v;
-      }),
+      })
     );
 
     // Record which keys are PRESENT on the raw payload (after JSON.stringify
@@ -159,7 +159,9 @@ test('seatMapInited payload — React parity proof', async ({ page }) => {
         {
           label: '`error` key omitted when no error',
           pass: !keys.includes('error'),
-          got: keys.includes('error') ? `present (${JSON.stringify((payload as Record<string, unknown>).error)})` : 'absent',
+          got: keys.includes('error')
+            ? `present (${JSON.stringify((payload as Record<string, unknown>).error)})`
+            : 'absent',
           want: 'absent',
         },
         {
@@ -226,15 +228,12 @@ test('seatMapInited payload — React parity proof', async ({ page }) => {
           overflow: auto;
           color: #d7dee8;
           font-size: 11px;
-        ">${JSON.stringify(payload, null, 2)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')}</pre>
+        ">${JSON.stringify(payload, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
       `;
 
       document.body.appendChild(wrap);
     },
-    { payload, keys, renderedHeight, renderedWidth },
+    { payload, keys, renderedHeight, renderedWidth }
   );
 
   await page.waitForTimeout(150);

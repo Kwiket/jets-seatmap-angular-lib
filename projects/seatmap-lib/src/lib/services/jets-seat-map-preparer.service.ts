@@ -33,7 +33,7 @@ import {
   ENTITY_TYPE_MAP,
 } from '../constants';
 import { BULK_SCALE_BY_ID, DEFAULT_BULK_SCALE } from './bulk-template.service';
-import { getNativeRowBBox, getNativeRowHeight } from '../utils/cabin-utils';
+import { getNativeRowBBox } from '../utils/cabin-utils';
 
 /**
  * Default native-unit gap inserted between a row's physical bbox and a
@@ -1231,13 +1231,7 @@ export class JetsSeatMapPreparerService {
     score: number | undefined,
     colorRanges?: Array<{ range: [number, number]; color: string }>
   ): string | null {
-    if (
-      typeof score !== 'number' ||
-      score < 1 ||
-      score > 10 ||
-      !Array.isArray(colorRanges) ||
-      !colorRanges.length
-    ) {
+    if (typeof score !== 'number' || score < 1 || score > 10 || !Array.isArray(colorRanges) || !colorRanges.length) {
       return null;
     }
     const found = colorRanges.find(r => score >= r.range[0] && score <= r.range[1]);

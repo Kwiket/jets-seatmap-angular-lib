@@ -80,4 +80,39 @@ describe('JetsRowComponent', () => {
     expect(enterSpy).toHaveBeenCalledWith(payload);
     expect(leaveSpy).toHaveBeenCalledWith(payload);
   });
+
+  describe('ARIA row host (commit 6)', () => {
+    it('should set role="row" on the host element', () => {
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).getAttribute('role')).toBe('row');
+    });
+
+    it('should reflect rowIndex via aria-rowindex', () => {
+      component.rowIndex = 7;
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).getAttribute('aria-rowindex')).toBe('7');
+    });
+
+    it('should omit aria-rowindex when rowIndex is undefined', () => {
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).hasAttribute('aria-rowindex')).toBe(false);
+    });
+
+    it('should pass per-seat colIndex (1-based) from the @for index', () => {
+      component.row = makeRow([
+        makeSeat({ id: 'a', number: '1A' }),
+        makeSeat({ id: 'b', number: '1B' }),
+        makeSeat({ id: 'c', number: '1C' }),
+      ]);
+      fixture.detectChanges();
+      const seats = (fixture.nativeElement as HTMLElement).querySelectorAll('sm-jets-seat');
+      // Each seat's inner button receives aria-colindex; commit 5 binds it via [attr.aria-colindex].
+      const btn0 = seats[0].querySelector('button');
+      const btn1 = seats[1].querySelector('button');
+      const btn2 = seats[2].querySelector('button');
+      expect(btn0?.getAttribute('aria-colindex')).toBe('1');
+      expect(btn1?.getAttribute('aria-colindex')).toBe('2');
+      expect(btn2?.getAttribute('aria-colindex')).toBe('3');
+    });
+  });
 });

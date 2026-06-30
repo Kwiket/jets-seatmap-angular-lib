@@ -14,6 +14,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import {
   IConfig,
   IDeckData,
@@ -40,12 +41,16 @@ import {
   DEFAULT_LANG,
   DEFAULT_SEAT_MAP_WIDTH,
   DEFAULT_UNITS,
+  LEGACY_COLOR_THEME,
   LOCALES_MAP,
   SCALE_TYPES,
+  WCAG_COLOR_THEME,
 } from '../../constants';
+import { getWcagFlags, TResolvedWcagFlags } from '../../utils/wcag-flags';
 import { getNativeRowHeight } from '../../utils/cabin-utils';
 import { getEnvironmentInfo } from '../../services/environment.service';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
+import { SeatGridNavigationService, ICellPos } from '../../services/seat-grid-navigation.service';
 import { JetsSeatMapPreparerService } from '../../services/jets-seat-map-preparer.service';
 import { JetsDeckComponent } from '../jets-deck/jets-deck.component';
 import { JetsTooltipComponent } from '../jets-tooltip/jets-tooltip.component';
@@ -55,6 +60,14 @@ import { JetsPlaneBodyComponent } from '../jets-plane-body/jets-plane-body.compo
 import { JetsDeckSelectorComponent } from '../jets-deck-selector/jets-deck-selector.component';
 import { JetsDeckSeparatorComponent } from '../jets-deck-separator/jets-deck-separator.component';
 import { JetsWingComponent } from '../jets-wing/jets-wing.component';
+import { JetsSeatListComponent } from '../jets-seat-list/jets-seat-list.component';
+
+// Module-scope counter for stable per-instance IDs used by ARIA wiring
+// (region heading, skip-link target, deck panel/tab id pairs). Restarting
+// the counter on each app load is fine — IDs only need to be unique within
+// the current document, not across reloads.
+let _jetsSeatMapInstanceUid = 0;
+const nextSeatMapInstanceId = (): string => `jets-seatmap-${++_jetsSeatMapInstanceUid}`;
 
 @Component({
   selector: 'sm-jets-seat-map',
@@ -70,6 +83,7 @@ import { JetsWingComponent } from '../jets-wing/jets-wing.component';
     JetsDeckSelectorComponent,
     JetsDeckSeparatorComponent,
     JetsWingComponent,
+    JetsSeatListComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './jets-seat-map.component.html',
@@ -126,9 +140,14 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   isSeatMapInited = false;
   isLoading = false;
   error: string | null = null;
+
+  // Cache for the merged colorTheme so `resolvedConfig.colorTheme` keeps a
+  // stable reference across change-detection (see resolvedConfig).
+  private _mergedThemeComputed = false;
+  private _mergedThemeKey: IConfig['colorTheme'] = undefined;
+  private _mergedThemeValue: IConfig['colorTheme'] = undefined;
   activeTooltip: ITooltipData | null = null;
   passengersList: IPassenger[] = [];
-  isSelectAvailable = false;
   activeDeckIndex = 0;
 
   /** Swapped container dimensions in horizontal mode (the rotor's pre-rotation
@@ -147,24 +166,76 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   private _prevUnits: string | null = null;
   private _prevSeatJumpToLabel: string | null = null;
 
-  // Hover-tooltip "hoverable" delay. Without this, mouseleave on the seat
-  // synchronously tears down the tooltip, so any button inside it (Select,
-  // Cancel, Close) is gone before the cursor can land on it. The close is
-  // scheduled instead and cancelled when the cursor enters the tooltip body.
-  //
-  // 300 ms covers a normal-pace cursor travel across the 12 px gap between
-  // seat and tooltip (`calculateTooltipData` in jets-seat-map.service.ts).
-  // A tighter window (e.g. 80 ms) was observed to drop the tooltip when a
-  // user crossed the gap slowly. WCAG SC 1.4.13 allows arbitrary "user can
-  // reach the content" delays as long as the close is dismissable, which
-  // it is via Escape / click-outside.
-  private _hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
-  private static readonly HOVER_CLOSE_DELAY_MS = 300;
+  // ─── Alternative-view (list vs grid) state ──────────────────────────────
+  /**
+   * User toggle override. `null` means "follow config / viewport". Set when
+   * the user clicks the toggle button so a viewport resize doesn't fight
+   * the user's intent.
+   */
+  viewOverride: 'grid' | 'list' | null = null;
+
+  /** Tracks `matchMedia('(max-width: 480px)').matches` for `'auto'` mode. */
+  private _viewportNarrow = false;
+  private _viewportMql: MediaQueryList | null = null;
+  private _viewportMqlListener: ((e: MediaQueryListEvent) => void) | null = null;
+
+  // ─── Per-instance ARIA identifiers ──────────────────────────────────────
+  // Generated lazily via a module-level counter so multiple seat maps on the
+  // same page get distinct ids for region heading, skip-link target, and
+  // tab/tabpanel wiring.
+  readonly instanceId: string = nextSeatMapInstanceId();
+  readonly mapHeadingId: string = `${this.instanceId}-heading`;
+  readonly afterId: string = `after-${this.instanceId}`;
+  readonly deckPanelIdBase: string = `${this.instanceId}-deck-panel`;
 
   constructor(
     private seatmapService: JetsSeatMapService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private liveAnnouncer: LiveAnnouncer,
+    private gridNav: SeatGridNavigationService
   ) {}
+
+  // ─── Grid keyboard navigation state (commit 7) ──────────────────────────
+  /**
+   * Currently focused cell in the seat grid. Drives roving-tabindex (the
+   * cell with `tabindex=0` is the only Tab entry point; arrow keys then
+   * move focus within the grid). Updated on `focusin` from any seat and
+   * by `onGridKeydown` after a successful nav move.
+   */
+  focusedCell: ICellPos = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
+
+  // ─── Hover tooltip "hoverable" delay (commit 8 / SC 1.4.13) ─────────────
+  /**
+   * Pending close timer id. Scheduled by `onSeatMouseLeave` /
+   * `onTooltipMouseLeave` and cancelled by `_showTooltip` or
+   * `onTooltipMouseEnter` so the user can move the cursor from the seat
+   * into the tooltip without it being yanked away.
+   *
+   * 300 ms covers a normal-pace cursor travel across the 12 px gap between
+   * seat and tooltip (`calculateTooltipData` in jets-seat-map.service.ts).
+   * A tighter window (e.g. 80 ms) was observed to drop the tooltip when a
+   * user crossed the gap slowly. WCAG SC 1.4.13 allows arbitrary "user can
+   * reach the content" delays as long as the close is dismissable, which
+   * it is via Escape / click-outside.
+   */
+  private _hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Delay (ms) before a hover-tooltip is auto-closed once the cursor leaves. */
+  private static readonly HOVER_CLOSE_DELAY_MS = 300;
+
+  // ─── Tooltip dialog focus return (commit 11 / WCAG 2.4.3) ───────────────
+  /**
+   * The element that opened the tooltip (a seat `<div>` or list-row button).
+   * Captured in `_showTooltip` and consumed by `onTooltipClose` / Select /
+   * Unselect to restore keyboard focus back to the trigger when the dialog
+   * goes away — same pattern as any non-modal dialog (a la `mat-menu`).
+   * `null` while no tooltip is open.
+   */
+  private _lastTriggerElement: HTMLElement | null = null;
+
+  /** Resolved WCAG flag set — single source of truth for every feature gate. */
+  get wcagFlags(): TResolvedWcagFlags {
+    return getWcagFlags(this.config);
+  }
 
   get resolvedConfig(): IConfig {
     const env = getEnvironmentInfo();
@@ -173,6 +244,29 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     if (env.isFirefox && scaleType === SCALE_TYPES.ZOOM) {
       scaleType = SCALE_TYPES.SCALE as any;
     }
+    // WCAG-AA palette is opt-in via `wcag.defaultColorTheme`. We DO NOT
+    // pre-merge `WCAG_COLOR_THEME` into the resolved theme here — that would
+    // populate every key (including deck-height padding, stroke widths,
+    // wing dimensions) and make sub-components treat them as user overrides.
+    // Instead the `wcagPalette` flag is plumbed to sub-components and they
+    // pick `WCAG_COLOR_THEME` (vs `DEFAULT_COLOR_THEME`/`LEGACY_COLOR_THEME`)
+    // as the fallback base for unset colour keys only — leaving structural
+    // keys, `customSeatColorRanges`, and API-injected per-seat colours
+    // untouched.
+    // Cache the merged theme by the raw `config.colorTheme` reference. Without
+    // this, `mergeColorThemeWithConstraints` builds a NEW object on every
+    // change-detection, so `resolvedConfig.colorTheme` changes identity each
+    // CD; every seat then sees a "new" `colorTheme` input, runs ngOnChanges and
+    // rebuilds its inner SVG — which replaces the <path> between mousedown and
+    // mouseup and swallows the first click. A stable reference fixes that (and
+    // avoids rebuilding every seat on every tick).
+    const rawTheme = this.config?.colorTheme;
+    if (!this._mergedThemeComputed || this._mergedThemeKey !== rawTheme) {
+      this._mergedThemeValue = JetsSeatMapPreparerService.mergeColorThemeWithConstraints(rawTheme);
+      this._mergedThemeKey = rawTheme;
+      this._mergedThemeComputed = true;
+    }
+    const colorTheme = this._mergedThemeValue;
     return {
       ...this.config,
       width: this.config?.width ?? DEFAULT_SEAT_MAP_WIDTH,
@@ -184,7 +278,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       visibleFuselage: this.config?.visibleFuselage ?? true,
       visibleSeatPriceLabels: this.config?.visibleSeatPriceLabels ?? false,
       flatBulks: this.config?.flatBulks ?? false,
-      colorTheme: JetsSeatMapPreparerService.mergeColorThemeWithConstraints(this.config?.colorTheme),
+      colorTheme,
       scaleType,
     };
   }
@@ -243,6 +337,17 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   get hasAvailability(): boolean {
     return !!this.availability?.length;
+  }
+
+  /**
+   * Whether there's a passenger queued to receive the next seat selection.
+   * Computed (not a stored flag) so it's correct everywhere it's consumed —
+   * notably the list view, which never opens a tooltip (where this used to be
+   * the only place the flag was refreshed, leaving list Select buttons stuck
+   * disabled even for available seats).
+   */
+  get isSelectAvailable(): boolean {
+    return !!this.seatmapService.getNextPassenger(this.passengersList);
   }
 
   get legendItems(): ILegendItem[] {
@@ -332,6 +437,48 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   get noseType(): string {
     return this.content[0]?.extras?.noseType ?? 'default';
+  }
+
+  // ─── A11y landmark / skip-link helpers ──────────────────────────────────
+  /**
+   * Visually-hidden <h2> text that names the region landmark. Combines a
+   * localised "seat map" label with the active deck's title when present so
+   * AT users hear something concrete instead of a generic "Seat map".
+   * TODO(commit 17 docs): add a dedicated 'seatMap' locale key — until then
+   * we synthesise the label from 'gridLabel' (added in commit 3) or fall
+   * back to English.
+   */
+  get mapHeadingText(): string {
+    const locale = LOCALES_MAP[this.lang] || LOCALES_MAP['EN'] || {};
+    const base = locale['gridLabel'] || 'Seat map';
+    const cabin = this.content[this.activeDeckIndex]?.title || this.content[0]?.title || '';
+    return cabin ? `${base} — ${cabin}` : base;
+  }
+
+  /**
+   * Label for the visually-hidden-until-focus skip link. Honours the
+   * 'skipSeatmap' locale key when present; English fallback otherwise.
+   * TODO(commit 17 docs): add 'skipSeatmap' to all locales.
+   */
+  get skipLinkLabel(): string {
+    const locale = LOCALES_MAP[this.lang] || LOCALES_MAP['EN'] || {};
+    return locale['skipSeatmap'] || 'Skip seat map';
+  }
+
+  /** id placed on the deck panel for aria-controls wiring from the tablist. */
+  get deckPanelId(): string {
+    return `${this.deckPanelIdBase}-${this.activeDeckIndex}`;
+  }
+
+  /**
+   * Used by the deck panel's aria-labelledby — only meaningful in tablist
+   * (N>=3) mode where the deck-selector renders real <button role="tab">
+   * elements with these ids. For N<3 it points at a non-existent id which
+   * AT treats as no labelledby; the section heading still names the region.
+   * Kept on the panel unconditionally to keep the template simple.
+   */
+  get activeDeckTabId(): string {
+    return `${this.deckPanelIdBase}-${this.activeDeckIndex}-tab`;
   }
 
   // ─── Component overrides (React-parity API) ──────────────────────────────
@@ -438,7 +585,12 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     //
     // Multiply by displayScale so the visible lining matches React's
     // CSS-zoom-scaled rendering — same as scaledStrokeWidth on the body.
-    const innerW = this.fuselageBodyWidth - 2 * stroke;
+    //
+    // `fuselageBodyWidth` is in scaled CSS px, but the body border subtracted
+    // here is `fuselageStrokeWidth * displayScale` (see jets-plane-body's
+    // `scaledStrokeWidth`), not the raw config value — so scale `stroke` to the
+    // same space, otherwise the lining is off by `2*stroke*(displayScale-1)`.
+    const innerW = this.fuselageBodyWidth - 2 * stroke * this.displayScale;
     const deckW = deck.deckWidth ?? innerW;
     return Math.max((innerW - deckW) * 0.5, stroke) * this.displayScale;
   }
@@ -579,6 +731,7 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit(): void {
     this.activeDeckIndex = this.currentDeckIndex;
+    this._initViewportWatcher();
     this._loadSeatMap();
   }
 
@@ -691,8 +844,16 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
                 `[data-seat-number="${seat.number}"]`
               ) as HTMLElement;
               if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const prefersReducedMotion =
+                  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+                el.scrollIntoView({
+                  behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                  block: 'center',
+                });
                 this.onSeatClick({ seat, element: el });
+                this._announceMovedToSeat(seat);
+              } else {
+                this._announceSeatNotFound(seatLabel);
               }
             }, 150);
             return;
@@ -700,11 +861,237 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
         }
       }
     }
+    // No seat matched the label in any deck.
+    this._announceSeatNotFound(seatLabel);
   }
 
   ngOnDestroy(): void {
     this._flightId = null;
+    this._teardownViewportWatcher();
+    // SC 1.4.13: cancel any pending hover-close so the timer can't fire
+    // against a destroyed view and emit a stray `activeTooltipChanged(null)`.
     this._cancelHoverClose();
+  }
+
+  // ─── Alternative-view (list vs grid) — commit 13 ────────────────────────
+
+  /**
+   * Resolved render mode. Reads `wcag.alternativeView` (with the deprecated
+   * top-level `config.alternativeView` fallback handled inside `getWcagFlags`).
+   * `viewOverride` (set by the toggle button) wins. `'auto'` follows the
+   * live `_viewportNarrow` flag (`matchMedia('(max-width: 480px)')`).
+   */
+  get effectiveView(): 'grid' | 'list' {
+    if (this.viewOverride) return this.viewOverride;
+    const cfg = this.wcagFlags.alternativeView;
+    if (cfg === 'list') return 'list';
+    if (cfg === 'auto') return this._viewportNarrow ? 'list' : 'grid';
+    return 'grid';
+  }
+
+  /**
+   * Whether the user-facing toggle button should render. Only shown when the
+   * host explicitly opted into `'auto'` — pinning `'grid'` / `'list'` (or
+   * leaving the config alone, in which case `getWcagFlags` returns the
+   * `'grid'` default) means the host picked a mode and the toggle stays
+   * hidden. Pre-WCAG hosts never see the button.
+   */
+  get showViewToggle(): boolean {
+    return this.wcagFlags.alternativeView === 'auto';
+  }
+
+  /** Localised label for the toggle button (English fallback). */
+  get viewToggleLabel(): string {
+    // TODO(commit 17 docs): add 'viewAsList' / 'viewAsMap' locale keys.
+    return this.effectiveView === 'list' ? 'View as map' : 'View as list';
+  }
+
+  /** Flip user override; viewport changes will no longer override. */
+  toggleView(): void {
+    this.viewOverride = this.effectiveView === 'list' ? 'grid' : 'list';
+    this.cdr.markForCheck();
+  }
+
+  private _initViewportWatcher(): void {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    this._viewportMql = window.matchMedia('(max-width: 480px)');
+    this._viewportNarrow = this._viewportMql.matches;
+    this._viewportMqlListener = (e: MediaQueryListEvent) => {
+      this._viewportNarrow = e.matches;
+      this.cdr.markForCheck();
+    };
+    this._viewportMql.addEventListener('change', this._viewportMqlListener);
+  }
+
+  private _teardownViewportWatcher(): void {
+    if (this._viewportMql && this._viewportMqlListener) {
+      this._viewportMql.removeEventListener('change', this._viewportMqlListener);
+    }
+    this._viewportMql = null;
+    this._viewportMqlListener = null;
+  }
+
+  // ─── Grid keyboard navigation handlers (commit 7) ──────────────────────
+
+  /**
+   * Handle keydown bubbling up from any cell in the active grid. Delegates
+   * the key → next-cell decision to `SeatGridNavigationService`, then
+   * imperatively focuses the next cell + flips the roving tabindex. Escape
+   * closes the tooltip without moving focus.
+   */
+  onGridKeydown(event: KeyboardEvent): void {
+    const flags = this.wcagFlags;
+    // Escape-to-dismiss belongs to the dialog contract — independently
+    // togglable so consumers running with `keyboardNavigation` off but the
+    // dialog tooltip on still get the dismiss key.
+    if (flags.tooltipDialog && event.key === 'Escape' && this.activeTooltip) {
+      this.onTooltipClose();
+      event.preventDefault();
+      return;
+    }
+
+    // While the built-in tooltip is open as an interactive (click / Enter-
+    // activated, non-hover) dialog, it owns the keyboard. Its action buttons
+    // live inside this same container, so their Arrow / Home / End / Page keys
+    // bubble up here — without this guard `gridNav.move` + `_focusCell` would
+    // yank focus back onto a seat the moment the user tries to move between
+    // the dialog buttons. Hover-follow tooltips (`tooltipOnHover`) keep focus
+    // on the seat and must NOT suspend grid navigation, so they're excluded.
+    if (flags.tooltipDialog && this.activeTooltip && !this.resolvedConfig.tooltipOnHover) {
+      return;
+    }
+
+    // Arrow / Home / End / PageUp / PageDown nav lives under
+    // `keyboardNavigation`. Without the flag the handler returns and the
+    // browser sees the native key (default tab order) — pre-WCAG parity.
+    if (!flags.keyboardNavigation) return;
+
+    const rawKey = this.gridNav.classifyKey(event);
+    if (!rawKey) return;
+
+    // Remap arrows to the on-screen direction when the cabin is rotated
+    // (horizontal). Vertical mode and non-arrow keys are unchanged.
+    const key = this.gridNav.remapForOrientation(
+      rawKey,
+      this.resolvedConfig.horizontal ?? false,
+      this.resolvedConfig.rightToLeft ?? false
+    );
+
+    const next = this.gridNav.move(this.focusedCell, key, this.content);
+    if (next === this.focusedCell) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.focusedCell = next;
+    this._applyRovingTabindex();
+    this._focusCell(next);
+  }
+
+  /**
+   * Sync `focusedCell` to wherever the user actually clicked / Tab-landed.
+   * Listens to bubbling `focusin` so a pointer-only user moves the roving
+   * anchor too, keeping subsequent arrow nav consistent with their last
+   * click.
+   */
+  onGridFocusin(event: FocusEvent): void {
+    // Roving-tabindex focus tracking and focus-driven tooltip parity are
+    // both keyboard-navigation behaviour — gated together.
+    if (!this.wcagFlags.keyboardNavigation) return;
+    const el = event.target as HTMLElement | null;
+    if (!el) return;
+    const rowAttr = el.getAttribute?.('aria-rowindex');
+    const colAttr = el.getAttribute?.('aria-colindex');
+    if (rowAttr == null || colAttr == null) return;
+    const rowIdx = parseInt(rowAttr, 10) - 1;
+    const colIdx = parseInt(colAttr, 10) - 1;
+    if (isNaN(rowIdx) || isNaN(colIdx)) return;
+    // With `singleDeckMode: false` every deck renders at once, so the focused
+    // seat may belong to a deck other than `activeDeckIndex`. Read the real
+    // deck off the ancestor `.deck-wrapper[data-deck-index]` (single-deck mode
+    // renders only the active deck, so the attribute resolves to it anyway).
+    // Without this, arrow nav would index `decks[activeDeckIndex].rows` and
+    // jump into the wrong deck.
+    const deckAttr = el.closest?.('.deck-wrapper')?.getAttribute('data-deck-index');
+    const parsedDeck = deckAttr != null ? parseInt(deckAttr, 10) : NaN;
+    const deckIdx = !isNaN(parsedDeck) ? parsedDeck : this.activeDeckIndex;
+    this.focusedCell = { deckIdx, rowIdx, colIdx };
+    this._applyRovingTabindex();
+
+    // WCAG 2.1 SC 1.4.13 — focus parity for hover tooltip.
+    // Mouse users get the tooltip on mouseenter when `tooltipOnHover` is on
+    // (see `onSeatMouseEnter`). Keyboard / AT users navigating the grid
+    // with arrow keys (commit 7) must get the same affordance — otherwise
+    // information that is "available on hover" is invisible to them.
+    if (!this.resolvedConfig.tooltipOnHover) return;
+    if (getEnvironmentInfo().isTouchDevice) return;
+
+    const deck = this.content[this.focusedCell.deckIdx];
+    const row = deck?.rows?.[this.focusedCell.rowIdx];
+    const seat = row?.seats?.[this.focusedCell.colIdx];
+    if (!seat || seat.type !== 'seat') return;
+    // Only interactive seats trigger the tooltip — matches the implicit
+    // contract of `_showTooltip` (which would render a tooltip with no
+    // actions for non-interactive states like 'unavailable').
+    const interactive =
+      seat.status === 'available' ||
+      seat.status === 'selected' ||
+      seat.status === 'preferred' ||
+      seat.status === 'extra';
+    if (!interactive) return;
+
+    // Avoid flicker / redundant emits when focus moves within the same seat
+    // (e.g. focus bounces back from the tooltip).
+    if (this.activeTooltip && this.activeTooltip.seat === seat) return;
+
+    this._showTooltip({ seat, element: el });
+  }
+
+  /**
+   * Walk every gridcell in the active map container and set `tabindex` so
+   * exactly the focused cell carries `0` and every other carries `-1`.
+   * Cheap DOM walk — at most a few hundred elements per deck.
+   */
+  private _applyRovingTabindex(): void {
+    const container = this.mapContainer?.nativeElement;
+    if (!container) return;
+    const focusedRow = String(this.focusedCell.rowIdx + 1);
+    const focusedCol = String(this.focusedCell.colIdx + 1);
+    const cells = container.querySelectorAll<HTMLElement>('[role="gridcell"]');
+    cells.forEach(cell => {
+      const isFocused =
+        cell.getAttribute('aria-rowindex') === focusedRow && cell.getAttribute('aria-colindex') === focusedCol;
+      cell.setAttribute('tabindex', isFocused ? '0' : '-1');
+    });
+  }
+
+  /**
+   * Imperatively focus the cell at `pos`. Uses `aria-rowindex`/`-colindex`
+   * (set by commit 6) so we don't depend on having a `data-seat-number`
+   * (aisle / empty cells have no seat number).
+   */
+  private _focusCell(pos: ICellPos): void {
+    const container = this.mapContainer?.nativeElement;
+    if (!container) return;
+    const row = String(pos.rowIdx + 1);
+    const col = String(pos.colIdx + 1);
+    const el = container.querySelector<HTMLElement>(
+      `[role="gridcell"][aria-rowindex="${row}"][aria-colindex="${col}"]`
+    );
+    el?.focus?.();
+  }
+
+  /**
+   * Initialise / reset the roving anchor after a new map renders or the
+   * active deck changes. Picks the first interactive seat in the active
+   * deck (via `initialCell`), then applies the tabindex so Tab into the
+   * grid lands on the right cell.
+   */
+  private _resetGridFocus(): void {
+    if (!this.wcagFlags.keyboardNavigation) return;
+    if (!this.content?.length) return;
+    this.focusedCell = this.gridNav.initialCell(this.activeDeckIndex, this.content);
+    // Defer to next tick so the rendered DOM matches the new `content`.
+    setTimeout(() => this._applyRovingTabindex(), 0);
   }
 
   private _isSettingsReload = false;
@@ -791,6 +1178,11 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
         this.seatMapInited.emit(payload);
         this.layoutUpdated.emit(layout);
       }, 0);
+
+      // Seed the roving-tabindex anchor on the first interactive seat of the
+      // active deck (commit 7). The applier defers a tick so it runs after
+      // the grid DOM has materialised.
+      this._resetGridFocus();
 
       this.mediaReady.emit(this.media);
       this.legendReady.emit(this.legendItems);
@@ -958,16 +1350,17 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.seatMouseLeave.emit({ seat: this._prepareSeatForEmit(seat), element, event });
 
     if (!getEnvironmentInfo().isTouchDevice) {
-      // Defer the close so the cursor has time to reach the tooltip body —
-      // `onTooltipMouseEnter` cancels the pending close. Without this, the
-      // tooltip is torn out of the DOM before any in-tooltip button can be
-      // clicked.
+      // WCAG 2.1 SC 1.4.13 ("hoverable"): defer the close so a user moving
+      // the cursor from the seat into the tooltip body has time to reach
+      // it. `onTooltipMouseEnter` cancels the pending close; if the cursor
+      // misses the tooltip the timer fires and the tooltip vanishes.
       this._scheduleHoverClose();
     }
   }
 
   /**
-   * Cursor entered the tooltip body. Cancel the pending hover-close so the
+   * Cursor (or focus, indirectly via :focus-within) entered the tooltip body.
+   * Cancel the pending hover-close timer set by `onSeatMouseLeave` so the
    * tooltip stays put while the user is interacting with it (clicking on
    * Select / Cancel / Close buttons).
    */
@@ -976,10 +1369,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
-   * Cursor left the tooltip body. Re-arm the delayed close so moving the
-   * cursor off the tooltip (without going back to the seat) still dismisses
-   * it — matching the original "leaves on mouseleave" behaviour but with a
-   * grace window the cursor can use to travel between the two elements.
+   * Cursor left the tooltip body. Re-arm the same delayed close used by
+   * `onSeatMouseLeave` so moving the cursor off the tooltip (without going
+   * back to the seat) still dismisses it — matching the original "leaves on
+   * mouseleave" behaviour but with the grace window required by SC 1.4.13.
    */
   onTooltipMouseLeave(): void {
     if (!this.resolvedConfig.tooltipOnHover) return;
@@ -1059,13 +1452,18 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   private _showTooltip(payload: { seat: ISeatData; element: HTMLElement; event?: Event }): void {
     const { seat, element, event } = payload;
 
-    // Re-entering a seat while a hover-close was pending must abort the
-    // close so we don't immediately tear down the tooltip we're about to
-    // open.
+    // Record the element that opened the dialog so `onTooltipClose` (and the
+    // Select / Unselect handlers below) can return focus to it when the
+    // tooltip is dismissed (WCAG 2.4.3 Focus Order). Mirrors the standard
+    // non-modal-dialog focus-return contract.
+    this._lastTriggerElement = element;
+
+    // Re-entering a seat (or focus moving back) while a hover-close was
+    // pending must abort the close so we don't immediately tear down the
+    // tooltip we're about to open.
     this._cancelHoverClose();
 
     const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
-    this.isSelectAvailable = !!nextPassenger;
 
     const tooltipData = this.seatmapService.calculateTooltipData(
       seat,
@@ -1162,8 +1560,9 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
       color: resolvedColor,
       originalColor: originalColor ?? resolvedColor,
       currency,
-      // `price` becomes the formatted string; `priceValue` carries the number.
-      price: priceStr as unknown as number,
+      // `price` becomes the formatted string (the public type is
+      // `number | string`); `priceValue` carries the raw number for arithmetic.
+      price: priceStr,
       priceValue: numericPrice,
       passengerTypes,
       rotation: emittedRotation,
@@ -1183,6 +1582,10 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onTooltipSelect(seat: ISeatData): void {
+    // TODO(commit 10): announce restriction reason when select is blocked
+    // (commit 10 owns the tooltip restriction-reasoning flow and will expose
+    //  a hook here so we can route the reason through LiveAnnouncer).
+    const nextPassenger = this.seatmapService.getNextPassenger(this.passengersList);
     const { data, passengers } = this.seatmapService.selectSeatHandler(this.content, seat, this.passengersList);
     this.content = data;
     this.passengersList = passengers;
@@ -1191,6 +1594,8 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.activeTooltipChanged.emit(null);
     this.passengersChanged.emit(passengers);
     this.legendReady.emit(this.legendItems);
+    this._announceSeatSelected(seat, nextPassenger);
+    this._restoreFocusToTrigger();
     this.cdr.markForCheck();
   }
 
@@ -1208,13 +1613,59 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.activeTooltipChanged.emit(null);
     this.passengersChanged.emit(passengers);
     this.legendReady.emit(this.legendItems);
+    this._announceSeatCleared(seat);
+    this._restoreFocusToTrigger();
     this.cdr.markForCheck();
   }
 
   onTooltipClose(): void {
     this.activeTooltip = null;
     this.activeTooltipChanged.emit(null);
+    this._restoreFocusToTrigger();
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Return keyboard focus to the seat (or list row) that opened the tooltip,
+   * then clear the stored reference. Deferred via `setTimeout(0)` so the
+   * tooltip DOM has time to detach before `.focus()` runs — focusing while
+   * the dialog is still mounted can re-trigger an unwanted hover-open. All
+   * wrapped in try/catch so a removed/disconnected trigger never throws.
+   * WCAG 2.4.3 (Focus Order) — non-modal dialog focus-return contract.
+   *
+   * Skipped when:
+   *   - `wcag.tooltipDialog` is off (no dialog contract to honour); OR
+   *   - `tooltipOnHover` is on — focusing the trigger seat fires
+   *     `onGridFocusin`, which re-opens the tooltip (intended for keyboard
+   *     hover parity), so a click on Cancel/Close would close → focus-restore
+   *     → reopen in a loop. In hover mode the cursor is already on or near
+   *     the seat, so the restoration brings no a11y benefit anyway.
+   */
+  private _restoreFocusToTrigger(): void {
+    const trigger = this._lastTriggerElement;
+    this._lastTriggerElement = null;
+    if (!trigger) return;
+    if (!this.wcagFlags.tooltipDialog) return;
+    if (this.resolvedConfig.tooltipOnHover) return;
+    setTimeout(() => {
+      try {
+        trigger.focus({ preventScroll: true });
+      } catch {
+        /* no-op: jsdom / disconnected node may throw on focus options */
+      }
+    }, 0);
+  }
+
+  /**
+   * Bound to the (keydown.escape) listener on the tooltip host element(s).
+   * Routes through `onTooltipClose` only when the dialog contract is active —
+   * otherwise the keydown bubbles to the host page so consumers' own Escape
+   * handlers (modal dismiss, dropdown close, etc.) keep working.
+   */
+  onTooltipHostEscape(event: Event): void {
+    if (!this.wcagFlags.tooltipDialog) return;
+    this.onTooltipClose();
+    event.stopPropagation();
   }
 
   onMapClick(event: MouseEvent): void {
@@ -1246,5 +1697,111 @@ export class JetsSeatMapComponent implements OnInit, OnChanges, OnDestroy {
     this.deckChanged.emit(index);
     this.cdr.markForCheck();
     this._emitLayoutUpdated();
+    // Re-anchor the roving tabindex to the first interactive seat of the new
+    // deck (commit 7). Best-effort focus call via try/catch — never fail a
+    // deck switch over a focus glitch. Gated by `keyboardNavigation` because
+    // (a) the focus call would re-open a hover tooltip via `onGridFocusin`,
+    // and (b) without the nav handler arrow keys do nothing anyway.
+    if (!this.wcagFlags.keyboardNavigation) return;
+    setTimeout(() => {
+      try {
+        this.focusedCell = this.gridNav.initialCell(index, this.content);
+        this._applyRovingTabindex();
+        this._focusCell(this.focusedCell);
+      } catch {
+        /* no-op: best-effort focus restoration */
+      }
+    }, 0);
+  }
+
+  /**
+   * Skip-link click handler. Default <a href="#id"> behaviour would jump
+   * but most ids on this page belong to non-focusable elements; we want the
+   * after-region <span tabindex="-1"> to actually take focus so the next
+   * Tab continues into the page rather than back into the seat map.
+   */
+  onSkipLinkClick(event: Event): void {
+    event.preventDefault();
+    const target = document.getElementById(this.afterId);
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    // Bring the target into view so sighted keyboard users see they jumped.
+    target.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  }
+
+  // ─── A11y live announcements ────────────────────────────────────────────
+  //
+  // All announcements use `polite` politeness — the seat-map is not an
+  // emergency UI, so assertive would over-interrupt the screen reader user.
+  // Strings are pulled from LOCALES_MAP via _a11yLocale() with an English
+  // fallback so missing keys never silently swallow announcements.
+
+  private _a11yLocale(): Record<string, string> {
+    return LOCALES_MAP[this.lang] || LOCALES_MAP['EN'] || {};
+  }
+
+  private _announce(message: string): void {
+    // Gate live announcements behind `wcag.liveAnnouncer`. Without the flag
+    // the call is a no-op so consumers don't pick up surprise screen-reader
+    // chatter just from upgrading to a WCAG release. The cdk LiveAnnouncer
+    // is still injected unconditionally — its only cost is a hidden DOM
+    // node, and removing the injection would mean a service-construction
+    // gate per call site.
+    if (!this.wcagFlags.liveAnnouncer) return;
+    // LiveAnnouncer manipulates a live-region DOM node; if the host page
+    // tore that down (or we fire from a stray timer after teardown) we
+    // don't want the announcement failure to surface as a hard error.
+    try {
+      this.liveAnnouncer.announce(message, 'polite');
+    } catch {
+      /* no-op: announcement is best-effort */
+    }
+  }
+
+  private _passengerLabel(passenger: IPassenger | null | undefined): string {
+    if (!passenger) return 'passenger';
+    return passenger.passengerLabel || passenger.abbr || 'passenger';
+  }
+
+  private _announceSeatSelected(seat: ISeatData, passenger: IPassenger | null | undefined): void {
+    const locale = this._a11yLocale();
+    const seatWord = locale['seat'] || 'Seat';
+    const selectedFor = locale['seatSelectedFor'] || 'selected for';
+    const number = seat.number ?? '';
+    const passengerLabel = this._passengerLabel(passenger);
+    const currency = seat.currency ?? '';
+    const price = seat.price;
+    const pricePart = price != null ? `, ${currency}${price}` : '';
+    const message = `${seatWord} ${number} ${selectedFor} ${passengerLabel}${pricePart}`.trim();
+    this._announce(message);
+  }
+
+  private _announceSeatCleared(seat: ISeatData): void {
+    const locale = this._a11yLocale();
+    const seatWord = locale['seat'] || 'Seat';
+    // No dedicated `seatCleared` key in LOCALES_MAP — fall back to English
+    // wording. Localised key can be added later without changing call sites.
+    const clearedWord = locale['seatCleared'] || 'cleared';
+    const number = seat.number ?? '';
+    const message = `${seatWord} ${number} ${clearedWord}`.trim();
+    this._announce(message);
+  }
+
+  private _announceMovedToSeat(seat: ISeatData): void {
+    const locale = this._a11yLocale();
+    // `moveToSeat` is the imperative ("Move to seat") — reuse it as the
+    // base phrase; switch to a dedicated `movedToSeat` key once localised.
+    const movedTo = locale['movedToSeat'] || locale['moveToSeat'] || 'Moved to seat';
+    const number = seat.number ?? '';
+    const message = `${movedTo} ${number}`.trim();
+    this._announce(message);
+  }
+
+  private _announceSeatNotFound(label: string): void {
+    const locale = this._a11yLocale();
+    const seatWord = locale['seat'] || 'Seat';
+    const notFound = locale['seatNotFound'] || 'not found';
+    const message = `${seatWord} ${label} ${notFound}`.trim();
+    this._announce(message);
   }
 }

@@ -8,12 +8,23 @@ const FLAT = '#0a0a0a';
 async function bodyColours(page: Page): Promise<Set<string>> {
   return new Set(
     await page.evaluate(() => {
-      const grey = new Set(['rgb(169, 169, 169)', 'rgb(235, 235, 235)', 'rgb(255, 255, 255)', 'white', 'none', '#ffffff', '#fff']);
+      const grey = new Set([
+        'rgb(169, 169, 169)',
+        'rgb(235, 235, 235)',
+        'rgb(255, 255, 255)',
+        'white',
+        'none',
+        '#ffffff',
+        '#fff',
+      ]);
       const out: string[] = [];
       for (const seat of Array.from(document.querySelectorAll('.jets-seat--available')) as HTMLElement[]) {
         for (const p of Array.from(seat.querySelectorAll('svg path'))) {
           const f = (p.getAttribute('fill') || '').toLowerCase().trim();
-          if (f && !grey.has(f)) { out.push(f); break; }
+          if (f && !grey.has(f)) {
+            out.push(f);
+            break;
+          }
         }
       }
       return out;
@@ -41,7 +52,13 @@ test.describe('seat colour modes (config-driven)', () => {
     await applyConfigAndReady(page, { colorTheme: { customSeatColorClasses: CLASSES } }, { availability: [] });
     const colours = await bodyColours(page);
     expect(colours.size).toBeGreaterThan(0);
-    expect([...colours].every(c => Object.values(CLASSES).map(v => v.toLowerCase()).includes(c))).toBe(true);
+    expect(
+      [...colours].every(c =>
+        Object.values(CLASSES)
+          .map(v => v.toLowerCase())
+          .includes(c)
+      )
+    ).toBe(true);
   });
 
   test('both on: score wins over class', async ({ page }) => {

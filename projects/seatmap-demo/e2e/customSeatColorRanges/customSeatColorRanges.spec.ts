@@ -109,7 +109,10 @@ test.describe('customSeatColorRanges', () => {
       let n = 0;
       for (const seat of seats) {
         for (const p of Array.from(seat.querySelectorAll('svg path'))) {
-          if ((p.getAttribute('fill') || '').toLowerCase() === '#abcdef') { n++; break; }
+          if ((p.getAttribute('fill') || '').toLowerCase() === '#abcdef') {
+            n++;
+            break;
+          }
         }
       }
       return n;

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { JetsSeatMapComponent } from './jets-seat-map.component';
 import { JetsSeatMapService } from '../../services/jets-seat-map.service';
 import { resetCachedEnvironmentInfo } from '../../services/environment.service';
@@ -620,6 +621,81 @@ describe('JetsSeatMapComponent', () => {
       component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
       component.onTooltipSelect(makeSeat());
       expect(component.activeTooltip).toBeNull();
+    });
+  });
+
+  // ─── Tooltip focus return (commit 11 / WCAG 2.4.3) ────────────────────
+  describe('Tooltip focus return', () => {
+    beforeEach(() => {
+      // Focus-return belongs to the dialog contract.
+      component.config = makeConfig({ wcag: { tooltipDialog: true } });
+    });
+
+    it('_showTooltip records the trigger element as _lastTriggerElement', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const trigger = document.createElement('div');
+      component.onSeatClick({ seat: makeSeat(), element: trigger });
+
+      // Field is private; cast to any in the test only.
+      expect((component as any)._lastTriggerElement).toBe(trigger);
+    });
+
+    it('onTooltipClose schedules a focus restoration on the stored trigger', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // Use a real button so .focus() actually works in jsdom.
+      const trigger = document.createElement('button');
+      document.body.appendChild(trigger);
+      const focusSpy = vi.spyOn(trigger, 'focus');
+
+      vi.useFakeTimers();
+      try {
+        component.onSeatClick({ seat: makeSeat(), element: trigger });
+        component.onTooltipClose();
+        // Restoration is deferred via setTimeout(0) so the tooltip DOM has
+        // time to detach before focus moves.
+        expect(focusSpy).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(10);
+        expect(focusSpy).toHaveBeenCalledTimes(1);
+        // After restoration, the stored reference is cleared.
+        expect((component as any)._lastTriggerElement).toBeNull();
+      } finally {
+        vi.useRealTimers();
+        document.body.removeChild(trigger);
+      }
+    });
+  });
+
+  describe('grid keyboard navigation vs open dialog', () => {
+    beforeEach(async () => {
+      // `enabled` turns on gridSemantics + keyboardNavigation + tooltipDialog;
+      // tooltipOnHover stays false, so any open tooltip is an activation dialog.
+      component.config = makeConfig({ wcag: { enabled: true } });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      // Deterministic 1×2 grid so ArrowRight has a seat to move to.
+      (component as any).content = [
+        { rows: [{ id: 'r0', seats: [makeSeat({ number: '1A' }), makeSeat({ number: '1B' })] }] },
+      ];
+      (component as any).focusedCell = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
+    });
+
+    it('ArrowRight moves the focused cell when no tooltip is open', () => {
+      component.activeTooltip = null;
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      expect((component as any).focusedCell).toEqual({ deckIdx: 0, rowIdx: 0, colIdx: 1 });
+    });
+
+    it('ArrowRight does NOT move the grid while an activation dialog is open', () => {
+      component.activeTooltip = { seat: makeSeat() } as any;
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      expect((component as any).focusedCell).toEqual({ deckIdx: 0, rowIdx: 0, colIdx: 0 });
     });
   });
 
@@ -1781,7 +1857,7 @@ describe('JetsSeatMapComponent', () => {
         seat: makeSeat(),
         element: document.createElement('div'),
       });
-      // Close is deferred so the cursor has time to reach the tooltip body.
+      // SC 1.4.13: close is deferred so the cursor can land on the tooltip.
       expect(component.activeTooltip).toBeTruthy();
       vi.advanceTimersByTime(300);
       expect(component.activeTooltip).toBeNull();
@@ -1903,6 +1979,418 @@ describe('JetsSeatMapComponent', () => {
       component.onSeatClick({ seat: makeSeat(), element: document.createElement('div') });
       expect(tooltipSpy).toHaveBeenCalledTimes(1);
       expect(component.activeTooltip).toBeTruthy();
+    });
+  });
+
+  // ─── LiveAnnouncer (WCAG 4.1.3 status messages, commit 9) ─────────────
+  //
+  // Verifies that the polite live region fires the expected English string
+  // for each of the three a11y events: select, unselect, jump. Restriction
+  // announcements are intentionally NOT covered here — commit 10 owns the
+  // restriction-reasoning hook in the tooltip and will route through this
+  // same LiveAnnouncer once the hook exists.
+  describe('LiveAnnouncer (a11y)', () => {
+    let announceSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+      announceSpy = vi.fn().mockResolvedValue(undefined);
+
+      // Replace CDK's root LiveAnnouncer with a mock so we don't depend on
+      // jsdom DOM-region behaviour and can assert exact message strings.
+      // Build a fresh TestBed for this describe block — the outer beforeEach
+      // already configured one without the LiveAnnouncer override.
+      TestBed.resetTestingModule();
+      await TestBed.configureTestingModule({
+        imports: [JetsSeatMapComponent, HttpClientTestingModule],
+        providers: [
+          { provide: JetsSeatMapService, useValue: mockService },
+          { provide: LiveAnnouncer, useValue: { announce: announceSpy, clear: vi.fn() } },
+        ],
+      }).compileComponents();
+
+      fixture = TestBed.createComponent(JetsSeatMapComponent);
+      component = fixture.componentInstance;
+      component.flight = makeFlight();
+      // LiveAnnouncer is opt-in — explicitly enable for this describe block.
+      component.config = makeConfig({ wcag: { liveAnnouncer: true } });
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    });
+
+    it('announces select with passenger label and price (polite)', () => {
+      const passenger: IPassenger = { id: 'p1', passengerLabel: 'John Doe' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [passenger],
+      });
+
+      component.onTooltipSelect(makeSeat({ number: '14C', price: 12, currency: '€' }));
+
+      expect(announceSpy).toHaveBeenCalledWith('Seat 14C selected for John Doe, €12', 'polite');
+    });
+
+    it('falls back to passenger.abbr when passengerLabel is missing', () => {
+      const passenger: IPassenger = { id: 'p1', abbr: 'JD' };
+      mockService.getNextPassenger.mockReturnValue(passenger);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [passenger],
+      });
+
+      component.onTooltipSelect(makeSeat({ number: '14C', price: 12, currency: '€' }));
+
+      expect(announceSpy).toHaveBeenCalledWith('Seat 14C selected for JD, €12', 'polite');
+    });
+
+    it('falls back to "passenger" when neither label nor abbr is set', () => {
+      mockService.getNextPassenger.mockReturnValue(null);
+      mockService.selectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [],
+      });
+
+      component.onTooltipSelect(makeSeat({ number: '14C', price: 12, currency: '€' }));
+
+      expect(announceSpy).toHaveBeenCalledWith('Seat 14C selected for passenger, €12', 'polite');
+    });
+
+    it('announces unselect with the seat number (polite)', () => {
+      mockService.unselectSeatHandler.mockReturnValue({
+        data: [makeDeckData()],
+        passengers: [],
+      });
+
+      component.onTooltipUnselect(makeSeat({ number: '14C' }));
+
+      expect(announceSpy).toHaveBeenCalledWith('Seat 14C cleared', 'polite');
+    });
+
+    it('announces jump-to-seat once the seat is located in the DOM', async () => {
+      // The seat 1A is in the default mock deck data.
+      const triggerEl = document.createElement('div');
+      triggerEl.setAttribute('data-seat-number', '1A');
+      // Stub mapContainer.querySelector to find our element regardless of
+      // whether the deck rendered in jsdom layout.
+      Object.defineProperty(component, 'mapContainer', {
+        value: {
+          nativeElement: {
+            querySelector: (sel: string) => (sel.includes('1A') ? triggerEl : null),
+          },
+        },
+        configurable: true,
+      });
+
+      vi.useFakeTimers();
+      try {
+        (component as any)._jumpToSeat('1A');
+        // _jumpToSeat schedules a 150ms timeout before locating the element
+        // and emitting the announcement.
+        vi.advanceTimersByTime(160);
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(announceSpy).toHaveBeenCalledWith('Move to seat 1A', 'polite');
+    });
+
+    it('announces "not found" when the seat label has no match', () => {
+      (component as any)._jumpToSeat('99Z');
+      expect(announceSpy).toHaveBeenCalledWith('Seat 99Z not found', 'polite');
+    });
+  });
+
+  // ─── Grid keyboard nav integration (commit 7) ──────────────────────────
+
+  describe('Grid keyboard navigation (commit 7)', () => {
+    beforeEach(() => {
+      component.config = makeConfig({
+        wcag: { gridSemantics: true, keyboardNavigation: true, tooltipDialog: true },
+      });
+      component.content = [
+        {
+          rows: [
+            {
+              id: 'r1',
+              name: '1',
+              seats: [
+                makeSeat({ id: 's-1a', number: '1A', letter: 'A' }),
+                makeSeat({ id: 's-1b', number: '1B', letter: 'B' }),
+                makeSeat({ id: 's-1c', number: '1C', letter: 'C' }),
+              ],
+            },
+            {
+              id: 'r2',
+              name: '2',
+              seats: [
+                makeSeat({ id: 's-2a', number: '2A', letter: 'A' }),
+                makeSeat({ id: 's-2b', number: '2B', letter: 'B' }),
+                makeSeat({ id: 's-2c', number: '2C', letter: 'C' }),
+              ],
+            },
+          ],
+          number: 1,
+          scale: 1,
+        },
+      ];
+      component.focusedCell = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
+      // Stub mapContainer so the imperative DOM walk (`_applyRovingTabindex`,
+      // `_focusCell`) doesn't throw on a missing native element.
+      Object.defineProperty(component, 'mapContainer', {
+        value: { nativeElement: { querySelector: () => null, querySelectorAll: () => [] } },
+        configurable: true,
+      });
+    });
+
+    it('ArrowRight advances colIdx and prevents default', () => {
+      const ev = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+      const preventSpy = vi.spyOn(ev, 'preventDefault');
+      component.onGridKeydown(ev);
+      expect(component.focusedCell).toMatchObject({ deckIdx: 0, rowIdx: 0, colIdx: 1 });
+      expect(preventSpy).toHaveBeenCalled();
+    });
+
+    it('ArrowDown advances rowIdx', () => {
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+      expect(component.focusedCell).toMatchObject({ deckIdx: 0, rowIdx: 1, colIdx: 0 });
+    });
+
+    it('Home jumps to first column of current row', () => {
+      component.focusedCell = { deckIdx: 0, rowIdx: 1, colIdx: 2 };
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'Home' }));
+      expect(component.focusedCell.colIdx).toBe(0);
+    });
+
+    it('Ctrl+End jumps to last cell of the deck', () => {
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'End', ctrlKey: true }));
+      expect(component.focusedCell).toMatchObject({ rowIdx: 1, colIdx: 2 });
+    });
+
+    it('Escape with an open tooltip closes it (does not move focus)', () => {
+      component.activeTooltip = { seat: makeSeat(), top: 0, left: 0, nextPassenger: null, lang: 'EN' } as any;
+      const closeSpy = vi.spyOn(component, 'onTooltipClose');
+      component.onGridKeydown(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(closeSpy).toHaveBeenCalled();
+    });
+
+    it('ignores unrelated keys (typing letters does not move focus)', () => {
+      const ev = new KeyboardEvent('keydown', { key: 'a' });
+      const preventSpy = vi.spyOn(ev, 'preventDefault');
+      component.onGridKeydown(ev);
+      expect(component.focusedCell).toMatchObject({ deckIdx: 0, rowIdx: 0, colIdx: 0 });
+      expect(preventSpy).not.toHaveBeenCalled();
+    });
+
+    it('focusin on a gridcell with aria-rowindex/colindex updates focusedCell', () => {
+      const el = document.createElement('button');
+      el.setAttribute('aria-rowindex', '2');
+      el.setAttribute('aria-colindex', '3');
+      const ev = { target: el } as unknown as FocusEvent;
+      component.onGridFocusin(ev);
+      expect(component.focusedCell).toMatchObject({ rowIdx: 1, colIdx: 2 });
+    });
+
+    it("focusin records the focused seat's real deck from the ancestor .deck-wrapper", () => {
+      // singleDeckMode=false renders every deck at once; a seat in deck 1 must
+      // record deckIdx=1 even while activeDeckIndex is still 0, otherwise arrow
+      // nav would index the wrong deck's rows.
+      component.activeDeckIndex = 0;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'deck-wrapper';
+      wrapper.setAttribute('data-deck-index', '1');
+      const el = document.createElement('button');
+      el.setAttribute('aria-rowindex', '2');
+      el.setAttribute('aria-colindex', '3');
+      wrapper.appendChild(el);
+      component.onGridFocusin({ target: el } as unknown as FocusEvent);
+      expect(component.focusedCell).toMatchObject({ deckIdx: 1, rowIdx: 1, colIdx: 2 });
+    });
+  });
+
+  // ─── Hover tooltip — focus-aware + hoverable (commit 8 / SC 1.4.13) ────
+  //
+  // Covers the three behaviour changes layered on top of the existing
+  // hover-tooltip path: (a) focusin opens the tooltip when tooltipOnHover
+  // is on, (b) onSeatMouseLeave defers the close so the cursor can land on
+  // the tooltip, (c) tooltip mouseenter/mouseleave cancel/re-arm the close.
+  describe('Hover tooltip a11y (commit 8)', () => {
+    let savedDescriptor: PropertyDescriptor | undefined;
+    let hadOntouchstart = false;
+
+    beforeEach(() => {
+      // The focus-driven hover tooltip path depends on the keyboard-nav
+      // wiring (`onGridFocusin`) and the dialog focus contract.
+      component.config = makeConfig({
+        wcag: { gridSemantics: true, keyboardNavigation: true, tooltipDialog: true },
+      });
+      // Force non-touch — the hover/focus paths short-circuit on touch.
+      resetCachedEnvironmentInfo();
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      hadOntouchstart = Object.prototype.hasOwnProperty.call(proto, 'ontouchstart');
+      if (hadOntouchstart) {
+        savedDescriptor = Object.getOwnPropertyDescriptor(proto, 'ontouchstart');
+        delete proto['ontouchstart'];
+      }
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        configurable: true,
+        get: () => 0,
+      });
+
+      // Minimal in-memory content the focusin handler can resolve a seat from.
+      component.content = [
+        {
+          rows: [
+            {
+              id: 'r1',
+              seats: [
+                makeSeat({ id: 's-1a', number: '1A', letter: 'A' }),
+                makeSeat({ id: 's-1b', number: '1B', letter: 'B' }),
+              ],
+            },
+          ],
+          number: 1,
+          scale: 1,
+        },
+      ];
+      component.focusedCell = { deckIdx: 0, rowIdx: 0, colIdx: 0 };
+      Object.defineProperty(component, 'mapContainer', {
+        value: { nativeElement: { querySelector: () => null, querySelectorAll: () => [] } },
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+      if (hadOntouchstart && savedDescriptor) {
+        Object.defineProperty(proto, 'ontouchstart', savedDescriptor);
+      }
+      resetCachedEnvironmentInfo();
+    });
+
+    function makeGridcellFocusEvent(rowIdx = 1, colIdx = 1): FocusEvent {
+      const el = document.createElement('button');
+      el.setAttribute('aria-rowindex', String(rowIdx));
+      el.setAttribute('aria-colindex', String(colIdx));
+      return { target: el } as unknown as FocusEvent;
+    }
+
+    it('onGridFocusin opens the tooltip when tooltipOnHover=true and the cell is an available seat', () => {
+      component.config = makeConfig({
+        tooltipOnHover: true,
+        wcag: { gridSemantics: true, keyboardNavigation: true, tooltipDialog: true },
+      });
+      const tooltipSpy = vi.fn();
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onGridFocusin(makeGridcellFocusEvent(1, 1));
+
+      expect(component.activeTooltip).toBeTruthy();
+      expect(tooltipSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('onGridFocusin does NOT open the tooltip when tooltipOnHover is off', () => {
+      component.config = makeConfig({ tooltipOnHover: false });
+      const tooltipSpy = vi.fn();
+      component.tooltipRequested.subscribe(tooltipSpy);
+
+      component.onGridFocusin(makeGridcellFocusEvent(1, 1));
+
+      expect(component.activeTooltip).toBeNull();
+      expect(tooltipSpy).not.toHaveBeenCalled();
+    });
+
+    it('onSeatMouseLeave defers the close (SC 1.4.13 hoverable)', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+      expect(component.activeTooltip).toBeTruthy();
+
+      vi.useFakeTimers();
+      try {
+        component.onSeatMouseLeave({
+          seat: makeSeat(),
+          element: document.createElement('div'),
+        });
+        // Tooltip must still be open immediately after mouseleave.
+        expect(component.activeTooltip).toBeTruthy();
+        vi.advanceTimersByTime(299);
+        expect(component.activeTooltip).toBeTruthy();
+        vi.advanceTimersByTime(2);
+        expect(component.activeTooltip).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('onTooltipMouseEnter cancels a pending close timer', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      vi.useFakeTimers();
+      try {
+        component.onSeatMouseLeave({
+          seat: makeSeat(),
+          element: document.createElement('div'),
+        });
+        // Cursor moves into the tooltip — cancel the pending close.
+        component.onTooltipMouseEnter();
+        vi.advanceTimersByTime(500);
+        // Tooltip should still be open because the timer was cancelled.
+        expect(component.activeTooltip).toBeTruthy();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('onTooltipMouseLeave re-schedules the deferred close', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      vi.useFakeTimers();
+      try {
+        // Simulate cursor entering and then leaving the tooltip body.
+        component.onTooltipMouseEnter();
+        component.onTooltipMouseLeave();
+        expect(component.activeTooltip).toBeTruthy();
+        vi.advanceTimersByTime(301);
+        expect(component.activeTooltip).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('ngOnDestroy clears a pending hover-close timer', () => {
+      component.config = makeConfig({ tooltipOnHover: true });
+      component.onSeatMouseEnter({
+        seat: makeSeat(),
+        element: document.createElement('div'),
+      });
+
+      vi.useFakeTimers();
+      try {
+        component.onSeatMouseLeave({
+          seat: makeSeat(),
+          element: document.createElement('div'),
+        });
+        const closedSpy = vi.fn();
+        component.activeTooltipChanged.subscribe(closedSpy);
+        component.ngOnDestroy();
+        vi.advanceTimersByTime(500);
+        // The timer must have been cleared — no stray emit after destroy.
+        expect(closedSpy).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

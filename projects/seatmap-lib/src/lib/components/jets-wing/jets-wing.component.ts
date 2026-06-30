@@ -9,7 +9,13 @@ import { DEFAULT_COLOR_THEME } from '../../constants';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="jets-wings" [style.top.px]="scaledTop" [style.width.px]="containerWidth" [style.height.px]="wingHeight">
+    <div
+      class="jets-wings"
+      aria-hidden="true"
+      [style.top.px]="scaledTop"
+      [style.width.px]="containerWidth"
+      [style.height.px]="wingHeight"
+    >
       <!-- Left wing: trapezoid with swept leading (top) and trailing (bottom) edges.
            Inner edge (right=fuselage) runs full height; outer edge (left=wingtip)
            is tapered, producing a real wing silhouette instead of a flat rectangle. -->

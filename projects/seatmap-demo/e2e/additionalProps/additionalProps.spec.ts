@@ -63,7 +63,8 @@ test.describe('availability.additionalProps render parity', () => {
     await applyConfigAndReady(page, {}, { availability: AVAILABILITY });
     // The default deck shown is index 0 (rear cabin, rows 43+); 20A lives on
     // the next deck. Flip via SET DECK before clicking the target seat.
-    const deckTextarea = page.getByRole('button', { name: 'SET DECK', exact: true })
+    const deckTextarea = page
+      .getByRole('button', { name: 'SET DECK', exact: true })
       .locator('xpath=ancestor::*[contains(@class,"demo-control-row")][1]')
       .locator('textarea.demo-control-textarea');
     await deckTextarea.fill('1');

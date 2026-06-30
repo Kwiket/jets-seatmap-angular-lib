@@ -382,9 +382,7 @@ describe('JetsSeatMapPreparerService', () => {
               rows: [
                 {
                   classCode: 'F',
-                  seats: [
-                    { letter: 'A', seatNumber: '1A', type: 0, seatType: 0, score: 11, color: '#6CB64A' } as any,
-                  ],
+                  seats: [{ letter: 'A', seatNumber: '1A', type: 0, seatType: 0, score: 11, color: '#6CB64A' } as any],
                 },
               ],
             },
@@ -405,9 +403,7 @@ describe('JetsSeatMapPreparerService', () => {
               rows: [
                 {
                   classCode: 'F',
-                  seats: [
-                    { letter: 'A', seatNumber: '1A', type: 0, seatType: 0, score: 2, color: '#6CB64A' } as any,
-                  ],
+                  seats: [{ letter: 'A', seatNumber: '1A', type: 0, seatType: 0, score: 2, color: '#6CB64A' } as any],
                 },
               ],
             },
@@ -556,7 +552,6 @@ describe('JetsSeatMapPreparerService', () => {
       expect(JetsSeatMapPreparerService._calculateSeatColorByScore(3, ranges)).toBe('#FF0000');
       expect(JetsSeatMapPreparerService._calculateSeatColorByScore(10, ranges)).toBe('#00FF00');
     });
-
   });
 
   // ─── _calculateSeatColorByClass (static) ─────────────────────────────────
@@ -668,11 +663,7 @@ describe('JetsSeatMapPreparerService', () => {
     });
 
     it('should give each item a distinct uniqId', () => {
-      const result = service.prepareSeatAdditionalProps([
-        { label: 'A' },
-        { label: 'B' },
-        { label: 'C' },
-      ]);
+      const result = service.prepareSeatAdditionalProps([{ label: 'A' }, { label: 'B' }, { label: 'C' }]);
       const ids = result.map(r => r.uniqId);
       expect(new Set(ids).size).toBe(3);
     });

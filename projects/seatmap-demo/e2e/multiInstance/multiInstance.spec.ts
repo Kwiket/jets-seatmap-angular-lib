@@ -45,7 +45,10 @@ test.describe('multi-instance smoke test', () => {
     //    would see identical payloads.
     const cabinSignatures = (initedPayloads ?? []).map(p => {
       const cabins = (p as { allCabins?: { cabinClass?: string }[] } | null)?.allCabins ?? [];
-      return cabins.map(c => c.cabinClass ?? '?').sort().join(',');
+      return cabins
+        .map(c => c.cabinClass ?? '?')
+        .sort()
+        .join(',');
     });
     const distinctSignatures = new Set(cabinSignatures);
     expect(

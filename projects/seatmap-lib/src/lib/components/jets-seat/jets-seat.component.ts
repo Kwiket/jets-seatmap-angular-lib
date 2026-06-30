@@ -14,8 +14,11 @@ import {
   ENTITY_STATUS_MAP,
   ENTITY_TYPE_MAP,
   DEFAULT_COLOR_THEME,
+  WCAG_COLOR_THEME,
   SEAT_SIZE_BY_TYPE,
   DEFAULT_SEAT_TYPE,
+  LOCALES_MAP,
+  DEFAULT_LANG,
 } from '../../constants';
 import { seatTemplateService, ISeatStyle } from '../../services/seat-template.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -26,19 +29,27 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div
-      #seatEl
-      [class]="seatClasses"
-      [attr.data-seat-number]="data.number || null"
-      [style.width.px]="seatWidth"
-      [style.height.px]="seatHeight"
-      [style.flex-shrink]="0"
-      [style.transform]="seatTransform"
-      (click)="onClick($event)"
-      (mouseenter)="onMouseEnter($event)"
-      (mouseleave)="onMouseLeave($event)"
-    >
-      @if (data.type === 'seat') {
+    @if (data.type === 'seat') {
+      <button
+        #seatEl
+        type="button"
+        role="gridcell"
+        [class]="seatClasses"
+        [attr.data-seat-number]="data.number || null"
+        [attr.aria-label]="ariaLabel || null"
+        [attr.aria-selected]="ariaSelected === null || ariaSelected === undefined ? null : ariaSelected"
+        [attr.aria-disabled]="ariaDisabled ? 'true' : null"
+        [attr.aria-colindex]="colIndex ?? null"
+        [attr.aria-rowindex]="rowIndex ?? null"
+        [attr.tabindex]="effectiveTabindex"
+        [style.width.px]="seatWidth"
+        [style.height.px]="seatHeight"
+        [style.flex-shrink]="0"
+        [style.transform]="seatTransform"
+        (click)="onClick($event)"
+        (mouseenter)="onMouseEnter($event)"
+        (mouseleave)="onMouseLeave($event)"
+      >
         @if (!showUnavailableCross) {
           <div
             class="jets-seat__number"
@@ -51,10 +62,16 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
             {{ seatLabel }}
           </div>
         }
-        <div class="jets-seat__svg" [style.transform]="svgScaleTransform" [innerHTML]="svgContent"></div>
+        <div
+          class="jets-seat__svg"
+          aria-hidden="true"
+          [style.transform]="svgScaleTransform"
+          [innerHTML]="svgContent"
+        ></div>
         @if (showUnavailableCross) {
           <div
             class="jets-seat__cross"
+            aria-hidden="true"
             [class]="'jets-seat__cross ST-' + (data.seatIconType ?? 0)"
             [style.color]="unavailableCrossColor"
             [style.font-size.px]="labelFontSize"
@@ -69,6 +86,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
         @if (data.passenger && !useSelectedStrokeMode) {
           <div
             class="jets-seat__passenger"
+            aria-hidden="true"
             [style.background-color]="passengerBadgeColor"
             [style.color]="passengerBadgeLabelColor"
             [style.width.px]="badgeSize"
@@ -83,6 +101,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
         @if (showPriceLabel) {
           <div
             class="jets-seat__price"
+            aria-hidden="true"
             [title]="priceTooltip"
             [style.--seat-scale]="scale"
             [style.max-width.px]="seatWidth"
@@ -92,9 +111,28 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
             <span class="priceValue">{{ data.price }}</span>
           </div>
         }
-      }
-      <!-- aisle/empty: no content -->
-    </div>
+      </button>
+    } @else {
+      <div
+        #seatEl
+        role="gridcell"
+        [class]="seatClasses"
+        [attr.data-seat-number]="data.number || null"
+        [attr.aria-label]="nonSeatAriaLabel"
+        [attr.aria-colindex]="colIndex ?? null"
+        [attr.aria-rowindex]="rowIndex ?? null"
+        [attr.tabindex]="effectiveTabindex"
+        [style.width.px]="seatWidth"
+        [style.height.px]="seatHeight"
+        [style.flex-shrink]="0"
+        [style.transform]="seatTransform"
+        (click)="onClick($event)"
+        (mouseenter)="onMouseEnter($event)"
+        (mouseleave)="onMouseLeave($event)"
+      >
+        <!-- aisle/empty/index: no interactive content -->
+      </div>
+    }
   `,
   styleUrls: ['./jets-seat.component.scss'],
 })
@@ -114,6 +152,42 @@ export class JetsSeatComponent implements OnChanges {
    */
   @Input() currencyOverride?: string;
   @Input() scale = 1;
+
+  // ─── A11y plumbing (WCAG commit 5) ──────────────────────────────────
+  // Optional inputs the parent grid wires up in commit 6/7. Defaults are
+  // chosen so they don't add attributes when unset, keeping the rendered
+  // DOM noise-free for the common case.
+  /** Accessible name announced by screen readers (e.g. "Seat 12C, Economy, $42"). */
+  @Input() ariaLabel?: string;
+  /** Tri-state aria-selected. `null`/`undefined` → attribute omitted. */
+  @Input() ariaSelected?: boolean | null = null;
+  /**
+   * When true, renders `aria-disabled="true"` and suppresses click/mouse
+   * emissions. We deliberately do NOT use the native `disabled` attribute
+   * because it removes focusability, which would break the roving-tabindex
+   * grid pattern landing in commits 6/7.
+   */
+  @Input() ariaDisabled?: boolean;
+  /** Roving tabindex managed by the grid in commit 7. Defaults to 0 so a standalone seat stays focusable. */
+  @Input() rovingTabindex?: number;
+  /** aria-colindex (1-based). Plumbed here; the row/grid wires the real value in commit 6. */
+  @Input() colIndex?: number;
+  /** aria-rowindex (1-based). Same as above. */
+  @Input() rowIndex?: number;
+  /**
+   * Language tag used to look up localised aria-labels for non-seat cells
+   * (aisle / empty / index). Defaults to English; the parent grid propagates
+   * the map-level `config.lang` in commit 6.
+   */
+  @Input() lang: string = DEFAULT_LANG;
+  /**
+   * When true, fall back to `WCAG_COLOR_THEME` for any colour key the
+   * consumer didn't override via `colorTheme`. When false (default) we
+   * use `DEFAULT_COLOR_THEME` (= LEGACY palette), preserving pre-WCAG
+   * visuals. The parent maps this from `config.wcag.defaultColorTheme`.
+   */
+  @Input() wcagPalette = false;
+
   @Output() seatClick = new EventEmitter<{
     seat: ISeatData;
     element: HTMLElement;
@@ -140,6 +214,53 @@ export class JetsSeatComponent implements OnChanges {
     if (this.data?.type === ENTITY_TYPE_MAP.seat) {
       const svg = this._buildSvg();
       this.svgContent = this.sanitizer.bypassSecurityTrustHtml(svg);
+    }
+  }
+
+  /**
+   * tabindex applied to the rendered root.
+   *
+   * Seat cells default to `0` so a standalone seat (rendered outside a grid)
+   * stays focusable. When the parent grid wires `rovingTabindex` (commit 7),
+   * exactly one focused seat keeps `0` and the rest get `-1`.
+   *
+   * Non-seat cells (aisle / empty / index) are always `-1`: they're reachable
+   * via the grid's arrow-key navigation (commit 7) but never via Tab.
+   */
+  get effectiveTabindex(): number {
+    if (this.data?.type === ENTITY_TYPE_MAP.seat) {
+      return this.rovingTabindex ?? 0;
+    }
+    return -1;
+  }
+
+  /**
+   * Accessible label for non-seat gridcells (aisle / empty / index).
+   *
+   * Falls back to English literals when the active locale doesn't define the
+   * key — see TODO(commit 17 docs) to backfill `aisle` / `empty` for every
+   * locale in LOCALES_MAP.
+   *
+   * For `index` cells we surface the row number (the cell exists purely as a
+   * row label in the spatial layout); the type is currently unused by the
+   * generator but plumbed through the type system, so we cover it for
+   * completeness.
+   */
+  get nonSeatAriaLabel(): string | null {
+    if (!this.data || this.data.type === ENTITY_TYPE_MAP.seat) return null;
+    const loc = LOCALES_MAP[this.lang] ?? LOCALES_MAP[DEFAULT_LANG] ?? {};
+    // TODO(commit 17 docs): add 'aisle' / 'empty' keys to all locales in LOCALES_MAP.
+    switch (this.data.type) {
+      case ENTITY_TYPE_MAP.aisle:
+        return loc['aisle'] || 'aisle';
+      case ENTITY_TYPE_MAP.empty:
+        return loc['empty'] || 'empty';
+      case ENTITY_TYPE_MAP.index: {
+        const rowLabel = loc['row'] || 'Row';
+        return this.data.number ? `${rowLabel} ${this.data.number}` : loc['index'] || rowLabel;
+      }
+      default:
+        return null;
     }
   }
 
@@ -356,16 +477,21 @@ export class JetsSeatComponent implements OnChanges {
   }
 
   onClick(event: Event): void {
+    // aria-disabled gates the click because we deliberately render a native
+    // <button> without the `disabled` attribute (see ariaDisabled docs above).
+    if (this.ariaDisabled === true) return;
     if (!this._isInteractive()) return;
     this.seatClick.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
 
   onMouseEnter(event: Event): void {
+    if (this.ariaDisabled === true) return;
     if (!this._isInteractive()) return;
     this.seatMouseEnter.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
 
   onMouseLeave(event: Event): void {
+    if (this.ariaDisabled === true) return;
     if (!this._isInteractive()) return;
     this.seatMouseLeave.emit({ seat: this.data, element: this.seatEl.nativeElement, event });
   }
@@ -415,7 +541,7 @@ export class JetsSeatComponent implements OnChanges {
 
   private _resolveStyle(classType: string = this.data.classType ?? 'E'): ISeatStyle {
     const theme = this.colorTheme ?? {};
-    const def = DEFAULT_COLOR_THEME;
+    const def = this.wcagPalette ? WCAG_COLOR_THEME : DEFAULT_COLOR_THEME;
 
     // Explicit theme.seatAvailableColor / seatSelectedColor outrank
     // API/score-injected per-seat colours, matching the precedence already

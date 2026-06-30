@@ -91,13 +91,17 @@ describe('JetsTooltipComponent', () => {
       expect(selectBtn?.textContent?.trim()).toBe('Unselect');
     });
 
-    it('should disable Select when isSelectAvailable is false', () => {
+    it('should mark Select as aria-disabled when isSelectAvailable is false', () => {
+      // Commit 10 switched the disabled-Select rendering from the native
+      // `disabled` attribute to `aria-disabled` so the click event still
+      // reaches the component and selectAttemptBlocked can fire (WCAG 3.3.1).
       component.data = makeTooltipData();
       component.isSelectAvailable = false;
       fixture.detectChanges();
 
       const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
-      expect(selectBtn?.disabled).toBe(true);
+      expect(selectBtn?.getAttribute('aria-disabled')).toBe('true');
+      expect(selectBtn?.disabled).toBe(false);
     });
 
     it('renders seat.currency in header price by default (multi-char: space-separated)', () => {
@@ -504,6 +508,362 @@ describe('JetsTooltipComponent', () => {
       component.isSelectAvailable = true;
 
       expect(component.isSelectDisabled()).toBe(false);
+    });
+  });
+
+  // ─── Disabled-Select reasoning (WCAG 3.3.1 / 3.3.3) ────────────────────
+
+  describe('getSelectDisabledReason() — structured reasoning', () => {
+    it('returns disabled:false when select is available and passenger type matches', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'ADT', passengerLabel: 'Adult' },
+      });
+      component.isSelectAvailable = true;
+
+      const r = component.getSelectDisabledReason();
+      expect(r.disabled).toBe(false);
+      expect(r.reason).toBeUndefined();
+      expect(r.message).toBeUndefined();
+    });
+
+    it('returns passengerTypeRestricted with a non-empty message when seat excludes passenger type', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
+      });
+      component.isSelectAvailable = true;
+
+      const r = component.getSelectDisabledReason();
+      expect(r.disabled).toBe(true);
+      expect(r.reason).toBe('passengerTypeRestricted');
+      expect(r.message).toBeTruthy();
+      expect(r.message!.length).toBeGreaterThan(0);
+      // English (default locale) — must mention "not available for" and the passenger label.
+      expect(r.message).toMatch(/not available for/i);
+      expect(r.message).toContain('Infant');
+    });
+
+    it('returns noPassengerLeft when isSelectAvailable is false and no type mismatch', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: undefined }),
+        nextPassenger: undefined,
+      });
+      component.isSelectAvailable = false;
+
+      const r = component.getSelectDisabledReason();
+      expect(r.disabled).toBe(true);
+      expect(r.reason).toBe('noPassengerLeft');
+      expect(r.message).toBeTruthy();
+    });
+
+    it('isSelectDisabled() facade returns the same boolean as getSelectDisabledReason().disabled', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
+      });
+      component.isSelectAvailable = true;
+
+      expect(component.isSelectDisabled()).toBe(component.getSelectDisabledReason().disabled);
+      expect(component.isSelectDisabled()).toBe(true);
+    });
+  });
+
+  describe('Disabled-Select reason in template', () => {
+    it('renders the reason text under the Select button with aria-describedby tying them', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
+      });
+      component.isSelectAvailable = true;
+      // The visible reason line is opt-in via `wcag.visibleRestrictionReason`.
+      component.showSelectRestrictionReason = true;
+      fixture.detectChanges();
+
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      const reasonEl = fixture.nativeElement.querySelector('.jets-tooltip--select-reason') as HTMLElement;
+
+      expect(reasonEl).toBeTruthy();
+      expect(reasonEl.textContent?.trim().length).toBeGreaterThan(0);
+      expect(reasonEl.textContent).toMatch(/Infant/);
+
+      // aria-describedby on the button points at the reason element's id.
+      const describedBy = selectBtn.getAttribute('aria-describedby');
+      expect(describedBy).toBeTruthy();
+      expect(describedBy).toBe(reasonEl.id);
+
+      // Disabled is exposed via aria, not the native attribute, so the click
+      // event can still fire and we can emit selectAttemptBlocked.
+      expect(selectBtn.getAttribute('aria-disabled')).toBe('true');
+      expect(selectBtn.disabled).toBe(false);
+    });
+
+    it('does NOT render the reason element when Select is enabled', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'ADT', passengerLabel: 'Adult' },
+      });
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const reasonEl = fixture.nativeElement.querySelector('.jets-tooltip--select-reason');
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      expect(reasonEl).toBeNull();
+      expect(selectBtn.getAttribute('aria-describedby')).toBeNull();
+      expect(selectBtn.getAttribute('aria-disabled')).toBeNull();
+    });
+
+    it('clicking the disabled Select button emits selectAttemptBlocked but NOT select', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ number: '12A', passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'INF', passengerLabel: 'Infant' },
+      });
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const blockedSpy = vi.fn();
+      const selectSpy = vi.fn();
+      component.selectAttemptBlocked.subscribe(blockedSpy);
+      component.select.subscribe(selectSpy);
+
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      selectBtn.click();
+
+      expect(selectSpy).not.toHaveBeenCalled();
+      expect(blockedSpy).toHaveBeenCalledTimes(1);
+      const payload = blockedSpy.mock.calls[0][0];
+      expect(payload.seat.number).toBe('12A');
+      expect(payload.reason).toBe('passengerTypeRestricted');
+      expect(payload.message).toBeTruthy();
+      expect(payload.message).toMatch(/Infant/);
+    });
+
+    it('clicking the enabled Select button still emits select and NOT selectAttemptBlocked', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ number: '12A', passengerTypes: ['ADT'] }),
+        nextPassenger: { id: 'p1', passengerType: 'ADT', passengerLabel: 'Adult' },
+      });
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const blockedSpy = vi.fn();
+      const selectSpy = vi.fn();
+      component.selectAttemptBlocked.subscribe(blockedSpy);
+      component.select.subscribe(selectSpy);
+
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      selectBtn.click();
+
+      expect(selectSpy).toHaveBeenCalledTimes(1);
+      expect(blockedSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Dialog ARIA contract (commit 11) ──────────────────────────────────
+  describe('Dialog ARIA contract', () => {
+    beforeEach(() => {
+      // Dialog role + ARIA wiring + Escape are opt-in via `wcag.tooltipDialog`,
+      // surfaced on this component as the `dialogMode` input.
+      component.dialogMode = true;
+    });
+
+    it('non-sidePanel: outer div has role="dialog" and NO aria-modal', () => {
+      // Decisions log 2026-06-04: tooltip is non-modal — the map is not
+      // overlaid, click-outside closes the tooltip, so aria-modal would lie.
+      component.data = makeTooltipData();
+      fixture.detectChanges();
+
+      const outer = fixture.nativeElement.querySelector('.jets-tooltip') as HTMLElement;
+      expect(outer.getAttribute('role')).toBe('dialog');
+      expect(outer.hasAttribute('aria-modal')).toBe(false);
+    });
+
+    it('sidePanel branch: outer div has role="region" (NOT "dialog")', () => {
+      component.data = makeTooltipData();
+      component.sidePanel = true;
+      fixture.detectChanges();
+
+      const outer = fixture.nativeElement.querySelector('.jets-tooltip') as HTMLElement;
+      expect(outer.getAttribute('role')).toBe('region');
+      expect(outer.getAttribute('role')).not.toBe('dialog');
+    });
+
+    it('aria-labelledby points at the header title element whose text is the seat label', () => {
+      component.data = makeTooltipData({ seat: makeSeat({ number: '14B' }) });
+      fixture.detectChanges();
+
+      const outer = fixture.nativeElement.querySelector('.jets-tooltip') as HTMLElement;
+      const labelledBy = outer.getAttribute('aria-labelledby');
+      expect(labelledBy).toBeTruthy();
+
+      const labelEl = fixture.nativeElement.querySelector(`#${labelledBy}`) as HTMLElement;
+      expect(labelEl).toBeTruthy();
+      expect(labelEl.textContent).toContain('14B');
+    });
+
+    it('aria-describedby targets the amenities block when amenities are present', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ features: [{ title: 'Wi-Fi', icon: 'wifi' }] }),
+      });
+      fixture.detectChanges();
+
+      const outer = fixture.nativeElement.querySelector('.jets-tooltip') as HTMLElement;
+      const describedBy = outer.getAttribute('aria-describedby');
+      expect(describedBy).toBeTruthy();
+      const target = fixture.nativeElement.querySelector(`#${describedBy}`);
+      expect(target?.classList.contains('jets-tooltip--amenities')).toBe(true);
+    });
+
+    it('aria-describedby falls back to the dimensions block when only dimensions are present', () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({
+          features: [],
+          measurements: [{ title: 'Seat pitch', key: 'pitch', value: '32"' }],
+        }),
+      });
+      fixture.detectChanges();
+
+      const outer = fixture.nativeElement.querySelector('.jets-tooltip') as HTMLElement;
+      const describedBy = outer.getAttribute('aria-describedby');
+      expect(describedBy).toBeTruthy();
+      const target = fixture.nativeElement.querySelector(`#${describedBy}`);
+      expect(target?.classList.contains('jets-tooltip--dimensions')).toBe(true);
+    });
+
+    it('aria-describedby is absent when neither amenities nor dimensions render', () => {
+      component.data = makeTooltipData({ seat: makeSeat({ features: [] }) });
+      fixture.detectChanges();
+
+      const outer = fixture.nativeElement.querySelector('.jets-tooltip') as HTMLElement;
+      expect(outer.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('close button aria-label is localised via LOCALES_MAP for non-English locales', () => {
+      // RU locale defines close: 'Закрыть'.
+      component.data = makeTooltipData({ lang: 'RU' as any });
+      fixture.detectChanges();
+
+      const closeBtn = fixture.nativeElement.querySelector('.jets-tooltip--close-btn') as HTMLElement;
+      expect(closeBtn.getAttribute('aria-label')).toBe('Закрыть');
+    });
+
+    it('close button aria-label falls back to English when the locale is missing the key', () => {
+      // Force an unknown locale so LOCALES_MAP[lang] is undefined and the
+      // fallback chain (`|| 'Close'`) kicks in. We do NOT edit constants.ts —
+      // the English fallback inline is the safety net (commit 17 will backfill).
+      component.data = makeTooltipData({ lang: 'XX' as any });
+      fixture.detectChanges();
+
+      const closeBtn = fixture.nativeElement.querySelector('.jets-tooltip--close-btn') as HTMLElement;
+      expect(closeBtn.getAttribute('aria-label')).toBe('Close');
+    });
+
+    it('auto-focuses the Select button (primary action) on view init when seat has no passenger', async () => {
+      component.data = makeTooltipData();
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+      // setTimeout(0) inside ngAfterViewInit — flush the timer queue.
+      await new Promise(resolve => setTimeout(resolve, 0));
+      await fixture.whenStable();
+
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      expect(document.activeElement).toBe(selectBtn);
+    });
+
+    it('auto-focuses the Unselect button (primary action) when seat carries a passenger', async () => {
+      component.data = makeTooltipData({
+        seat: makeSeat({ passenger: { id: 'p1', abbr: 'JD', passengerLabel: 'John' } }),
+      });
+      fixture.detectChanges();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      await fixture.whenStable();
+
+      const unselectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+      expect(unselectBtn.textContent?.trim()).toBe('Unselect');
+      expect(document.activeElement).toBe(unselectBtn);
+    });
+
+    it('does NOT auto-focus in sidePanel mode (it is a page region, not a dialog)', async () => {
+      const sentinel = document.createElement('button');
+      sentinel.textContent = 'sentinel';
+      document.body.appendChild(sentinel);
+      sentinel.focus();
+      const sentinelAtStart = document.activeElement;
+
+      component.data = makeTooltipData();
+      component.sidePanel = true;
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      await fixture.whenStable();
+
+      // Focus should remain on the sentinel, not move into the tooltip.
+      expect(document.activeElement).toBe(sentinelAtStart);
+      document.body.removeChild(sentinel);
+    });
+
+    it('auto-focuses the × close button when the seat has no action buttons', async () => {
+      component.data = makeTooltipData();
+      component.showActions = false;
+      fixture.detectChanges();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      await fixture.whenStable();
+
+      const closeBtn = fixture.nativeElement.querySelector('.jets-tooltip--close-btn') as HTMLButtonElement;
+      expect(document.activeElement).toBe(closeBtn);
+    });
+
+    it('ArrowLeft / ArrowRight rove focus between the dialog buttons', () => {
+      component.data = makeTooltipData();
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const cancelBtn = fixture.nativeElement.querySelector('.jets-cancel-btn') as HTMLButtonElement;
+      const selectBtn = fixture.nativeElement.querySelector('.jets-select-btn') as HTMLButtonElement;
+
+      selectBtn.focus();
+      component.onDialogKeydown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+      expect(document.activeElement).toBe(cancelBtn);
+
+      component.onDialogKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      expect(document.activeElement).toBe(selectBtn);
+    });
+
+    it('onDialogKeydown stops arrow keys from bubbling to the grid', () => {
+      component.data = makeTooltipData();
+      component.isSelectAvailable = true;
+      fixture.detectChanges();
+
+      const ev = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+      const stopSpy = vi.spyOn(ev, 'stopPropagation');
+      component.onDialogKeydown(ev);
+      expect(stopSpy).toHaveBeenCalled();
+    });
+
+    it('onDialogKeydown ignores non-arrow keys so they bubble normally', () => {
+      component.data = makeTooltipData();
+      fixture.detectChanges();
+
+      const ev = new KeyboardEvent('keydown', { key: 'a', bubbles: true });
+      const stopSpy = vi.spyOn(ev, 'stopPropagation');
+      component.onDialogKeydown(ev);
+      expect(stopSpy).not.toHaveBeenCalled();
+    });
+
+    it('Escape inside the tooltip emits close and stops event propagation', () => {
+      component.data = makeTooltipData();
+      fixture.detectChanges();
+
+      const closeSpy = vi.fn();
+      component.close.subscribe(closeSpy);
+
+      const outer = fixture.nativeElement.querySelector('.jets-tooltip') as HTMLElement;
+      const evt = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      const stopSpy = vi.spyOn(evt, 'stopPropagation');
+      outer.dispatchEvent(evt);
+
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+      expect(stopSpy).toHaveBeenCalled();
     });
   });
 

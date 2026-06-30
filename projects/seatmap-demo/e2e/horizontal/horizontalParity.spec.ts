@@ -126,4 +126,37 @@ test.describe('horizontal layout — React parity', () => {
     expect(box!.x + box!.width).toBeLessThanOrEqual(vp!.width);
     expect(box!.y + box!.height).toBeLessThanOrEqual(vp!.height);
   });
+
+  // P1a: with the cabin rotated, the arrow keys must move focus in the
+  // on-screen direction the user pressed (not the data-model axis).
+  const SEAT =
+    'button.jets-seat--available[role="gridcell"], button.jets-seat--selected[role="gridcell"], ' +
+    'button.jets-seat--preferred[role="gridcell"], button.jets-seat--extra[role="gridcell"]';
+  const focusedCenter = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+
+  test('ArrowRight moves focus visually right in horizontal (P1a)', async ({ page }) => {
+    await page.goto('/');
+    await applyConfigAndReady(page, { wcag: { enabled: true }, horizontal: true, rightToLeft: false });
+
+    const first = page.locator(SEAT).first();
+    await first.waitFor({ state: 'visible' });
+    await first.focus();
+    const before = await focusedCenter(page);
+    await page.keyboard.press('ArrowRight');
+    const after = await focusedCenter(page);
+
+    expect(before).not.toBeNull();
+    expect(after).not.toBeNull();
+    const dx = after!.x - before!.x;
+    const dy = after!.y - before!.y;
+    // Moved, and the dominant axis is horizontal-rightward.
+    expect(Math.abs(dx) + Math.abs(dy)).toBeGreaterThan(5);
+    expect(dx).toBeGreaterThan(Math.abs(dy));
+  });
 });

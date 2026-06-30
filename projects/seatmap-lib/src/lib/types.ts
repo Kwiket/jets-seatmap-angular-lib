@@ -87,8 +87,9 @@ export interface IColorTheme {
   armrestColor?: string;
   exitColor?: string;
   /**
-   * @deprecated No longer used by the renderer — use `fuselageFillColor`
-   * instead. Kept on the type so existing consumer themes still compile.
+   * @deprecated Prefer `fuselageFillColor` (body) / `fuselageWingsColor`
+   * (wings). Still honoured as a fallback by both the fuselage fill and the
+   * wings, so existing consumer themes keep their branded colour.
    */
   hullColor?: string;
   // Passenger badge
@@ -141,6 +142,81 @@ export interface IColorTheme {
 
 export type TScaleType = 'zoom' | 'scale';
 
+// ─── WCAG 2.2 AA opt-in feature flags ─────────────────────────────────────────
+/**
+ * Per-feature toggles for the WCAG 2.2 AA refit (waves A–G in
+ * `docs/wcag/PLAN.md`). All flags default `false` so an `IConfig` without
+ * `wcag.*` renders and behaves exactly like the pre-WCAG library.
+ *
+ * The library exposes a `getWcagFlags(config)` helper that applies the
+ * `enabled` shortcut and returns a fully-resolved `Required<IWcagConfig>`
+ * for components to read.
+ */
+export interface IWcagConfig {
+  /**
+   * Shortcut: when `true`, every individual flag below defaults to `true`
+   * unless it has been explicitly set to `false`. Default `false`.
+   */
+  enabled?: boolean;
+  /**
+   * Use the AA-contrast palette (`WCAG_COLOR_THEME`) as the base for
+   * `config.colorTheme` merging instead of the historical `LEGACY_COLOR_THEME`.
+   * Touches `seatLabelColor`, the seat status fills, and the disabled-seat
+   * grey — see `docs/wcag/PLAN.md` Wave B commit 4 for the contrast pairs.
+   * Default `false`.
+   */
+  defaultColorTheme?: boolean;
+  /**
+   * Announce seat select / unselect / jump events through `@angular/cdk`'s
+   * `LiveAnnouncer`. Without this flag the announcer is wired but never
+   * called, so AT users get no live updates. Default `false`.
+   */
+  liveAnnouncer?: boolean;
+  /**
+   * Render a visible explanation line under a disabled Select button in
+   * the built-in tooltip (e.g. "The seat is only for: adults"), wired to
+   * the button via `aria-describedby`. Default `false`.
+   */
+  visibleRestrictionReason?: boolean;
+  /**
+   * Render the page-level landmarks expected by AT: an `<h2>` region
+   * heading and a focus-on-skip-link that jumps past the entire seat map.
+   * Default `false`.
+   */
+  landmarksAndSkipLink?: boolean;
+  /**
+   * Apply ARIA grid semantics (`role="grid"`, `role="row"`, `role="gridcell"`,
+   * `aria-rowindex`, `aria-colindex`) to the decks, rows, and seats. Required
+   * by the `gridSemantics` consumers (`keyboardNavigation`, the dialog
+   * tooltip's described-by wiring on grid view). Default `false`.
+   */
+  gridSemantics?: boolean;
+  /**
+   * Activate the 2D arrow-key navigation across the seat grid backed by
+   * `SeatGridNavigationService` (commits 7/11 of the WCAG plan). Includes
+   * `Home`/`End` for row endpoints, `Ctrl+Arrow` for skim-jumps to the next
+   * interactive cell, and roving-tabindex management. Default `false`.
+   *
+   * Implies `gridSemantics`: without `[aria-rowindex]/[aria-colindex]` the
+   * navigation service has no way to identify cells. `getWcagFlags` returns
+   * `keyboardNavigation = false` when `gridSemantics = false`.
+   */
+  keyboardNavigation?: boolean;
+  /**
+   * Render the built-in tooltip as a non-modal dialog (`role="dialog"` with
+   * `aria-labelledby` + `aria-describedby`, `Escape` to dismiss, focus
+   * return to the trigger seat). Default `false`.
+   */
+  tooltipDialog?: boolean;
+  /**
+   * Alternative render mode for the seat map. Mirrors the deprecated
+   * top-level `config.alternativeView`; the top-level field is read as a
+   * fallback when `wcag.alternativeView` is undefined. Default `undefined`
+   * (treated as `'grid'`).
+   */
+  alternativeView?: 'grid' | 'list' | 'auto';
+}
+
 // ─── Component overrides ──────────────────────────────────────────────────────
 import type { Type } from '@angular/core';
 export interface IComponentOverrides {
@@ -189,6 +265,34 @@ export interface IConfig {
   customCabinTitles?: Record<string, string>;
   hiddenSeatFeatures?: string[];
   componentOverrides?: IComponentOverrides;
+  /**
+   * Render mode: 'grid' (default) shows the visual map; 'list' shows an
+   * accessible semantic table; 'auto' switches to 'list' below 480px.
+   *
+   * @deprecated Prefer `config.wcag.alternativeView`. The top-level field is
+   * read as a fallback for one release cycle so existing consumers continue
+   * to work; new code should set `wcag.alternativeView` directly.
+   */
+  alternativeView?: 'grid' | 'list' | 'auto';
+  /**
+   * WCAG 2.2 AA opt-in features. All flags default `false` so the rendered
+   * DOM, visual output, and runtime behaviour with `config.wcag` unset (or
+   * empty) match the pre-WCAG library exactly — making the WCAG sweep
+   * additive rather than breaking.
+   *
+   * Shortcut: setting `wcag.enabled = true` turns on every individual flag
+   * that has not been explicitly set to `false`. Individual flags always
+   * win over `enabled`, so partial opt-out remains possible:
+   *
+   *   `{ wcag: { enabled: true, liveAnnouncer: false } }` — full WCAG sweep
+   *   except the LiveAnnouncer.
+   *
+   * Always-on improvements (not gated by any flag): `aria-hidden` on
+   * decorative SVGs, accessible-name builder + locale dictionaries,
+   * `prefers-reduced-motion` CSS, `forced-colors` CSS. None of these change
+   * visible layout or break existing consumers.
+   */
+  wcag?: IWcagConfig;
   /**
    * Minimum gap (in native API coordinate units) inserted between a row's
    * physical bbox and a neighbouring bulk (galley/lavatory partition) when the

@@ -4,6 +4,22 @@
 }
 
 .jets-seat {
+  /* Narrow native-button reset (commit 5).
+     The 'seat' branch renders a real <button>, so we strip browser-default
+     button chrome (background, border, padding, font, appearance) but keep
+     full control over layout, cursor, color inheritance, and user-select
+     below. Using a narrow reset rather than `all: unset` avoids nuking
+     useful inherits (font, color) and keeps the visual output identical
+     to the previous <div> render. */
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  -webkit-tap-highlight-color: transparent;
+
   box-sizing: border-box;
   display: inline-flex;
   justify-content: center;
@@ -15,6 +31,16 @@
   flex-shrink: 0;
   z-index: 10;
   overflow: visible;
+}
+
+/* Keyboard focus ring (commit 5).
+   currentColor works because the default theme (commit 4) keeps the seat
+   label dark on a light fill — AA contrast. Forced-colors block below
+   swaps the colour for Highlight so Windows High Contrast users still see
+   a focus ring even when the SVG fills are flattened. */
+.jets-seat:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .jets-seat__svg {
@@ -37,18 +63,23 @@
   line-height: 0;
 }
 
-/* Seat number label — positioned ON the seat, centered */
+/* Seat number label — positioned ON the seat, centered.
+   Default color (#1a1a1a) is set inline from theme.seatLabelColor; the
+   value below is just a fallback. No text-shadow by default — the WCAG AA
+   default theme (commit 4) uses dark text on light fills which is legible
+   without a shadow halo. Consumers who supply a darker fill via
+   colorTheme.seatAvailableColor (etc.) can opt into a halo via
+   colorTheme.seatLabelTextShadow. */
 .jets-seat__number {
   position: absolute;
   top: 18%;
   left: 0;
   right: 0;
-  color: #fff;
+  color: #1a1a1a;
   text-align: center;
   z-index: 1;
   pointer-events: none;
   font-weight: 700;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.55);
 }
 
 /* Per-seatIconType positioning: top% + horizontal left/right offsets.
@@ -162,8 +193,10 @@
   cursor: pointer;
 }
 
-.jets-seat--seat:hover .jets-seat__svg ::ng-deep svg {
-  filter: brightness(1.08);
+@media (prefers-reduced-motion: no-preference) {
+  .jets-seat--seat:hover .jets-seat__svg ::ng-deep svg {
+    filter: brightness(1.08);
+  }
 }
 
 .jets-seat--unavailable {
@@ -174,9 +207,18 @@
   filter: none;
 }
 
+/* Disabled seat — discrete look, NOT opacity.
+   Opacity is forbidden here because (a) it changes the effective contrast
+   of the seat label and seat boundary against whatever sits behind the
+   map, which makes WCAG 1.4.3 / 1.4.11 uncertifiable on dynamic
+   backgrounds; and (b) it desaturates the focus-ring (commit 7) and the
+   forced-colors outline (commit 15). The discrete look comes from the
+   theme: `notAvailableSeatsColor` is already applied to the SVG fill via
+   seat-template.service for status === 'disabled', so disabled visually
+   matches unavailable — the role/aria layer (commit 5, aria-disabled)
+   carries the semantic distinction. */
 .jets-seat--disabled {
   cursor: not-allowed;
-  opacity: 0.6;
 }
 
 .jets-seat--aisle,
@@ -189,3 +231,38 @@
 
 /* Rotation is applied via inline style (seatTransform) to avoid conflicts
    with translate offsets. Counter-rotation for labels/badges is also inline. */
+
+/* Windows High Contrast / forced-colors mode.
+   Under forced-colors the browser overrides the parameterised SVG fill /
+   stroke colors with system defaults, which can erase the seat outline.
+   Force a CanvasText outline so each interactable / unavailable seat
+   remains visually identifiable. Decorative cross + passenger badge
+   already use currentColor or are aria-hidden, so we only restate
+   `color: CanvasText` to keep the cross legible. */
+@media (forced-colors: active) {
+  .jets-seat--seat,
+  .jets-seat--unavailable {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+
+  /* Focus ring (commit 5) must remain visible under forced-colors. Highlight
+     is the system token reserved for selection/focus surfaces; -offset 2px
+     keeps it clear of the seat outline above. */
+  .jets-seat:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .jets-seat__cross {
+    color: CanvasText;
+    opacity: 1;
+  }
+
+  .jets-seat__passenger {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+    border: 1px solid HighlightText;
+  }
+}

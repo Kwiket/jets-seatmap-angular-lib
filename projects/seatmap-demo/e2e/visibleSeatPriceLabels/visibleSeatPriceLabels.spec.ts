@@ -17,11 +17,7 @@ test.describe('visibleSeatPriceLabels', () => {
   for (const v of VARIANTS) {
     test(v.name, async ({ page }) => {
       await page.goto('/');
-      await applyConfigAndReady(
-        page,
-        { visibleSeatPriceLabels: v.value },
-        { availability: AVAILABILITY },
-      );
+      await applyConfigAndReady(page, { visibleSeatPriceLabels: v.value }, { availability: AVAILABILITY });
       // Full deck shows the layout — handy for spotting that *no* pills exist
       // in the `false` variant — but the per-seat pill at full deck scale is
       // ~13×11 px. The zoom crop makes the on/off difference obvious.

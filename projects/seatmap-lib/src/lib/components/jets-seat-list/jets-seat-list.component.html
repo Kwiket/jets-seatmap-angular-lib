@@ -1,0 +1,108 @@
+<div class="jets-seat-list">
+  <fieldset class="jets-seat-list__filters">
+    <legend class="cdk-visually-hidden">{{ filtersLegend }}</legend>
+
+    <label class="jets-seat-list__select">
+      <span>{{ positionFilterLabel }}</span>
+      <select [(ngModel)]="positionFilter" name="positionFilter">
+        <option value="all">{{ positionAllLabel }}</option>
+        <option value="window">{{ filterWindowLabel }}</option>
+        <option value="aisle">{{ filterAisleLabel }}</option>
+      </select>
+    </label>
+
+    <label class="jets-seat-list__filter">
+      <input
+        type="checkbox"
+        name="filterExtraLegroom"
+        [(ngModel)]="filterExtraLegroom"
+      />
+      <span>{{ filterExtraLegroomLabel }}</span>
+    </label>
+
+    <label class="jets-seat-list__filter">
+      <input
+        type="checkbox"
+        name="filterExitRow"
+        [(ngModel)]="filterExitRow"
+      />
+      <span>{{ filterExitRowLabel }}</span>
+    </label>
+
+    <label class="jets-seat-list__sort">
+      <span>{{ sortLabel }}</span>
+      <select [(ngModel)]="sortKey" name="sortKey">
+        <option value="row">{{ sortByRowLabel }}</option>
+        <option value="priceAsc">{{ sortByPriceAscLabel }}</option>
+        <option value="priceDesc">{{ sortByPriceDescLabel }}</option>
+      </select>
+    </label>
+  </fieldset>
+
+  <div class="jets-seat-list__table-scroll">
+  <table class="jets-seat-list__table">
+    <caption class="cdk-visually-hidden">{{ tableCaption }}</caption>
+    <thead>
+      <tr>
+        <th scope="col" class="jets-seat-list__col-row">{{ loc['row'] || 'Row' }}</th>
+        <th scope="col">{{ loc['seat'] || 'Seat' }}</th>
+        <th scope="col">{{ loc['cabin'] || 'Cabin' }}</th>
+        <th scope="col">{{ loc['position'] || 'Position' }}</th>
+        @if (showFeaturesColumn) {
+          <th scope="col">{{ loc['features'] || 'Features' }}</th>
+        }
+        @if (showActions) {
+          <th scope="col">{{ loc['action'] || 'Action' }}</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (entry of filteredAndSortedSeats; track entry.seat.id) {
+        <tr>
+          <td class="jets-seat-list__col-row">{{ entry.rowNumber }}</td>
+          <td>{{ entry.seat.number || entry.seat.letter }}</td>
+          <td>{{ entry.row.cabinTitle || entry.row.cabinClassCode || '—' }}</td>
+          <td>{{ positionLabel(entry) }}</td>
+          @if (showFeaturesColumn) {
+            <td>{{ featuresLabel(entry.seat) }}</td>
+          }
+          @if (showActions) {
+            <td>
+              @if (entry.seat.passenger) {
+                <button
+                  type="button"
+                  class="jets-seat-list__action jets-seat-list__action--unselect"
+                  (click)="onUnselectClick(entry.seat)"
+                >
+                  {{ unselectLabel }}
+                </button>
+              } @else if (isUnavailable(entry.seat)) {
+                <!-- Status merged into the action control: an unavailable seat
+                     is a disabled button that reads "Unavailable". -->
+                <button
+                  type="button"
+                  class="jets-seat-list__action jets-seat-list__action--unavailable"
+                  disabled
+                >
+                  {{ unavailableLabel }}
+                </button>
+              } @else {
+                <!-- Available: the button shows the price when the seat is
+                     paid, otherwise the plain "Select" word. -->
+                <button
+                  type="button"
+                  class="jets-seat-list__action jets-seat-list__action--select"
+                  [disabled]="isSelectDisabled(entry.seat)"
+                  (click)="onSelectClick(entry.seat)"
+                >
+                  {{ selectButtonLabel(entry.seat) }}
+                </button>
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+  </div>
+</div>

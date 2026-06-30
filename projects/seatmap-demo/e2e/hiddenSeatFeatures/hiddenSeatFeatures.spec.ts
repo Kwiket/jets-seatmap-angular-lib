@@ -26,11 +26,7 @@ test.describe('hiddenSeatFeatures', () => {
   for (const v of VARIANTS) {
     test(v.name, async ({ page }) => {
       await page.goto('/');
-      await applyConfigAndReady(
-        page,
-        { hiddenSeatFeatures: [...v.hidden] },
-        { availability: AVAILABILITY },
-      );
+      await applyConfigAndReady(page, { hiddenSeatFeatures: [...v.hidden] }, { availability: AVAILABILITY });
       // Surface the tooltip — features list lives inside it. Wait for the
       // seat element, scroll it into view, then click. Without the explicit
       // wait+scroll, the click can race with the lib's late re-render and
