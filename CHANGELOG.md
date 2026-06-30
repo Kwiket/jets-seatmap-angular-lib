@@ -4,7 +4,7 @@ All notable changes to `@kwiket/jets-seatmap-angular-lib` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the
 project loosely adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — 2026-06-05 — WCAG 2.2 AA refit
+## [0.0.3] — 2026-06-30 — WCAG 2.2 AA refit
 
 Brings the library to WCAG 2.2 Level AA conformance for the seat-grid widget,
 ships a full [Accessibility Conformance Report](docs/ACR.md), and adds an
