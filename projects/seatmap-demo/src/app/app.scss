@@ -44,7 +44,9 @@
     color: #555;
     cursor: pointer;
     white-space: nowrap;
-    transition: color 0.15s, border-color 0.15s;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
 
     &:hover {
       color: #0044aa;
@@ -74,7 +76,7 @@
     color: #444;
     cursor: pointer;
 
-    input[type="checkbox"] {
+    input[type='checkbox'] {
       cursor: pointer;
     }
 
@@ -235,6 +237,25 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
+
+  .demo-theme-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+
+    .demo-controls-title {
+      margin: 0;
+    }
+  }
+}
+
+.demo-theme-select {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .demo-control-row {

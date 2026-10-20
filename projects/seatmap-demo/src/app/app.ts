@@ -13,6 +13,12 @@ import {
   ISeatMouseLeaveData,
   ITooltipRequestData,
   TSeatAvailability,
+  IColorTheme,
+  BW_COLOR_THEME,
+  LIGHT_BLUE_COLOR_THEME,
+  DARK_COLOR_THEME,
+  LOPA_COLOR_THEME,
+  CABINS_DIFF_COLOR_THEME,
 } from '@seatmaps.com/angular-lib';
 import { DemoFlight } from './flights.data';
 import { FlightsService } from './flights.service';
@@ -37,6 +43,23 @@ const CONTROLS: ControlDef[] = [
   { label: 'SET PASSENGERS', key: 'passengers' },
   { label: 'SET DECK', key: 'deck' },
   { label: 'SEAT JUMP TO', key: 'seatJumpTo' },
+];
+
+interface ThemeDef {
+  label: string;
+  key: string;
+  /** `undefined` keeps the flight's own `colorTheme`; `null` drops it for the library default. */
+  theme: IColorTheme | null | undefined;
+}
+
+const THEMES: ThemeDef[] = [
+  { label: 'Demo config', key: 'demo', theme: undefined },
+  { label: 'Default', key: 'default', theme: null },
+  { label: 'Black & White', key: 'bw', theme: BW_COLOR_THEME },
+  { label: 'Light Blue', key: 'light-blue', theme: LIGHT_BLUE_COLOR_THEME },
+  { label: 'Dark', key: 'dark', theme: DARK_COLOR_THEME },
+  { label: 'LOPA', key: 'lopa', theme: LOPA_COLOR_THEME },
+  { label: 'CabinsDiff', key: 'cabins-diff', theme: CABINS_DIFF_COLOR_THEME },
 ];
 
 const DEFAULT_AVAILABILITY = [
@@ -109,12 +132,14 @@ export class App {
   private readonly flightsService = inject(FlightsService);
   readonly flights = this.flightsService.flights;
   readonly controls = CONTROLS;
+  readonly themes = THEMES;
   readonly isMultiInstanceMode =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('multiInstance');
 
   selectedIndex = signal(0);
   eventLog = signal<EventLogEntry[]>([]);
   private nextLogId = 0;
+  themeKey = signal('demo');
   sidePanelEnabled = signal(false);
   sidePanelSide = signal<'left' | 'right'>('left');
 
@@ -134,6 +159,9 @@ export class App {
     const base = this.flights[this.selectedIndex()].config;
     const override = this.configOverride();
     const merged = override ? { ...base, ...override } : { ...base };
+    const preset = THEMES.find(t => t.key === this.themeKey())?.theme;
+    if (preset === null) delete merged.colorTheme;
+    else if (preset) merged.colorTheme = preset;
     return merged;
   });
 
@@ -185,6 +213,16 @@ export class App {
 
   setTextarea(key: string, value: string): void {
     this.textareas.update(t => ({ ...t, [key]: value }));
+  }
+
+  /**
+   * Seat colours from `customSeatColorClasses` / `customSeatColorRanges` are worked out
+   * when the map loads, so a theme change re-applies the flight (as SET FLIGHT does)
+   * to repaint the seats with the new theme.
+   */
+  selectTheme(key: string): void {
+    this.themeKey.set(key);
+    this.flightOverride.set({ ...this.activeFlight() });
   }
 
   selectFlight(index: number): void {

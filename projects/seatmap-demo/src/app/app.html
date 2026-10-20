@@ -38,6 +38,14 @@
 
     <div class="demo-right-column">
       <aside class="demo-controls-panel">
+        <label class="demo-theme-row">
+          <span class="demo-controls-title">Color theme</span>
+          <select class="demo-theme-select" [ngModel]="themeKey()" (ngModelChange)="selectTheme($event)">
+            @for (t of themes; track t.key) {
+            <option [value]="t.key">{{ t.label }}</option>
+            }
+          </select>
+        </label>
         <h3 class="demo-controls-title">Send Events</h3>
         @for (ctrl of controls; track ctrl.key) {
         <div class="demo-control-row">
