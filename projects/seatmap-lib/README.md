@@ -555,6 +555,29 @@ Available seats resolve their colour top-down:
 There is no `colorfulSeatsByScore` / `colorfulSeatsByClass` flag — enable each axis by providing the
 corresponding palette; for a flat look set `seatAvailableColor`.
 
+### Preset colour themes
+
+The library ships ready-made `colorTheme` values. Pass one as is, or spread it and override single keys:
+
+```typescript
+import { LOPA_COLOR_THEME } from '@seatmaps.com/angular-lib';
+
+config = { ...config, colorTheme: LOPA_COLOR_THEME };
+config = { ...config, colorTheme: { ...LOPA_COLOR_THEME, seatSelectedColor: '#d00434' } };
+```
+
+| Constant | Look |
+| --- | --- |
+| *(none — omit `colorTheme`)* | Default palette (`DEFAULT_COLOR_THEME`, or `WCAG_COLOR_THEME` with `wcag.defaultColorTheme`) |
+| `BW_COLOR_THEME` | Black & White — white seats with black outlines, grey for taken seats |
+| `LIGHT_BLUE_COLOR_THEME` | Light Blue — pale blue seats on a white cabin |
+| `DARK_COLOR_THEME` | Dark — charcoal cabin floor, navy fabric seats, warm-grey seat backs |
+| `LOPA_COLOR_THEME` | LOPA — printed layout chart: off-white floor, muted navy seats, hairline outlines |
+| `CABINS_DIFF_COLOR_THEME` | CabinsDiff — each cabin class in its own colour (`customSeatColorClasses`) |
+
+`CABINS_DIFF_COLOR_THEME` leaves `seatAvailableColor` unset: it is first in the priority above and would paint
+every cabin the same. For the same reason, adding `seatAvailableColor` to any preset flattens its seats.
+
 &nbsp;
 
 ### <a name="seatjumpto"></a> seatJumpTo
