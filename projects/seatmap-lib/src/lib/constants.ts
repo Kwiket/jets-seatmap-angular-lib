@@ -1,4 +1,4 @@
-import { TSeatType } from './types';
+import { IColorTheme, TSeatType } from './types';
 
 export const ENTITY_TYPE_MAP = {
   seat: 'seat' as const,
@@ -245,6 +245,241 @@ export const WCAG_COLOR_THEME: typeof LEGACY_COLOR_THEME = {
  * AA palette unconditionally should import `WCAG_COLOR_THEME` directly.
  */
 export const DEFAULT_COLOR_THEME = LEGACY_COLOR_THEME;
+
+// ─── Preset color themes ──────────────────────────────────────────────────────
+// Ready-made `config.colorTheme` values. Each one sets `seatAvailableColor`
+// except CABINS_DIFF_COLOR_THEME, which leaves it out so its per-class
+// `customSeatColorClasses` palette shows (an explicit `seatAvailableColor`
+// outranks every per-seat colour, see the seat-colour priority in the README).
+
+/** Black & White: white seats with black outlines on a white cabin, grey for what is taken. */
+export const BW_COLOR_THEME: IColorTheme = {
+  forceThemeSeatColors: true,
+  seatMapBackgroundColor: '#ffffff',
+  floorColor: '#ffffff',
+  seatAvailableColor: '#ffffff',
+  seatUnavailableColor: '#e0e0e0',
+  seatSelectedColor: '#333333',
+  seatPreferredColor: '#f0f0f0',
+  seatExtraColor: '#f5f5f5',
+  seatLabelColor: '#222222',
+  seatStrokeColor: '#000000',
+  seatStrokeWidth: 0.8,
+  seatArmrestColor: '#ffffff',
+  armrestColor: '#ffffff',
+  seatBackingColor: '#ffffff',
+  notAvailableSeatsColor: '#999999',
+  bulkBaseColor: '#cccccc',
+  bulkCutColor: '#e8e8e8',
+  bulkIconColor: '#999999',
+  bulkFloorIconColor: '#e0e0e0',
+  fuselageFillColor: '#f8f8f8',
+  fuselageStrokeColor: '#aaaaaa',
+  fuselageWindowsColor: '#bbbbbb',
+  fuselageWingsColor: 'rgba(170, 170, 170, 0.4)',
+  hullColor: '#f0f0f0',
+  exitColor: '#d00434',
+  seatmapFontColor: '#333333',
+  deckTitleColor: '#333333',
+  deckLabelTitleColor: '#333333',
+  tooltipBorderColor: '#cccccc',
+  tooltipSelectButtonBackgroundColor: '#333333',
+  tooltipSelectButtonTextColor: '#ffffff',
+  defaultPassengerBadgeColor: '#555555',
+  defaultPassengerBadgeBorderColor: '#333333',
+  cabinTitlesHighlightColors: { F: '#999', B: '#888', P: '#aaa', E: '#777' },
+  cabinTitlesLabelColor: '#999999',
+  seatUnavailableCrossColor: '#888888',
+  seatSelectedStrokeColor: '#4CAF50',
+  wingsWidth: 85,
+  cabinTitlesWidth: 85,
+};
+
+/** Light Blue: pale blue seats on a white cabin with soft blue-grey partitions and hull. */
+export const LIGHT_BLUE_COLOR_THEME: IColorTheme = {
+  forceThemeSeatColors: false,
+  seatMapBackgroundColor: '#ffffff',
+  floorColor: '#ffffff',
+  seatAvailableColor: '#a8d4f0',
+  seatUnavailableColor: '#e8edf2',
+  seatSelectedColor: '#1a2b3d',
+  seatPreferredColor: '#c5e1f5',
+  seatExtraColor: '#d0e8f8',
+  seatLabelColor: '#2c3e50',
+  seatLabelTextShadow: 'none',
+  seatStrokeColor: '#3a3a3a',
+  seatStrokeWidth: 0.8,
+  seatArmrestColor: '#d6e8f5',
+  armrestColor: '#d6e8f5',
+  seatBackingColor: '#eef3f8',
+  notAvailableSeatsColor: '#b0bec5',
+  bulkBaseColor: '#cfd8dc',
+  bulkCutColor: '#e8edf2',
+  bulkIconColor: '#90a4ae',
+  bulkFloorIconColor: '#cfd8dc',
+  fuselageFillColor: '#f5f8fb',
+  fuselageStrokeColor: '#b0c4d8',
+  fuselageWindowsColor: '#b0c4d8',
+  fuselageWingsColor: 'rgba(120, 160, 200, 0.35)',
+  hullColor: '#e8edf2',
+  exitColor: '#d00434',
+  seatmapFontColor: '#2c3e50',
+  deckTitleColor: '#2c3e50',
+  deckLabelTitleColor: '#2c3e50',
+  tooltipBorderColor: '#b0c4d8',
+  tooltipSelectButtonBackgroundColor: '#1565c0',
+  tooltipSelectButtonTextColor: '#ffffff',
+  defaultPassengerBadgeColor: '#1565c0',
+  defaultPassengerBadgeBorderColor: '#1a2b3d',
+  cabinTitlesHighlightColors: { F: '#5c9dc8', B: '#4a8ab8', P: '#6db0d4', E: '#3d7aa8' },
+  cabinTitlesLabelColor: '#78909c',
+  seatUnavailableCrossColor: '#9eaab6',
+  seatSelectedStrokeColor: '#4CAF50',
+  wingsWidth: 85,
+  cabinTitlesWidth: 85,
+};
+
+/** Dark: charcoal cabin floor, navy fabric seats, warm-grey seat backs and a light hull. */
+export const DARK_COLOR_THEME: IColorTheme = {
+  forceThemeSeatColors: true,
+  seatMapBackgroundColor: '#fefefe',
+  floorColor: '#26282b',
+  // Seats
+  seatAvailableColor: '#3e455d',
+  seatUnavailableColor: '#aaa19a',
+  seatSelectedColor: '#5a72a8',
+  seatPreferredColor: '#4a5a80',
+  seatExtraColor: '#54506e',
+  seatArmrestColor: '#8f8580',
+  armrestColor: '#8f8580',
+  seatBackingColor: '#76706c',
+  seatStrokeColor: 'rgba(0, 0, 0, 0.35)',
+  seatStrokeWidth: 0.6,
+  seatLabelColor: '#e8e2e0',
+  seatLabelTextShadow: '0 1px 2px rgba(0, 0, 0, 0.6)',
+  notAvailableSeatsColor: '#aaa19a',
+  // Partitions
+  bulkBaseColor: '#1a191b',
+  bulkCutColor: '#d2cfcc',
+  bulkIconColor: '#706d6a',
+  bulkFloorIconColor: '#53504d',
+  // Hull
+  hullColor: '#dfdddc',
+  fuselageFillColor: '#dfdddc',
+  fuselageStrokeColor: '#686562',
+  fuselageWindowsColor: '#343837',
+  fuselageWingsColor: 'rgba(193, 191, 188, 0.6)',
+  exitColor: '#b8433a',
+  // Text / UI
+  seatmapFontColor: '#3a3836',
+  deckTitleColor: '#3a3836',
+  deckLabelTitleColor: '#3a3836',
+  cabinTitlesHighlightColors: { F: '#aea4a1', B: '#8f8580', P: '#76706c', E: '#5f5955' },
+  cabinTitlesLabelColor: '#8f8580',
+  tooltipSelectButtonBackgroundColor: '#2b3451',
+  tooltipSelectButtonTextColor: '#ffffff',
+  defaultPassengerBadgeColor: '#2b3451',
+  defaultPassengerBadgeBorderColor: '#1c2238',
+  wingsWidth: 85,
+  cabinTitlesWidth: 85,
+};
+
+/**
+ * LOPA: the look of a printed layout-of-passenger-accommodation chart — warm off-white
+ * cabin floor, muted navy seats, light grey seat backs and monuments, hairline outlines.
+ */
+export const LOPA_COLOR_THEME: IColorTheme = {
+  forceThemeSeatColors: true,
+  seatMapBackgroundColor: '#ffffff',
+  floorColor: '#dfd8ca',
+  // Seats
+  seatAvailableColor: '#5d6385',
+  seatUnavailableColor: '#bcb8af',
+  seatSelectedColor: '#343a5c',
+  seatPreferredColor: '#6f7596',
+  seatExtraColor: '#7f7f9e',
+  seatArmrestColor: '#d5d2c8',
+  armrestColor: '#d5d2c8',
+  seatBackingColor: '#cdcac0',
+  seatStrokeColor: '#5f5e5d',
+  seatStrokeWidth: 1,
+  seatLabelColor: '#ffffff',
+  seatLabelTextShadow: 'none',
+  notAvailableSeatsColor: '#bcb8af',
+  // Partitions
+  bulkBaseColor: '#7f7d75',
+  bulkCutColor: '#8f8d83',
+  bulkIconColor: '#3c3d3c',
+  bulkFloorIconColor: '#b6b2a8',
+  // Hull
+  hullColor: '#fefefe',
+  fuselageFillColor: '#fefefe',
+  fuselageStrokeColor: '#5f5e5d',
+  fuselageWindowsColor: '#3c3d3c',
+  fuselageWingsColor: 'rgba(95, 94, 93, 0.25)',
+  exitColor: '#b8433a',
+  // Text / UI
+  seatmapFontColor: '#3c3d3c',
+  deckTitleColor: '#3c3d3c',
+  deckLabelTitleColor: '#3c3d3c',
+  cabinTitlesHighlightColors: { F: '#8f8d83', B: '#7b756e', P: '#a8a49a', E: '#c0bcb2' },
+  cabinTitlesLabelColor: '#8f8d83',
+  tooltipSelectButtonBackgroundColor: '#5d6385',
+  tooltipSelectButtonTextColor: '#ffffff',
+  defaultPassengerBadgeColor: '#5d6385',
+  defaultPassengerBadgeBorderColor: '#343a5c',
+  wingsWidth: 85,
+  cabinTitlesWidth: 85,
+};
+
+/**
+ * CabinsDiff: every cabin in a colour of its own, filled rather than outlined — violet
+ * first and business, blue premium economy, navy economy — on a pale cabin, with a
+ * magenta selection. Leaves `seatAvailableColor` unset so the class palette shows.
+ */
+export const CABINS_DIFF_COLOR_THEME: IColorTheme = {
+  seatMapBackgroundColor: '#ffffff',
+  floorColor: '#eef0f5',
+  seatUnavailableColor: '#dcdfe6',
+  seatSelectedColor: '#d4127b',
+  seatPreferredColor: '#2f74d0',
+  seatExtraColor: '#1f8fa3',
+  seatLabelColor: '#ffffff',
+  seatLabelTextShadow: 'none',
+  seatStrokeColor: '#e3e6ee',
+  seatStrokeWidth: 1,
+  seatArmrestColor: '#c6cbd8',
+  armrestColor: '#c6cbd8',
+  seatBackingColor: '#d9dde7',
+  seatUnavailableCrossColor: '#a2a8b8',
+  notAvailableSeatsColor: '#dcdfe6',
+  customSeatColorClasses: { F: '#5b2da6', B: '#7040cc', P: '#2f74d0', E: '#27315f' },
+  bulkBaseColor: '#c3c8d5',
+  bulkCutColor: '#e6e9f0',
+  bulkIconColor: '#6f7690',
+  bulkFloorIconColor: '#d3d7e1',
+  fuselageFillColor: '#f5f6f9',
+  fuselageStrokeColor: '#cfd4df',
+  fuselageWindowsColor: '#b9bfcd',
+  fuselageWingsColor: 'rgba(170, 178, 196, 0.35)',
+  hullColor: '#f1f2f6',
+  exitColor: '#d4127b',
+  seatmapFontColor: '#0b1a45',
+  deckTitleColor: '#0b1a45',
+  deckLabelTitleColor: '#0b1a45',
+  tooltipBorderColor: '#d6dae4',
+  tooltipHeaderColor: '#0b1a45',
+  tooltipIconColor: '#0b1a45',
+  tooltipIconBorderColor: '#0b1a45',
+  tooltipSelectButtonBackgroundColor: '#d4127b',
+  tooltipSelectButtonTextColor: '#ffffff',
+  defaultPassengerBadgeColor: '#0b1a45',
+  defaultPassengerBadgeBorderColor: '#d4127b',
+  cabinTitlesHighlightColors: { F: '#5b2da6', B: '#7040cc', P: '#2f74d0', E: '#27315f' },
+  cabinTitlesLabelColor: '#5d6583',
+  wingsWidth: 85,
+  cabinTitlesWidth: 85,
+};
 
 // ─── Localisations ────────────────────────────────────────────────────────────
 // React parity: shared keys mirror jets-seatmap-react-lib-pub/src/common/i18n.languages.js
