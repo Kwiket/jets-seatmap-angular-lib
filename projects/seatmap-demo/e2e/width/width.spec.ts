@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test } from '../fixtures';
 import { applyConfigAndReady, screenshotSeatMap } from '../helpers/demo';
 
 const VARIANTS = [200, 400, 600, 800] as const;

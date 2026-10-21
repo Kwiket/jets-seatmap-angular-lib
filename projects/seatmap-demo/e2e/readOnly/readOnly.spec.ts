@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../fixtures';
 import { applyConfigAndReady, screenshotElement, selectSeat, setPassengers } from '../helpers/demo';
 
 /**

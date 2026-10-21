@@ -17,7 +17,7 @@
  *     seatColorModes.screenshots --workers=1
  * Output: projects/seatmap-demo/e2e/seatColors/screenshots/<name>.png
  */
-import { test } from '@playwright/test';
+import { test } from '../fixtures';
 import * as path from 'path';
 import { applyConfigAndReady, type ConfigOverrides } from '../helpers/demo';
 

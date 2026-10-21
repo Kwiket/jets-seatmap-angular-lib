@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from '../fixtures';
 import { applyConfigAndReady, screenshotRows, screenshotSeatMap, ConfigOverrides } from '../helpers/demo';
 
 interface Variant {

@@ -5,6 +5,18 @@ on:
     branches: [main, demo, release]
   pull_request:
     branches: [main, demo, release]
+  # Manual run to try other e2e load settings (sandbox API is rate-limited).
+  workflow_dispatch:
+    inputs:
+      e2e_workers:
+        description: 'Playwright workers (empty = repo variable E2E_WORKERS, else 1)'
+        required: false
+      e2e_retries:
+        description: 'Retries per failed test (empty = repo variable E2E_RETRIES, else 1)'
+        required: false
+      e2e_test_delay_ms:
+        description: 'Pause before each test, ms (empty = repo variable E2E_TEST_DELAY_MS, else 1000)'
+        required: false
 
 # Declare default permissions as read-only. Individual jobs may widen as needed.
 permissions: read-all
@@ -57,7 +69,8 @@ jobs:
   e2e:
     name: Playwright e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # One worker plus a pause per test makes the suite slower than it used to be.
+    timeout-minutes: 45
     needs: test
     # Dependabot PRs run without access to repository secrets by GitHub's
     # security policy, so SEATMAP_API_* would be empty and every e2e test
@@ -123,6 +136,9 @@ jobs:
         run: npm run e2e
         env:
           CI: '1'
+          E2E_WORKERS: ${{ inputs.e2e_workers || vars.E2E_WORKERS }}
+          E2E_RETRIES: ${{ inputs.e2e_retries || vars.E2E_RETRIES }}
+          E2E_TEST_DELAY_MS: ${{ inputs.e2e_test_delay_ms || vars.E2E_TEST_DELAY_MS }}
           # FLIGHTS_API_URL is intentionally omitted — see generate:env step.
           API_URL: ${{ secrets.SEATMAP_API_URL }}
           API_APP_ID: ${{ secrets.SEATMAP_API_APP_ID }}

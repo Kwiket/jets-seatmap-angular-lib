@@ -10,7 +10,7 @@
  * each run at a different directory; downstream tooling builds the
  * side-by-side HTML page from the two sets.
  */
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '../fixtures';
 import * as fs from 'fs';
 import * as path from 'path';
 import { applyConfigAndReady, setAvailability, waitForSeatMapReady } from '../helpers/demo';

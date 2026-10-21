@@ -3,7 +3,7 @@
  * in both the flags-off and flags-on configurations, then diff the heights.
  * Strictly diagnostic — output goes to stdout, not artefacts.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../fixtures';
 import { applyConfigAndReady, waitForSeatMapReady } from '../helpers/demo';
 
 test('dump DOM offset heights for DL898 with vs without wcag.enabled', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../fixtures';
 import * as path from 'path';
 import { applyConfigAndReady, clickButton, selectSeat } from '../helpers/demo';
 

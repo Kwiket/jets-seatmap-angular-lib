@@ -14,7 +14,7 @@
  *
  * Video is recorded for the whole spec so the fix can be reviewed visually.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../fixtures';
 import { applyConfigAndReady } from '../helpers/demo';
 
 // Record video for both the pass case (proves the fix works) and any future
