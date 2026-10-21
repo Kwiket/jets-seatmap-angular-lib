@@ -1,6 +1,15 @@
 import { IConfig, IFlight, IPassenger, TSeatAvailability } from '@seatmaps.com/angular-lib';
 import { environment } from '../environments/environment';
 
+// Demo date for API requests: a week from today. The API only knows schedules for
+// flights that have not departed yet, so a fixed date turns into "schedule is not
+// found for the flight" once it passes.
+const DEMO_DAY = new Date();
+DEMO_DAY.setDate(DEMO_DAY.getDate() + 7);
+const pad = (n: number) => String(n).padStart(2, '0');
+const DEMO_DATE = `${DEMO_DAY.getFullYear()}-${pad(DEMO_DAY.getMonth() + 1)}-${pad(DEMO_DAY.getDate())}`;
+const DEMO_DATE_LABEL = DEMO_DAY.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
 export interface DemoFlight {
   key: string;
   label: string;
@@ -54,12 +63,12 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
     key: 'qt888',
     label: 'QT888 · LHR → DXB',
     route: 'London → Dubai',
-    date: '21 Sep 2026',
+    date: DEMO_DATE_LABEL,
     flight: {
       id: 'demo',
       airlineCode: 'QT',
       flightNo: '888',
-      departureDate: '2026-09-21',
+      departureDate: DEMO_DATE,
       departure: 'LHR',
       arrival: 'DXB',
       cabinClass: 'A',
@@ -136,12 +145,12 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
     key: 'ua953',
     label: 'UA953 · ORD → MUC',
     route: 'Chicago → Munich',
-    date: '21 Sep 2026',
+    date: DEMO_DATE_LABEL,
     flight: {
       id: 'ua953',
       airlineCode: 'UA',
       flightNo: '953',
-      departureDate: '2026-09-21',
+      departureDate: DEMO_DATE,
       departure: 'ORD',
       arrival: 'MUC',
       cabinClass: 'B',
@@ -157,12 +166,12 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
     key: 'qt777',
     label: 'QT777 · DXB → LHR',
     route: 'Dubai → London',
-    date: '21 Sep 2026',
+    date: DEMO_DATE_LABEL,
     flight: {
       id: 'demo',
       airlineCode: 'QT',
       flightNo: '777',
-      departureDate: '2026-09-21',
+      departureDate: DEMO_DATE,
       departure: 'DXB',
       arrival: 'LHR',
       cabinClass: 'A',
@@ -179,12 +188,12 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
     key: 'dl898',
     label: 'DL898 · ATL → LAX',
     route: 'Atlanta → Los Angeles',
-    date: '21 Sep 2026',
+    date: DEMO_DATE_LABEL,
     flight: {
       id: 'dl898',
       airlineCode: 'DL',
       flightNo: '898',
-      departureDate: '2026-09-21',
+      departureDate: DEMO_DATE,
       departure: 'ATL',
       arrival: 'LAX',
       cabinClass: 'E',
@@ -198,12 +207,12 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
     key: 'as1002',
     label: 'AS1002 · HNL → ITO',
     route: 'Honolulu → Hilo',
-    date: '21 Sep 2026',
+    date: DEMO_DATE_LABEL,
     flight: {
       id: 'as1002',
       airlineCode: 'AS',
       flightNo: '1002',
-      departureDate: '2026-09-21',
+      departureDate: DEMO_DATE,
       departure: 'HNL',
       arrival: 'ITO',
       cabinClass: 'B',
@@ -215,12 +224,12 @@ export const DEMO_FLIGHTS: DemoFlight[] = [
     key: 'lh470',
     label: 'LH470 · FRA → YYZ',
     route: 'Frankfurt → Toronto',
-    date: '21 Sep 2026',
+    date: DEMO_DATE_LABEL,
     flight: {
       id: 'lh470',
       airlineCode: 'LH',
       flightNo: '470',
-      departureDate: '2026-09-21',
+      departureDate: DEMO_DATE,
       departure: 'FRA',
       arrival: 'YYZ',
       cabinClass: 'B',

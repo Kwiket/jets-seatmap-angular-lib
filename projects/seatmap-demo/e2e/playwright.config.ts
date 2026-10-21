@@ -15,12 +15,12 @@ export default defineConfig({
   // and ngOnChanges flapping under load.
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
-  workers: 2,
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-  ],
+  // Load on the sandbox API (rate-limited) is tuned with env vars, so CI can be
+  // adjusted from repository variables without a code change. Per-test pause:
+  // E2E_TEST_DELAY_MS in ./fixtures.ts.
+  retries: Number(process.env['E2E_RETRIES'] || (isCI ? 1 : 0)),
+  workers: Number(process.env['E2E_WORKERS'] || (isCI ? 1 : 2)),
+  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
     baseURL,
     trace: 'on-first-retry',

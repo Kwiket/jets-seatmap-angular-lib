@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page } from '../fixtures';
 import { applyConfigAndReady, screenshotSeatMap } from '../helpers/demo';
 import * as path from 'path';
 

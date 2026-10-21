@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from '../fixtures';
 import { applyConfigAndReady } from '../helpers/demo';
 
 const RANGES = [{ range: [1, 10] as [number, number], color: '#abcdef' }];

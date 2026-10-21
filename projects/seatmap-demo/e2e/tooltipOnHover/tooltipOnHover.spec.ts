@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test } from '../fixtures';
 import { applyConfigAndReady, hoverFirstAvailableSeat, screenshotSeatMap } from '../helpers/demo';
 
 const VARIANTS = [
