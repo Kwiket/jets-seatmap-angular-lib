@@ -7,7 +7,7 @@
  * This spec exists for the recorded video only — fast assertions live in
  * `tooltipHoverClickable.spec.ts`.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../fixtures';
 import { applyConfigAndReady } from '../helpers/demo';
 
 test.use({

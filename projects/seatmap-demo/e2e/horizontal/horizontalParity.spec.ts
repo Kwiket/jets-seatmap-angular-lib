@@ -5,7 +5,7 @@
  *  - the built-in tooltip stays fully within the viewport in horizontal mode
  *    (regression guard for the P1b off-screen bug).
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { applyConfigAndReady, clickFirstAvailableSeat, setConfig, waitForSeatMapReady } from '../helpers/demo';
 
 test.describe('horizontal layout — React parity', () => {

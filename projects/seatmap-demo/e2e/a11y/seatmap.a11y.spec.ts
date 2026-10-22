@@ -9,7 +9,7 @@
  * commits 5–7: focus enters at the first interactive seat, arrow keys
  * advance `aria-colindex`, Enter opens the tooltip dialog, Escape closes.
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from '../fixtures';
 import AxeBuilder from '@axe-core/playwright';
 import { applyConfigAndReady } from '../helpers/demo';
 

@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test } from '../fixtures';
 import { applyConfigAndReady, screenshotRows } from '../helpers/demo';
 
 /**
@@ -23,7 +23,7 @@ test.describe('seatPricePill', () => {
       await applyConfigAndReady(
         page,
         { visibleSeatPriceLabels: true, currencySign: v.sign },
-        { availability: AVAILABILITY },
+        { availability: AVAILABILITY }
       );
       // Rows 0..2 land in the front cabin — good readable seats at full size.
       await screenshotRows(page, __dirname, `seatPricePill-${v.name}`, 0, 3);

@@ -1,9 +1,5 @@
-import { test } from '@playwright/test';
-import {
-  applyConfigAndReady,
-  clickFirstAvailableSeat,
-  screenshotSeatMap,
-} from '../helpers/demo';
+import { test } from '../fixtures';
+import { applyConfigAndReady, clickFirstAvailableSeat, screenshotSeatMap } from '../helpers/demo';
 
 const VARIANTS = [
   { name: 'true', value: true },
