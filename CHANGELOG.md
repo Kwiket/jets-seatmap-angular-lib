@@ -4,6 +4,20 @@ All notable changes to `@kwiket/jets-seatmap-angular-lib` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the
 project loosely adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.0] — 2026-10-20 — Preset colour themes
+
+### Added
+
+- Five ready-made `colorTheme` presets exported from the package: `BW_COLOR_THEME`,
+  `LIGHT_BLUE_COLOR_THEME`, `DARK_COLOR_THEME`, `LOPA_COLOR_THEME` and
+  `CABINS_DIFF_COLOR_THEME`. See *Preset colour themes* in the library
+  [README](projects/seatmap-lib/README.md).
+- Demo: a *Color theme* select next to the event controls, and a Playwright
+  suite (`e2e/presetThemes`) with a screenshot per preset.
+
+No breaking changes: the default palette and every existing `IColorTheme` key
+behave as before.
+
 ## [0.0.3] — 2026-06-30 — WCAG 2.2 AA refit
 
 Brings the library to WCAG 2.2 Level AA conformance for the seat-grid widget,
